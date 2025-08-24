@@ -4,18 +4,19 @@
 
 /**
  * Sets up the event listener for opening codex entry windows.
+ * It uses double-click for the main codex list and single-click for linked tags elsewhere.
  * @param {HTMLElement} desktop - The main desktop element to attach the listener to.
  * @param {WindowManager} windowManager - The window manager instance.
  */
 export function setupCodexEntryHandler(desktop, windowManager) {
 	const entryIcon = `<i class="bi bi-journal-richtext text-lg"></i>`;
 	
-	desktop.addEventListener('click', async (event) => {
-		const entryButton = event.target.closest('.js-open-codex-entry');
-		if (!entryButton) return;
-		
-		const entryId = entryButton.dataset.entryId;
-		const entryTitle = entryButton.dataset.entryTitle;
+	/**
+	 * Helper function to open or focus a codex entry window.
+	 * @param {string} entryId
+	 * @param {string} entryTitle
+	 */
+	async function openCodexEntry(entryId, entryTitle) {
 		const windowId = `codex-entry-${entryId}`;
 		
 		if (windowManager.windows.has(windowId)) {
@@ -25,13 +26,11 @@ export function setupCodexEntryHandler(desktop, windowManager) {
 			} else {
 				windowManager.focus(windowId);
 			}
-			// MODIFIED: Scroll the existing window into view when it's opened/focused from the codex list.
 			windowManager.scrollIntoView(windowId);
 			return;
 		}
 		
 		try {
-			// MODIFIED: Replaced fetch with window.api call
 			const content = await window.api.getCodexEntryHtml(entryId);
 			if (!content) {
 				throw new Error('Failed to load codex entry details.');
@@ -53,25 +52,51 @@ export function setupCodexEntryHandler(desktop, windowManager) {
 				closable: true
 			});
 			
-			// NEW: Scroll the newly created window into view.
-			// A timeout ensures the browser has rendered the window and its dimensions are available for calculation.
 			setTimeout(() => windowManager.scrollIntoView(windowId), 150);
 		} catch (error) {
 			console.error('Error opening codex entry window:', error);
 			alert(error.message);
 		}
+	}
+	
+	// MODIFIED: This now handles single-clicks for linked tags (e.g., in chapter or other codex windows).
+	desktop.addEventListener('click', (event) => {
+		const entryButton = event.target.closest('.js-open-codex-entry');
+		// This should NOT trigger for items in the main codex list.
+		if (!entryButton || entryButton.closest('#codex-window')) {
+			return;
+		}
+		
+		const entryId = entryButton.dataset.entryId;
+		const entryTitle = entryButton.dataset.entryTitle;
+		openCodexEntry(entryId, entryTitle);
+	});
+	
+	// NEW: This handles double-clicks for items in the main codex window list.
+	desktop.addEventListener('dblclick', (event) => {
+		const entryButton = event.target.closest('.js-open-codex-entry');
+		// This should ONLY trigger for items in the main codex list.
+		if (!entryButton || !entryButton.closest('#codex-window')) {
+			return;
+		}
+		
+		const entryId = entryButton.dataset.entryId;
+		const entryTitle = entryButton.dataset.entryTitle;
+		openCodexEntry(entryId, entryTitle);
 	});
 }
 
 /**
  * Sets up the event listener for opening chapter windows.
+ * MODIFIED: This now uses a double-click event.
  * @param {HTMLElement} desktop - The main desktop element to attach the listener to.
  * @param {WindowManager} windowManager - The window manager instance.
  */
 export function setupChapterHandler(desktop, windowManager) {
 	const chapterIcon = `<i class="bi bi-card-text text-lg"></i>`;
 	
-	desktop.addEventListener('click', async (event) => {
+	// MODIFIED: Changed event from 'click' to 'dblclick' for opening chapters from the outline.
+	desktop.addEventListener('dblclick', async (event) => {
 		const chapterButton = event.target.closest('.js-open-chapter');
 		if (!chapterButton) return;
 		
@@ -86,13 +111,11 @@ export function setupChapterHandler(desktop, windowManager) {
 			} else {
 				windowManager.focus(windowId);
 			}
-			// MODIFIED: Scroll the existing window into view when it's opened/focused from the outline.
 			windowManager.scrollIntoView(windowId);
 			return;
 		}
 		
 		try {
-			// MODIFIED: Replaced fetch with window.api call
 			const content = await window.api.getChapterHtml(chapterId);
 			if (!content) {
 				throw new Error('Failed to load chapter details.');
@@ -114,8 +137,6 @@ export function setupChapterHandler(desktop, windowManager) {
 				closable: true
 			});
 			
-			// NEW: Scroll the newly created window into view.
-			// A timeout ensures the browser has rendered the window and its dimensions are available for calculation.
 			setTimeout(() => windowManager.scrollIntoView(windowId), 150);
 		} catch (error) {
 			console.error('Error opening chapter window:', error);

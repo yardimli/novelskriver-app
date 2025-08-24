@@ -52,6 +52,12 @@ export default class WindowManager {
 		// MODIFIED: Only add double-click listener to chapter windows.
 		if (isChapterWindow) {
 			titleBar.addEventListener('dblclick', () => this.maximize(windowId));
+		} else
+		{
+			titleBar.addEventListener('dblclick', () => {
+					this.zoomTo(1);
+					this.scrollIntoView(windowId);
+			});
 		}
 		
 		const controls = document.createElement('div');
@@ -101,21 +107,6 @@ export default class WindowManager {
 		contentArea.className = 'card-body flex-grow overflow-auto p-1';
 		contentArea.innerHTML = content;
 		
-		// MODIFIED: Changed the double-click logic to handle scrolling and zooming.
-		contentArea.addEventListener('dblclick', () => {
-			const winState = this.windows.get(windowId);
-			// The second consecutive double-click will zoom to 100%.
-			if (winState.dblClickState === 'scrolled') {
-				this.zoomTo(1);
-				this.scrollIntoView(windowId);
-				winState.dblClickState = 'zoomed';
-			} else {
-				// The first double-click will scroll the window into view.
-				this.scrollIntoView(windowId);
-				winState.dblClickState = 'scrolled';
-			}
-		});
-		
 		const modals = contentArea.querySelectorAll('dialog.modal');
 		modals.forEach(modal => {
 			document.body.appendChild(modal);
@@ -134,7 +125,6 @@ export default class WindowManager {
 			isMinimized: false,
 			isMaximized: false,
 			originalRect: { x, y, width, height },
-			dblClickState: 'none' // NEW: State to track double-click actions.
 		};
 		this.windows.set(windowId, windowState);
 		
@@ -278,15 +268,6 @@ export default class WindowManager {
 			}
 		}
 		
-		// MODIFIED: Removed automatic scroll on single click. This is now handled by double-clicking.
-		
-		// NEW: Reset the double-click state of all other windows so the next double-click on them is a 'scroll'.
-		this.windows.forEach((w, id) => {
-			if (id !== windowId) {
-				w.dblClickState = 'none';
-			}
-		});
-		
 		this.updateTaskbar();
 		this.saveState();
 	}
@@ -420,11 +401,6 @@ export default class WindowManager {
 		handle.addEventListener('mousedown', (e) => {
 			const winState = this.windows.get(win.id);
 			if (winState && winState.isMaximized) return;
-			
-			// NEW: Reset double-click state on drag to ensure the next double-click is a 'scroll'.
-			if (winState) {
-				winState.dblClickState = 'none';
-			}
 			
 			win.classList.add('dragging');
 			
@@ -788,7 +764,7 @@ export default class WindowManager {
 		event.preventDefault();
 		const zoomIntensity = 0.01;
 		const delta = event.deltaY > 0 ? -zoomIntensity : zoomIntensity;
-		const newScale = Math.max(0.1, Math.min(1, this.scale + delta * this.scale));
+		const newScale = Math.max(0.1, Math.min(1.5, this.scale + delta * this.scale));
 		
 		const viewportRect = this.viewport.getBoundingClientRect();
 		const mouseX = event.clientX - viewportRect.left;
@@ -832,7 +808,7 @@ export default class WindowManager {
 	}
 	
 	zoomIn() {
-		this.scale = Math.min(1, this.scale * 1.2);
+		this.scale = Math.min(1.5, this.scale * 1.2);
 		this.updateCanvasTransform(true);
 		this.saveState();
 	}
@@ -884,7 +860,7 @@ export default class WindowManager {
 		
 		const scaleX = viewportWidth / (contentWidth + padding * 2);
 		const scaleY = viewportHeight / (contentHeight + padding * 2);
-		this.scale = Math.min(1, scaleX, scaleY);
+		this.scale = Math.min(1.5, scaleX, scaleY);
 		
 		const contentCenterX = minX + contentWidth / 2;
 		const contentCenterY = minY + contentHeight / 2;
