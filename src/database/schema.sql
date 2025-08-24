@@ -1,0 +1,126 @@
+-- This schema is a simplified version based on the Laravel models provided.
+-- It uses INTEGER for foreign keys and TEXT for JSON data.
+
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS series (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS novels (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    series_id INTEGER,
+    title TEXT NOT NULL,
+    author TEXT,
+    genre TEXT,
+    logline TEXT,
+    synopsis TEXT,
+    status TEXT NOT NULL DEFAULT 'draft',
+    order_in_series INTEGER,
+    editor_state TEXT, -- Stored as JSON
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (series_id) REFERENCES series(id)
+);
+
+CREATE TABLE IF NOT EXISTS sections (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    novel_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    "order" INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (novel_id) REFERENCES novels(id)
+);
+
+CREATE TABLE IF NOT EXISTS chapters (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    novel_id INTEGER NOT NULL,
+    section_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    summary TEXT,
+    status TEXT,
+    "order" INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (novel_id) REFERENCES novels(id),
+    FOREIGN KEY (section_id) REFERENCES sections(id)
+);
+
+CREATE TABLE IF NOT EXISTS codex_categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    novel_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (novel_id) REFERENCES novels(id)
+);
+
+CREATE TABLE IF NOT EXISTS codex_entries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    novel_id INTEGER NOT NULL,
+    codex_category_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    content TEXT,
+    image_path TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (novel_id) REFERENCES novels(id),
+    FOREIGN KEY (codex_category_id) REFERENCES codex_categories(id)
+);
+
+CREATE TABLE IF NOT EXISTS images (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    novel_id INTEGER,
+    codex_entry_id INTEGER,
+    image_local_path TEXT,
+    thumbnail_local_path TEXT,
+    remote_url TEXT,
+    prompt TEXT,
+    image_type TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (novel_id) REFERENCES novels(id),
+    FOREIGN KEY (codex_entry_id) REFERENCES codex_entries(id)
+);
+
+-- Pivot table for Chapter <-> CodexEntry
+CREATE TABLE IF NOT EXISTS chapter_codex_entry (
+    chapter_id INTEGER NOT NULL,
+    codex_entry_id INTEGER NOT NULL,
+    PRIMARY KEY (chapter_id, codex_entry_id),
+    FOREIGN KEY (chapter_id) REFERENCES chapters(id),
+    FOREIGN KEY (codex_entry_id) REFERENCES codex_entries(id)
+);
+
+-- Pivot table for CodexEntry <-> CodexEntry (self-referencing)
+CREATE TABLE IF NOT EXISTS codex_entry_links (
+    codex_entry_id INTEGER NOT NULL,
+    linked_codex_entry_id INTEGER NOT NULL,
+    PRIMARY KEY (codex_entry_id, linked_codex_entry_id),
+    FOREIGN KEY (codex_entry_id) REFERENCES codex_entries(id),
+    FOREIGN KEY (linked_codex_entry_id) REFERENCES codex_entries(id)
+);
+
+-- Seed a default user if none exists
+INSERT INTO users (id, name, email)
+SELECT 1, 'Default User', 'user@example.com'
+WHERE NOT EXISTS (SELECT 1 FROM users WHERE id = 1);
