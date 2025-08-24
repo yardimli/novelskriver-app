@@ -1,3 +1,4 @@
+public/create-novel.html:
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,9 +6,10 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';">
 	<title>Create a New Novel</title>
-	<link rel="stylesheet" href="styles.css">
+	<!-- NEW: Added Bootstrap Icons stylesheet -->
+	<link rel="stylesheet" href="../node_modules/bootstrap-icons/font/bootstrap-icons.css">
+	<link rel="stylesheet" href="../dist/styles.css">
 </head>
-<!-- MODIFIED: Removed theme-specific classes, daisyUI handles this -->
 <body>
 <div class="container mx-auto p-8 max-w-3xl">
 	<div class="text-center mb-8">
@@ -15,28 +17,31 @@
 		<p class="text-lg text-base-content/70">Let's get your next masterpiece started.</p>
 	</div>
 	
-	<!-- MODIFIED: Refactored form with DaisyUI card and form-control classes -->
 	<form id="createNovelForm" class="card bg-base-200 shadow-xl">
 		<div class="card-body space-y-4">
 			<!-- Title -->
 			<div class="form-control">
 				<label for="title" class="label"><span class="label-text">Title</span></label>
-				<div class="input-group">
-					<input type="text" id="title" name="title" class="input input-bordered w-full" required>
-					<button type="button" id="surprise-me-btn" class="btn btn-square">Surprise me</button>
+				<div class="join w-full">
+					<input type="text" id="title" name="title" class="input input-bordered grow rounded-r-none" required>
+					<button type="button" id="surprise-me-btn" class="btn btn-neutral rounded-l-none gap-2">
+						<i class="bi bi-magic"></i>
+						Surprise me
+					</button>
 				</div>
 			</div>
 			
 			<!-- Author -->
 			<div class="form-control">
 				<label for="author" class="label"><span class="label-text">Author / Pen name</span></label>
-				<div class="input-group">
-					<input type="text" id="author" name="author" class="input input-bordered w-full" required>
-					<!-- MODIFIED: Using DaisyUI dropdown component -->
+				<div class="join w-full">
+					<!-- MODIFIED: Removed right border radius to join with button. -->
+					<input type="text" id="author" name="author" class="input input-bordered grow rounded-r-none" required>
 					<div class="dropdown dropdown-end">
-						<button type="button" id="author-dropdown-btn" tabindex="0" role="button" class="btn">
+						<!-- MODIFIED: Added background color and removed left border radius to join with input. -->
+						<button type="button" id="author-dropdown-btn" tabindex="0" role="button" class="btn btn-neutral rounded-l-none">
 							Select
-							<svg class="ml-1 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+							<i class="bi bi-chevron-down ml-1"></i>
 						</button>
 						<ul id="author-list" tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
 							<!-- Author list populated by JS -->
@@ -49,12 +54,17 @@
 			<div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
 				<div class="md:col-span-2 form-control">
 					<label for="series_id" class="label"><span class="label-text">Series (optional)</span></label>
-					<div class="input-group">
-						<select id="series_id" name="series_id" class="select select-bordered w-full">
+					<div class="join w-full">
+						<!-- MODIFIED: Removed right border radius to join with button. -->
+						<select id="series_id" name="series_id" class="select select-bordered grow rounded-r-none">
 							<option value="">—</option>
 							<!-- Series options loaded by JS -->
 						</select>
-						<button type="button" id="new-series-btn" class="btn">New Series</button>
+						<!-- MODIFIED: Added background color and removed left border radius to join with input. -->
+						<button type="button" id="new-series-btn" class="btn btn-neutral rounded-l-none gap-2">
+							<i class="bi bi-plus-lg"></i>
+							New Series
+						</button>
 					</div>
 				</div>
 				<div class="form-control">

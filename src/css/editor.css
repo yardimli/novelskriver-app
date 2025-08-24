@@ -1,7 +1,3 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 /* Custom styles for the novel editor UI */
 .resize-handle {
     @apply absolute bottom-0 right-0 w-4 h-4 cursor-se-resize;
