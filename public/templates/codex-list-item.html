@@ -1,0 +1,12 @@
+<!-- NEW: Template for a single codex entry item in the main codex window list -->
+<button type="button"
+        class="js-open-codex-entry js-draggable-codex btn btn-ghost w-full justify-start text-left h-auto p-2"
+        data-entry-id="{{ENTRY_ID}}"
+        data-entry-title="{{ENTRY_TITLE}}"
+        draggable="true">
+	<img src="{{THUMBNAIL_URL}}" alt="Thumbnail for {{ENTRY_TITLE}}" class="w-12 h-12 object-cover rounded flex-shrink-0 bg-base-300 pointer-events-none">
+	<div class="flex-grow min-w-0 pointer-events-none text-left">
+		<h4 class="font-semibold truncate normal-case">{{ENTRY_TITLE}}</h4>
+		<p class="text-xs text-base-content/70 mt-1 font-normal normal-case">{{DESCRIPTION}}</p>
+	</div>
+</button>

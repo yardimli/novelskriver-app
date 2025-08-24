@@ -1,6 +1,19 @@
 /**
  * Codex Entry Window Interaction Manager
  */
+
+// NEW: Helper function to create an element from an HTML string.
+/**
+ * Creates an HTMLElement from an HTML string.
+ * @param {string} htmlString The HTML string.
+ * @returns {HTMLElement | null} The first element created from the string.
+ */
+function createElementFromHTML(htmlString) {
+	const div = document.createElement('div');
+	div.innerHTML = htmlString.trim();
+	return div.firstChild;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
 	const desktop = document.getElementById('desktop');
 	if (!desktop) return;
@@ -227,7 +240,8 @@ document.addEventListener('DOMContentLoaded', () => {
 			
 			const tagContainer = dropZone.querySelector('.js-codex-tags-container');
 			if (tagContainer) {
-				const newTag = createCodexLinkTagElement(parentEntryId, data.codexEntry);
+				// MODIFIED: Awaited the async function call.
+				const newTag = await createCodexLinkTagElement(parentEntryId, data.codexEntry);
 				tagContainer.appendChild(newTag);
 				const tagsWrapper = dropZone.querySelector('.js-codex-tags-wrapper');
 				if (tagsWrapper) tagsWrapper.classList.remove('hidden');
@@ -268,30 +282,15 @@ document.addEventListener('DOMContentLoaded', () => {
 		}
 	});
 	
-	function createCodexLinkTagElement(parentEntryId, codexEntry) {
-		const div = document.createElement('div');
-		div.className = 'js-codex-tag group/tag relative inline-flex items-center gap-2 bg-gray-200 dark:bg-gray-700 rounded-full pr-2';
-		div.dataset.entryId = codexEntry.id;
+	// MODIFIED: This function is now async and uses a template.
+	async function createCodexLinkTagElement(parentEntryId, codexEntry) {
+		let template = await window.api.getTemplate('codex-link-tag');
+		template = template.replace(/{{PARENT_ENTRY_ID}}/g, parentEntryId);
+		template = template.replace(/{{ENTRY_ID}}/g, codexEntry.id);
+		template = template.replace(/{{ENTRY_TITLE}}/g, codexEntry.title);
+		template = template.replace(/{{THUMBNAIL_URL}}/g, codexEntry.thumbnail_url);
 		
-		div.innerHTML = `
-			<button type="button"
-					class="js-open-codex-entry flex items-center gap-2 pl-1 pr-2 py-1 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-					data-entry-id="${codexEntry.id}"
-					data-entry-title="${codexEntry.title}">
-				<img src="${codexEntry.thumbnail_url}" alt="Thumbnail for ${codexEntry.title}" class="w-5 h-5 object-cover rounded-full flex-shrink-0">
-				<span class="js-codex-tag-title text-xs font-medium">${codexEntry.title}</span>
-			</button>
-			<button type="button"
-					class="js-remove-codex-codex-link absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover/tag:opacity-100 transition-opacity"
-					data-parent-entry-id="${parentEntryId}"
-					data-entry-id="${codexEntry.id}"
-					title="Unlink this entry">
-				<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor" viewBox="0 0 16 16">
-					<path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8z"/>
-				</svg>
-			</button>
-		`;
-		return div;
+		return createElementFromHTML(template);
 	}
 	
 	// --- Create New Codex Entry ---
@@ -358,9 +357,11 @@ document.addEventListener('DOMContentLoaded', () => {
 				resetAndCloseNewCodexModal();
 				
 				if (result.newCategory) {
-					addNewCategoryToCodexWindow(result.newCategory);
+					// MODIFIED: Awaited the async function call.
+					await addNewCategoryToCodexWindow(result.newCategory);
 				}
-				const newEntryButton = addNewEntryToCategoryList(result.codexEntry);
+				// MODIFIED: Awaited the async function call.
+				const newEntryButton = await addNewEntryToCategoryList(result.codexEntry);
 				
 				if (newEntryButton) {
 					newEntryButton.click();
@@ -406,7 +407,8 @@ document.addEventListener('DOMContentLoaded', () => {
 		}
 	}
 	
-	function addNewEntryToCategoryList(entryData) {
+	// MODIFIED: This function is now async and uses a template.
+	async function addNewEntryToCategoryList(entryData) {
 		const codexWindowContent = document.querySelector('#codex-window .p-4');
 		if (!codexWindowContent) return null;
 		
@@ -419,20 +421,14 @@ document.addEventListener('DOMContentLoaded', () => {
 		const emptyMsg = listContainer.querySelector('p');
 		if (emptyMsg) emptyMsg.remove();
 		
-		const button = document.createElement('button');
-		button.type = 'button';
-		button.className = 'js-open-codex-entry js-draggable-codex btn btn-ghost w-full justify-start text-left h-auto p-2';
-		button.dataset.entryId = entryData.id;
-		button.dataset.entryTitle = entryData.title;
-		button.draggable = true;
+		let template = await window.api.getTemplate('codex-list-item');
+		template = template.replace(/{{ENTRY_ID}}/g, entryData.id);
+		template = template.replace(/{{ENTRY_TITLE}}/g, entryData.title);
+		template = template.replace(/{{THUMBNAIL_URL}}/g, entryData.thumbnail_url);
+		template = template.replace(/{{DESCRIPTION}}/g, entryData.description || '');
 		
-		button.innerHTML = `
-            <img src="${entryData.thumbnail_url}" alt="Thumbnail for ${entryData.title}" class="w-12 h-12 object-cover rounded flex-shrink-0 bg-base-300 pointer-events-none">
-            <div class="flex-grow min-w-0 pointer-events-none text-left">
-                <h4 class="font-semibold truncate normal-case">${entryData.title}</h4>
-                <p class="text-xs text-base-content/70 mt-1 font-normal normal-case">${entryData.description || ''}</p>
-            </div>
-        `;
+		const button = createElementFromHTML(template);
+		if (!button) return null;
 		
 		listContainer.appendChild(button);
 		
@@ -446,22 +442,18 @@ document.addEventListener('DOMContentLoaded', () => {
 		return button;
 	}
 	
-	function addNewCategoryToCodexWindow(categoryData) {
+	// MODIFIED: This function is now async and uses a template.
+	async function addNewCategoryToCodexWindow(categoryData) {
 		const codexWindowContent = document.querySelector('#codex-window .p-4');
 		if (!codexWindowContent) return;
 		if (document.getElementById(`codex-category-${categoryData.id}`)) return;
 		
-		const div = document.createElement('div');
-		div.id = `codex-category-${categoryData.id}`;
-		div.innerHTML = `
-            <h3 class="text-lg font-bold text-teal-500 sticky top-0 bg-base-100/90 backdrop-blur-sm py-2 -mx-1 px-1">
-                ${categoryData.name}
-                <span class="js-codex-category-count text-sm font-normal text-base-content/70 ml-2">(0 items)</span>
-            </h3>
-            <div class="js-codex-entries-list mt-2 space-y-2">
-                <p class="text-sm text-base-content/70 px-2">No entries in this category yet.</p>
-            </div>
-        `;
+		let template = await window.api.getTemplate('codex-category-item');
+		template = template.replace(/{{CATEGORY_ID}}/g, categoryData.id);
+		template = template.replace(/{{CATEGORY_NAME}}/g, categoryData.name);
+		
+		const div = createElementFromHTML(template);
+		if (!div) return;
 		
 		codexWindowContent.appendChild(div);
 		
