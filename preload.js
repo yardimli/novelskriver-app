@@ -41,7 +41,30 @@ contextBridge.exposeInMainWorld('api', {
 	detachCodexFromCodex: (parentEntryId, linkedEntryId) => ipcRenderer.invoke('codex-entries:link:detach', parentEntryId, linkedEntryId),
 	
 	// Codex AI & Image Actions
-	processCodexText: (entryId, data) => ipcRenderer.invoke('codex-entries:process-text', entryId, data),
+	// MODIFIED: Replaced processCodexText with a streaming version.
+	// It sets up a listener for data chunks from the main process.
+	processCodexTextStream: (data, onData) => {
+		// Create a unique channel for this specific streaming request.
+		const channel = `ai-text-chunk-${Date.now()}-${Math.random()}`;
+		
+		const listener = (event, payload) => {
+			// Pass the received data (chunk, done, or error) to the callback.
+			onData(payload);
+			// Clean up the listener once the stream is finished or has an error.
+			if (payload.done || payload.error) {
+				ipcRenderer.removeListener(channel, listener);
+			}
+		};
+		
+		ipcRenderer.on(channel, listener);
+		// Initiate the stream by sending the request to the main process.
+		ipcRenderer.send('codex-entries:process-text-stream', { data, channel });
+		
+		// Return a function to allow the caller to cancel/clean up the listener.
+		return () => {
+			ipcRenderer.removeListener(channel, listener);
+		};
+	},
 	getModels: () => ipcRenderer.invoke('ai:getModels'), // NEW
 	generateCodexImage: (entryId, prompt) => ipcRenderer.invoke('codex-entries:generate-image', entryId, prompt),
 	uploadCodexImage: (entryId, filePath) => ipcRenderer.invoke('codex-entries:upload-image', entryId, filePath),

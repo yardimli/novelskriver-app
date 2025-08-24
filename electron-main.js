@@ -642,9 +642,29 @@ function setupIpcHandlers() {
 		return { success: true, message: 'Codex entry unlinked.' };
 	});
 	
-	ipcMain.handle('codex-entries:process-text', async (event, entryId, data) => {
-		const result = await aiService.processCodexText(data);
-		return { success: true, text: result.processed_text };
+	// MODIFIED: Replaced the 'process-text' handler with a streaming version.
+	// This uses ipcMain.on and sends chunks back to the renderer over a dedicated channel.
+	ipcMain.on('codex-entries:process-text-stream', (event, { data, channel }) => {
+		const onChunk = (chunk) => {
+			if (event.sender.isDestroyed()) return;
+			event.sender.send(channel, { chunk });
+		};
+		
+		const onComplete = () => {
+			if (event.sender.isDestroyed()) return;
+			event.sender.send(channel, { done: true });
+		};
+		
+		const onError = (error) => {
+			console.error('Streaming AI Error:', error);
+			if (event.sender.isDestroyed()) return;
+			event.sender.send(channel, { error: error.message });
+		};
+		
+		// Call the new streaming service function
+		aiService.streamProcessCodexText(data, onChunk)
+			.then(onComplete)
+			.catch(onError);
 	});
 	
 	ipcMain.handle('ai:getModels', async () => {

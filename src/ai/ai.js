@@ -40,6 +40,54 @@ async function callOpenRouter(payload) {
 }
 
 /**
+ * NEW: A generic function to call the OpenRouter API with streaming.
+ * @param {object} payload - The request body for the OpenRouter API.
+ * @param {function(string): void} onChunk - Callback function to handle each received text chunk.
+ * @returns {Promise<void>} A promise that resolves when the stream is complete.
+ * @throws {Error} If the API call fails.
+ */
+async function streamOpenRouter(payload, onChunk) {
+	if (!OPEN_ROUTER_API_KEY) {
+		throw new Error('OpenRouter API key is not configured.');
+	}
+	
+	const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+		method: 'POST',
+		headers: {
+			'Authorization': `Bearer ${OPEN_ROUTER_API_KEY}`,
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify({ ...payload, stream: true }) // Ensure streaming is enabled
+	});
+	
+	if (!response.ok) {
+		const errorText = await response.text();
+		console.error('OpenRouter API Error:', errorText);
+		throw new Error(`OpenRouter API Error: ${response.status} ${errorText}`);
+	}
+	
+	// Process the streaming response body
+	for await (const chunk of response.body) {
+		const lines = chunk.toString('utf8').split('\n').filter(line => line.trim().startsWith('data: '));
+		for (const line of lines) {
+			const message = line.replace(/^data: /, '');
+			if (message === '[DONE]') {
+				return; // Stream finished
+			}
+			try {
+				const parsed = JSON.parse(message);
+				const content = parsed.choices[0]?.delta?.content;
+				if (content) {
+					onChunk(content); // Send the text chunk to the callback
+				}
+			} catch (error) {
+				console.error('Error parsing stream chunk:', message, error);
+			}
+		}
+	}
+}
+
+/**
  * Generates a prompt for a novel cover image using an LLM.
  * @param {string} novelTitle - The title of the novel.
  * @returns {Promise<string|null>} The generated image prompt or null on failure.
@@ -216,6 +264,40 @@ Please provide only the modified text as your response. The output must be a sin
 }
 
 /**
+ * NEW: Processes a text selection using an LLM with streaming for actions like rephrasing.
+ * @param {object} params - The parameters for the text processing.
+ * @param {string} params.text - The text to process.
+ * @param {string} params.action - The action to perform ('expand', 'rephrase', 'shorten').
+ * @param {string} params.model - The LLM model to use.
+ * @param {function(string): void} onChunk - Callback function to handle each received text chunk.
+ * @returns {Promise<void>} A promise that resolves when the stream is complete.
+ */
+async function streamProcessCodexText({ text, action, model }, onChunk) {
+	const actionInstruction = {
+		'expand': 'Expand on the following text, adding more detail, description, and context. Make it about twice as long.',
+		'rephrase': 'Rephrase the following text to make it clearer, more engaging, or to have a different tone, while preserving the core meaning.',
+		'shorten': 'Shorten the following text, condensing it to its most essential points. Make it about half as long.',
+	}[action] || 'Process the following text.';
+	
+	// This prompt is specifically for streaming: it asks for raw text output, not JSON.
+	const prompt = `
+You are a writing assistant. Your task is to process a piece of text based on a specific instruction.
+
+**Instruction:** ${actionInstruction}
+
+**Original Text:**
+"${text}"
+
+Please provide only the modified text as your response. Do not include any explanations, apologies, or surrounding text. Begin writing the modified text directly.`;
+	
+	await streamOpenRouter({
+		model: model,
+		messages: [{ role: 'user', content: prompt }],
+		temperature: 0.7,
+	}, onChunk);
+}
+
+/**
  * NEW: Fetches the list of available models from the OpenRouter API.
  * Caches the result for 24 hours to a file in the user's app data directory.
  * @returns {Promise<object>} The raw model data from the API or cache.
@@ -316,6 +398,7 @@ module.exports = {
 	generateNovelOutline,
 	generateNovelCodex,
 	processCodexText,
+	streamProcessCodexText, // NEW
 	getOpenRouterModels, // NEW
 	processModelsForView, // NEW
 };

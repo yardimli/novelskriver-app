@@ -172,6 +172,7 @@ function applyHighlight(color) {
 	activeEditorView.dispatch(tr);
 }
 
+// MODIFIED: This function is completely rewritten to handle streaming AI responses.
 async function handleAiAction(button) {
 	if (!activeEditorView) return;
 	
@@ -181,32 +182,68 @@ async function handleAiAction(button) {
 	const model = modelSelect.value;
 	
 	const { state } = activeEditorView;
-	const { schema } = state;
 	const { from, to } = state.selection;
 	const text = state.doc.textBetween(from, to, ' ');
 	
-	const entryId = activeEditorView.dom.closest('.codex-entry-window-content')?.dataset.entryId;
-	
-	if (!action || !model || !text || !entryId) {
-		alert('Could not perform AI action. Missing required information.');
+	if (!action || !model || !text || state.selection.empty) {
+		alert('Could not perform AI action. Please select text and choose a model.');
 		return;
 	}
 	
 	button.disabled = true;
 	button.textContent = 'Processing...';
 	
+	let isFirstChunk = true;
+	let currentInsertionPos = from;
+	
+	const onData = (payload) => {
+		if (payload.chunk) {
+			const { schema } = activeEditorView.state;
+			let tr;
+			if (isFirstChunk) {
+				// On the first chunk, replace the entire user selection.
+				tr = activeEditorView.state.tr.replaceWith(from, to, schema.text(payload.chunk));
+				isFirstChunk = false;
+			} else {
+				// For subsequent chunks, insert text at the end of the last insertion.
+				tr = activeEditorView.state.tr.insertText(payload.chunk, currentInsertionPos);
+			}
+			
+			// Update the position for the next chunk.
+			currentInsertionPos += payload.chunk.length;
+			
+			// Move the user's cursor to the end of the newly inserted text.
+			const newSelection = activeEditorView.state.selection.constructor.create(tr.doc, currentInsertionPos);
+			tr.setSelection(newSelection);
+			
+			activeEditorView.dispatch(tr);
+			
+		} else if (payload.done) {
+			// Stream finished successfully.
+			button.disabled = false;
+			button.textContent = 'Apply';
+			activeEditorView.focus();
+			
+		} else if (payload.error) {
+			// An error occurred during the stream.
+			console.error('AI Action Error:', payload.error);
+			alert(`Error: ${payload.error}`);
+			button.disabled = false;
+			button.textContent = 'Apply';
+			
+			// Revert the changes by replacing the partially generated text with the original selection.
+			const { schema } = activeEditorView.state;
+			const tr = activeEditorView.state.tr.replaceWith(from, currentInsertionPos, schema.text(text));
+			activeEditorView.dispatch(tr);
+		}
+	};
+	
 	try {
-		// MODIFIED: Replaced fetch with window.api call
-		const data = await window.api.processCodexText(entryId, { text, action, model });
-		if (!data.success) throw new Error(data.message || 'AI processing failed.');
-		
-		const tr = activeEditorView.state.tr.replaceWith(from, to, schema.text(data.text));
-		activeEditorView.dispatch(tr);
-		
+		// Call the new streaming API.
+		window.api.processCodexTextStream({ text, action, model }, onData);
 	} catch (error) {
 		console.error('AI Action Error:', error);
 		alert(`Error: ${error.message}`);
-	} finally {
 		button.disabled = false;
 		button.textContent = 'Apply';
 	}
