@@ -647,6 +647,17 @@ function setupIpcHandlers() {
 		return { success: true, text: result.processed_text };
 	});
 	
+	ipcMain.handle('ai:getModels', async () => {
+		try {
+			const modelsData = await aiService.getOpenRouterModels();
+			const processedModels = aiService.processModelsForView(modelsData);
+			return { success: true, models: processedModels };
+		} catch (error) {
+			console.error('Failed to get or process AI models:', error);
+			return { success: false, message: error.message };
+		}
+	});
+	
 	ipcMain.handle('codex-entries:generate-image', async (event, entryId, prompt) => {
 		const entry = db.prepare('SELECT novel_id FROM codex_entries WHERE id = ?').get(entryId);
 		const imageUrl = await aiService.generateFalImage(prompt, 'square_hd');

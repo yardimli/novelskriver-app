@@ -1,5 +1,8 @@
 // MODIFIED: This module centralizes all external AI API calls.
 const fetch = require('node-fetch'); // Use node-fetch for making HTTP requests in Node.js
+const fs = require('fs'); // NEW: For file system access for caching
+const path = require('path'); // NEW: For handling file paths
+const { app } = require('electron'); // NEW: For getting user data path for caching
 require('dotenv').config(); // Ensure .env variables are loaded
 
 const FAL_API_KEY = process.env.FAL_API_KEY;
@@ -103,7 +106,7 @@ async function generateFalImage(prompt, imageSize = 'portrait_16_9') {
 }
 
 /**
- * NEW: Generates a detailed novel outline (sections, chapters, etc.).
+ * Generates a detailed novel outline (sections, chapters, etc.).
  * @param {object} params - The parameters for generation.
  * @param {string} params.title - The novel title.
  * @param {string} params.about - The core idea of the novel.
@@ -143,7 +146,7 @@ Ensure the entire output is a single, valid JSON object. Do not include any text
 }
 
 /**
- * NEW: Generates codex entries based on a novel outline.
+ * Generates codex entries based on a novel outline.
  * @param {object} params - The parameters for generation.
  * @param {string} params.outlineJson - The novel outline as a JSON string.
  * @param {string} params.language - The output language.
@@ -180,7 +183,7 @@ Focus on the most prominent elements mentioned in the synopsis and chapter summa
 }
 
 /**
- * NEW: Processes a text selection using an LLM for actions like rephrasing.
+ * Processes a text selection using an LLM for actions like rephrasing.
  * @param {object} params - The parameters for the text processing.
  * @param {string} params.text - The text to process.
  * @param {string} params.action - The action to perform ('expand', 'rephrase', 'shorten').
@@ -212,10 +215,107 @@ Please provide only the modified text as your response. The output must be a sin
 	});
 }
 
+/**
+ * NEW: Fetches the list of available models from the OpenRouter API.
+ * Caches the result for 24 hours to a file in the user's app data directory.
+ * @returns {Promise<object>} The raw model data from the API or cache.
+ * @throws {Error} If the API call fails.
+ */
+async function getOpenRouterModels() {
+	const cachePath = path.join(app.getPath('userData'), 'temp');
+	const cacheFile = path.join(cachePath, 'openrouter_models.json');
+	const cacheDurationInSeconds = 24 * 60 * 60; // 24 hours
+	
+	if (fs.existsSync(cacheFile) && (Date.now() - fs.statSync(cacheFile).mtimeMs) / 1000 < cacheDurationInSeconds) {
+		try {
+			const cachedContent = fs.readFileSync(cacheFile, 'utf8');
+			return JSON.parse(cachedContent);
+		} catch (error) {
+			console.error('Failed to read or parse model cache:', error);
+			// If cache is corrupt, proceed to fetch from API
+		}
+	}
+	
+	const response = await fetch('https://openrouter.ai/api/v1/models', {
+		method: 'GET',
+		headers: {
+			'Accept': 'application/json',
+			'HTTP-Referer': 'https://github.com/locutusdeborg/novel-skriver', // Example referrer
+			'X-Title': 'Novel Skriver',
+		},
+	});
+	
+	if (!response.ok) {
+		const errorText = await response.text();
+		console.error('OpenRouter Models API Error:', errorText);
+		throw new Error(`OpenRouter Models API Error: ${response.status} ${errorText}`);
+	}
+	
+	const modelsData = await response.json();
+	
+	try {
+		fs.mkdirSync(cachePath, { recursive: true });
+		fs.writeFileSync(cacheFile, JSON.stringify(modelsData));
+	} catch (error) {
+		console.error('Failed to write model cache:', error);
+	}
+	
+	return modelsData;
+}
+
+/**
+ * NEW: Processes the raw models list from OpenRouter to create a view-friendly array.
+ * @param {object} modelsData The raw JSON response from getOpenRouterModels().
+ * @returns {Array<object>} A sorted array of models ready for a dropdown.
+ */
+function processModelsForView(modelsData) {
+	const processedModels = [];
+	const positiveList = ['openai', 'anthropic', 'mistral', 'google', 'deepseek', 'mistral', 'moonshot', 'glm'];
+	const negativeList = ['free', '8b', '9b', '3b', '7b', '12b', '22b', '24b', '32b', 'gpt-4 turbo', 'oss', 'tng', 'lite', '1.5', '2.0', 'tiny', 'gemma', 'small', 'nano', ' mini', '-mini', 'nemo', 'chat', 'distill', '3.5', 'dolphin', 'codestral', 'devstral', 'magistral', 'pixtral', 'codex', 'o1-pro', 'o3-pro', 'experimental', 'preview'];
+	
+	const models = (modelsData.data || []).sort((a, b) => a.name.localeCompare(b.name));
+	
+	for (const model of models) {
+		const id = model.id;
+		let name = model.name;
+		const idLower = id.toLowerCase();
+		const nameLower = name.toLowerCase();
+		
+		const isNegativeMatch = negativeList.some(word => idLower.includes(word) || nameLower.includes(word));
+		if (isNegativeMatch) {
+			continue;
+		}
+		
+		const isPositiveMatch = positiveList.some(word => idLower.includes(word) || nameLower.includes(word));
+		if (!isPositiveMatch) {
+			continue;
+		}
+		
+		const hasImageSupport = (model.architecture?.input_modalities || []).includes('image');
+		const hasReasoningSupport = (model.supported_parameters || []).includes('reasoning');
+		
+		if (hasImageSupport) {
+			name += ' (i)';
+		}
+		
+		if (hasReasoningSupport && !name.toLowerCase().includes('think')) {
+			processedModels.push({ id: id, name: name });
+			processedModels.push({ id: `${id}--thinking`, name: `${name} (thinking)` });
+		} else {
+			processedModels.push({ id: id, name: name });
+		}
+	}
+	
+	return processedModels.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+
 module.exports = {
 	generateCoverPrompt,
 	generateFalImage,
 	generateNovelOutline,
 	generateNovelCodex,
-	processCodexText, // NEW
+	processCodexText,
+	getOpenRouterModels, // NEW
+	processModelsForView, // NEW
 };

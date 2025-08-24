@@ -42,6 +42,7 @@ contextBridge.exposeInMainWorld('api', {
 	
 	// Codex AI & Image Actions
 	processCodexText: (entryId, data) => ipcRenderer.invoke('codex-entries:process-text', entryId, data),
+	getModels: () => ipcRenderer.invoke('ai:getModels'), // NEW
 	generateCodexImage: (entryId, prompt) => ipcRenderer.invoke('codex-entries:generate-image', entryId, prompt),
 	uploadCodexImage: (entryId, filePath) => ipcRenderer.invoke('codex-entries:upload-image', entryId, filePath),
 	

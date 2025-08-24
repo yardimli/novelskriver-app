@@ -250,10 +250,67 @@ function closeAllDropdowns() {
 	});
 }
 
+/**
+ * NEW: Fetches AI models and populates the dropdowns in the toolbar.
+ */
+async function populateModelDropdowns() {
+	const selects = toolbar.querySelectorAll('.js-llm-model-select');
+	if (selects.length === 0) return;
+	
+	try {
+		const result = await window.api.getModels();
+		if (!result.success || !result.models || result.models.length === 0) {
+			throw new Error(result.message || 'No models returned from API.');
+		}
+		
+		const models = result.models;
+		const defaultModel = 'openai/gpt-4o-mini';
+		
+		selects.forEach(select => {
+			select.innerHTML = ''; // Clear "Loading..."
+			
+			models.forEach(model => {
+				const option = document.createElement('option');
+				option.value = model.id;
+				option.textContent = model.name;
+				select.appendChild(option);
+			});
+			
+			// Set the default value if it exists in the list
+			if (models.some(m => m.id === defaultModel)) {
+				select.value = defaultModel;
+			} else if (models.length > 0) {
+				// Otherwise, select the first model in the list
+				select.value = models[0].id;
+			}
+		});
+		
+	} catch (error) {
+		console.error('Failed to populate AI model dropdowns:', error);
+		selects.forEach(select => {
+			select.innerHTML = '<option value="" disabled selected>Error loading</option>';
+		});
+	}
+}
+
 export function setupTopToolbar() {
 	if (!toolbar) return;
 	
+	// MODIFIED: The mousedown handler is updated to allow dropdowns and their contents to function.
 	toolbar.addEventListener('mousedown', event => {
+		const target = event.target;
+		const dropdownTrigger = target.closest('button[tabindex="0"]');
+		const inDropdownContent = target.closest('.dropdown-content');
+		
+		// If the click is on a dropdown trigger or inside a dropdown's content,
+		// allow the default browser action. This is necessary for the dropdowns
+		// (and selects/buttons inside them) to work correctly.
+		if ((dropdownTrigger && dropdownTrigger.closest('.dropdown')) || inDropdownContent) {
+			return;
+		}
+		
+		// For all other toolbar interactions, prevent the default action to avoid
+		// the editor losing focus.
 		event.preventDefault();
 	});
 	
@@ -262,6 +319,8 @@ export function setupTopToolbar() {
 		if (!button || button.disabled) return;
 		
 		if (button.closest('.js-dropdown-container')) {
+			// This check is correct: it prevents the dropdown trigger itself from being
+			// processed as a command, letting DaisyUI handle the open/close.
 			if (button.classList.contains('js-toolbar-btn')) return;
 		}
 		
@@ -269,4 +328,5 @@ export function setupTopToolbar() {
 	});
 	
 	updateToolbarState(null);
+	populateModelDropdowns(); // NEW: Call the function to populate models.
 }
