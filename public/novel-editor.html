@@ -1,24 +1,19 @@
 <!doctype html>
-<html class="h-full">
+<!-- MODIFIED: Removed class, will be handled by theme script -->
+<html lang="en" class="h-full">
 <head>
 	<meta charset="UTF-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
-	<!-- MODIFIED: Content Security Policy for Electron -->
 	<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;">
 	<title>Novel Editor</title>
 	<link rel="stylesheet" href="styles.css">
 	<link rel="stylesheet" href="../src/css/editor.css">
 </head>
-<!-- MODIFIED: Body now gets data via JS, not data attributes -->
-<body class="h-full bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 overflow-hidden select-none flex flex-col">
+<!-- MODIFIED: Removed theme-specific classes -->
+<body class="h-full overflow-hidden select-none flex flex-col">
 
-<!-- The entire toolbar and desktop structure from novel-editor/index.blade.php goes here -->
-<!-- ... (pasting the full body content from the original blade file) ... -->
-<!-- NOTE: For brevity, I am omitting the full copy-paste of the large HTML structure. -->
-<!-- You would copy everything from the <body> of `resources/views/novel-editor/index.blade.php` here. -->
-<!-- The key change is that the <template> tags will be populated by JavaScript after fetching data. -->
-
-<div id="top-toolbar" class="flex-shrink-0 h-12 bg-white/80 dark:bg-black/80 backdrop-blur-sm flex items-center px-4 gap-2 z-50 border-b border-gray-200 dark:border-gray-700">
+<!-- ... (The complex body structure remains the same) ... -->
+<div id="top-toolbar" class="flex-shrink-0 h-12 bg-base-200/80 backdrop-blur-sm flex items-center px-4 gap-2 z-50 border-b border-base-300">
 	<!-- Toolbar content from blade file -->
 </div>
 
@@ -27,21 +22,20 @@
 	</div>
 </div>
 
-<div id="taskbar" class="flex-shrink-0 h-12 bg-white/80 dark:bg-black/80 backdrop-blur-sm flex items-center px-2 gap-2 z-50 border-t border-gray-200 dark:border-gray-700">
+<div id="taskbar" class="flex-shrink-0 h-12 bg-base-200/80 backdrop-blur-sm flex items-center px-2 gap-2 z-50 border-t border-base-300">
 	<!-- Taskbar content from blade file -->
 </div>
 
-<!-- MODIFIED: Templates are now empty, to be filled by JS -->
 <template id="outline-window-template"></template>
 <template id="codex-window-template"></template>
 
-<!-- Modal for creating a new codex entry (structure remains the same) -->
 <div id="new-codex-entry-modal" class="js-new-codex-modal fixed inset-0 bg-black/60 z-[9998] flex items-center justify-center p-4 hidden" aria-labelledby="new-codex-modal-title" role="dialog" aria-modal="true">
 	<!-- Modal content from blade file -->
 </div>
 
 
-<!-- MODIFIED: The main.js script is now loaded directly -->
+<!-- NEW: Added universal theme script -->
+<script src="../src/js/theme.js"></script>
 <script type="module" src="../src/js/novel-editor/main.js"></script>
 </body>
 </html>

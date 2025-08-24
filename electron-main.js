@@ -11,18 +11,7 @@ const { initializeDatabase } = require('./src/database/database.js');
 const aiService = require('./src/ai/ai.js');
 const imageHandler = require('./src/utils/image-handler.js');
 
-// NEW: Add electron-reloader for hot-reloading of frontend files.
-// This should be done early, and only in development.
-try {
-	require('electron-reloader')(module);
-} catch (_) {}
-
-
-// Declare a global variable to hold the database instance.
-// It will be assigned a value only after the app is 'ready'.
 let db;
-
-// Global references to window objects to prevent garbage collection
 let mainWindow;
 let editorWindows = new Map();
 
@@ -33,8 +22,11 @@ let editorWindows = new Map();
  */
 function createMainWindow() {
 	mainWindow = new BrowserWindow({
-		width: 1000,
-		height: 800,
+		width: 1400,
+		height: 1000,
+		icon: path.join(__dirname, 'assets/icon.png'),
+		title: 'Novel Skriver',
+		autoHideMenuBar: true,
 		webPreferences: {
 			preload: path.join(__dirname, 'preload.js'),
 			contextIsolation: true,
