@@ -2,7 +2,7 @@
 const fetch = require('node-fetch'); // Use node-fetch for making HTTP requests in Node.js
 require('dotenv').config(); // Ensure .env variables are loaded
 
-const FAL_API_KEY = process.env.FAL_KEY;
+const FAL_API_KEY = process.env.FAL_API_KEY;
 const OPEN_ROUTER_API_KEY = process.env.OPEN_ROUTER_API_KEY;
 
 /**
