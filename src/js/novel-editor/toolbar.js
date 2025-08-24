@@ -381,6 +381,8 @@ async function handleAiAction(button, params = null) {
 	
 	let isFirstChunk = true;
 	let currentInsertionPos = from;
+	// MODIFIED: A flag to prevent creating empty paragraphs from consecutive newlines (e.g., `\n\n`).
+	let justCreatedParagraph = false;
 	
 	const onData = (payload) => {
 		if (payload.chunk) {
@@ -389,33 +391,41 @@ async function handleAiAction(button, params = null) {
 			let tr = activeEditorView.state.tr;
 			
 			if (isFirstChunk) {
-				// On the first chunk, replace the entire user selection with an empty node array.
-				// We will insert the new content piece by piece.
+				// On the first chunk, replace the entire user selection with an empty space
+				// where the new content will be streamed.
 				tr.replaceWith(from, to, []);
 				isFirstChunk = false;
+				// We are now at the start of a paragraph, so we haven't just created one via a split.
+				justCreatedParagraph = false;
 			}
 			
-			// MODIFIED: Split the incoming chunk by newlines to handle paragraph breaks.
+			// Split the incoming text chunk by newlines to handle paragraph breaks.
 			const parts = payload.chunk.split('\n');
 			
 			parts.forEach((part, index) => {
-				if (part) { // Insert the text part if it's not empty.
+				// If the part has content, insert it into the editor.
+				if (part) {
 					const textNode = schema.text(part, [mark]);
 					tr.insert(currentInsertionPos, textNode);
 					currentInsertionPos += part.length;
+					// Since we've added text, the next newline should create a new paragraph.
+					justCreatedParagraph = false;
 				}
 				
-				// If this isn't the last part, it means a newline was present.
+				// A newline was detected if this is not the last part of the split array.
 				if (index < parts.length - 1) {
-					// Split the current block node (e.g., paragraph) to create a new one.
-					tr.split(currentInsertionPos);
-					// A split for a paragraph adds 2 positions for the close and open tags (e.g., </p><p>).
-					currentInsertionPos += 2;
+					// Only create a new paragraph if we haven't just done so.
+					// This collapses multiple newlines into a single paragraph break.
+					if (!justCreatedParagraph) {
+						tr.split(currentInsertionPos);
+						currentInsertionPos += 2; // Account for the new paragraph's start/end tags.
+						// Set the flag to true to ignore subsequent, consecutive newlines.
+						justCreatedParagraph = true;
+					}
 				}
 			});
 			
 			aiActionRange.to = currentInsertionPos; // Update the end of the suggestion range.
-			
 			activeEditorView.dispatch(tr);
 			
 		} else if (payload.done) {

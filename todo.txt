@@ -1,0 +1,15 @@
+
+
+when double clicking on a window content set zoom to 1 and center the window on the screen
+add distraction free edit for chapters. show two columns with summary on the right and content on the left
+add pin icon to title bar to allow user to pin windows so they cant be moved or resized
+
+create a json for models user can choose for ai functions
+stream ai responses to the text area (dont update undo history till streaming is done)
+
+
+add help icon to the top right
+ ctrl-m to minimize window
+ ctrl-1 to set zoom to 1
+ ctrl-f to fit everything in the window
+ select multiple windows with shift key to drag them together
