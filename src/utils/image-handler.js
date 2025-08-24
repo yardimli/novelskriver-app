@@ -22,7 +22,7 @@ async function storeImageFromUrl(url, novelId, filenameBase) {
 		}
 		
 		const buffer = await response.buffer();
-		const novelDir = path.join(IMAGES_DIR, String(novelId));
+		const novelDir = path.join(IMAGES_DIR, 'novels', String(novelId));
 		
 		// Ensure the directory exists.
 		fs.mkdirSync(novelDir, { recursive: true });

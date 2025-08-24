@@ -8,11 +8,14 @@ contextBridge.exposeInMainWorld('api', {
 	openEditor: (novelId) => ipcRenderer.send('novels:openEditor', novelId),
 	getSeries: () => ipcRenderer.invoke('series:getAll'),
 	createSeries: (data) => ipcRenderer.invoke('series:store', data),
-	// NEW: Expose the new title generation and author fetching functions.
 	generateTitle: () => ipcRenderer.invoke('novels:generateTitle'),
 	getAuthors: () => ipcRenderer.invoke('authors:getDistinct'),
 	
-	onCoverUpdated: (callback) => ipcRenderer.on('novels:cover-updated', callback)
+	// NEW: Expose structure generation functions
+	getStructureFiles: () => ipcRenderer.invoke('files:getStructureFiles'),
+	generateStructure: (data) => ipcRenderer.invoke('novels:generateStructure', data),
+	
+	onCoverUpdated: (callback) => ipcRenderer.on('novels:cover-updated', callback),
 	
 	// --- Editor Specific APIs (to be implemented later) ---
 	// ...

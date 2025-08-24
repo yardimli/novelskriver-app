@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';">
+	<title>Generate Novel Structure</title>
+	<link rel="stylesheet" href="../node_modules/bootstrap-icons/font/bootstrap-icons.css">
+	<link rel="stylesheet" href="../dist/styles.css">
+</head>
+<body>
+<div class="container mx-auto p-8 max-w-3xl">
+	<div class="text-center mb-8">
+		<h1 class="text-4xl font-bold">Generate Novel Structure</h1>
+		<p class="text-lg text-base-content/70">Describe your idea, and let AI build the foundation.</p>
+	</div>
+	
+	<form id="generate-structure-form" class="card bg-base-200 shadow-xl">
+		<div class="card-body space-y-4">
+			<input type="hidden" name="novelId" id="novelId">
+			
+			<!-- Book About -->
+			<div class="form-control">
+				<label for="book_about" class="label"><span class="label-text">What is your book about?</span></label>
+				<textarea id="book_about" name="book_about" class="textarea textarea-bordered h-32" placeholder="e.g., A young wizard discovers a hidden conspiracy in his magical school, forcing him to team up with an unlikely rival to save their world from a dark force." required></textarea>
+			</div>
+			
+			<!-- Structure & Model -->
+			<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+				<div class="form-control">
+					<label for="book_structure" class="label"><span class="label-text">Narrative Structure</span></label>
+					<select id="book_structure" name="book_structure" class="select select-bordered" required>
+						<option disabled selected>Loading structures...</option>
+					</select>
+				</div>
+				<div class="form-control">
+					<label for="llm_model" class="label"><span class="label-text">AI Model</span></label>
+					<select id="llm_model" name="llm_model" class="select select-bordered" required>
+						<option value="openai/gpt-4o-mini" selected>GPT-4o Mini (Default)</option>
+						<option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
+						<option value="google/gemini-flash-1.5">Gemini 1.5 Flash</option>
+					</select>
+				</div>
+			</div>
+			
+			<!-- Language -->
+			<div class="form-control">
+				<label for="language" class="label"><span class="label-text">Language</span></label>
+				<input type="text" id="language" name="language" class="input input-bordered" value="English" required>
+			</div>
+			
+			<!-- Error Message -->
+			<div id="error-message" class="hidden alert alert-error">
+				<i class="bi bi-exclamation-triangle-fill"></i>
+				<span id="error-text"></span>
+			</div>
+			
+			<div class="card-actions justify-between pt-6">
+				<a href="index.html" class="btn btn-ghost">Cancel</a>
+				<!-- MODIFIED: Button content is wrapped in spans to allow toggling with a spinner. -->
+				<button type="submit" id="generate-btn" class="btn btn-primary w-48 gap-2">
+					<span class="js-btn-content flex items-center gap-2">
+						<i class="bi bi-magic"></i>
+						<span>Generate Structure</span>
+					</span>
+					<span class="js-btn-spinner hidden">
+						<i class="bi bi-arrow-repeat animate-spin"></i>
+					</span>
+				</button>
+			</div>
+		</div>
+	</form>
+</div>
+
+<script src="../src/js/theme.js"></script>
+<script src="../src/js/generate-structure.js"></script>
+</body>
+</html>

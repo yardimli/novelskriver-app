@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const url = require('url');
 const fetch = require('node-fetch');
+const fs = require('fs'); // NEW: Import fs module
 
 // Load environment variables from .env file
 require('dotenv').config();
@@ -16,6 +17,7 @@ let mainWindow;
 let editorWindows = new Map();
 
 // --- Window Creation Functions ---
+// ... (createMainWindow and createEditorWindow functions remain unchanged) ...
 
 /**
  * Creates the main application window (Dashboard).
@@ -82,7 +84,6 @@ function createEditorWindow(novelId) {
 	});
 }
 
-// --- IPC Handler Setup Function ---
 
 /**
  * Wraps all IPC handler registrations in a single function.
@@ -92,8 +93,12 @@ function setupIpcHandlers() {
 	// --- Novel Handlers ---
 	
 	ipcMain.handle('novels:getAllWithCovers', () => {
+		// MODIFIED: Also retrieve chapter count to determine if the AI button should show.
 		const stmt = db.prepare(`
-            SELECT n.*, i.image_local_path as cover_path
+            SELECT
+                n.*,
+                i.image_local_path as cover_path,
+                (SELECT COUNT(id) FROM chapters WHERE novel_id = n.id) as chapter_count
             FROM novels n
             LEFT JOIN (
                 SELECT novel_id, image_local_path, ROW_NUMBER() OVER(PARTITION BY novel_id ORDER BY created_at DESC) as rn
@@ -103,17 +108,15 @@ function setupIpcHandlers() {
         `);
 		const novels = stmt.all();
 		
-		// MODIFIED: Convert the relative cover path to an absolute path for the renderer.
 		novels.forEach(novel => {
 			if (novel.cover_path) {
-				// The path stored in the DB is relative to the images directory.
-				// We construct the full, absolute path here so the `file://` protocol works correctly in the HTML.
 				novel.cover_path = path.join(imageHandler.IMAGES_DIR, novel.cover_path);
 			}
 		});
 		return novels;
 	});
 	
+	// ... (novels:getOne handler remains unchanged) ...
 	ipcMain.handle('novels:getOne', (event, novelId) => {
 		const novel = db.prepare('SELECT * FROM novels WHERE id = ?').get(novelId);
 		if (!novel) return null;
@@ -144,6 +147,7 @@ function setupIpcHandlers() {
 		return novel;
 	});
 	
+	// ... (novels:store handler remains unchanged) ...
 	ipcMain.handle('novels:store', async (event, data) => {
 		const userId = 1;
 		const stmt = db.prepare(`
@@ -183,6 +187,7 @@ function setupIpcHandlers() {
 		return { id: novelId, ...data };
 	});
 	
+	// ... (novels:openEditor and novels:generateTitle handlers remain unchanged) ...
 	ipcMain.on('novels:openEditor', (event, novelId) => {
 		createEditorWindow(novelId);
 	});
@@ -214,13 +219,129 @@ function setupIpcHandlers() {
 		}
 	});
 	
+	// --- NEW: Structure Generation Handler ---
+	ipcMain.handle('novels:generateStructure', async (event, data) => {
+		const { novelId, book_about, book_structure, language, llm_model } = data;
+		
+		// 1. Authorization/Validation
+		const novel = db.prepare('SELECT id, title FROM novels WHERE id = ?').get(novelId);
+		if (!novel) {
+			throw new Error('Novel not found.');
+		}
+		const chapterCount = db.prepare('SELECT COUNT(*) as count FROM chapters WHERE novel_id = ?').get(novelId).count;
+		if (chapterCount > 0) {
+			throw new Error('This novel already has chapters and cannot be auto-filled.');
+		}
+		
+		// 2. Read structure file
+		const structurePath = path.join(__dirname, 'structures', book_structure);
+		if (!fs.existsSync(structurePath)) {
+			throw new Error('Selected structure file not found.');
+		}
+		const structureContent = fs.readFileSync(structurePath, 'utf8');
+		
+		// 3. LLM Call 1: Generate Outline
+		const outlineResponse = await aiService.generateNovelOutline({
+			title: novel.title,
+			about: book_about,
+			structure: structureContent,
+			language: language,
+			model: llm_model,
+		});
+		if (!outlineResponse || !outlineResponse.sections) {
+			throw new Error('Failed to generate a valid novel structure from the LLM.');
+		}
+		
+		// 4. LLM Call 2: Generate Codex
+		const codexResponse = await aiService.generateNovelCodex({
+			outlineJson: JSON.stringify(outlineResponse),
+			language: language,
+			model: llm_model,
+		});
+		
+		// 5. Database Transaction
+		const runTransaction = db.transaction(() => {
+			// Update novel details
+			db.prepare('UPDATE novels SET genre = ?, logline = ?, synopsis = ? WHERE id = ?')
+				.run(outlineResponse.genre || null, outlineResponse.logline || null, outlineResponse.synopsis || null, novelId);
+			
+			// Create Sections and Chapters
+			let sectionOrder = 1;
+			for (const sectionData of outlineResponse.sections) {
+				const sectionResult = db.prepare('INSERT INTO sections (novel_id, title, description, "order") VALUES (?, ?, ?, ?)')
+					.run(novelId, sectionData.title, sectionData.description || null, sectionOrder++);
+				const sectionId = sectionResult.lastInsertRowid;
+				
+				let chapterOrder = 1;
+				for (const chapterData of sectionData.chapters) {
+					db.prepare('INSERT INTO chapters (novel_id, section_id, title, summary, status, "order") VALUES (?, ?, ?, ?, ?, ?)')
+						.run(novelId, sectionId, chapterData.title, chapterData.summary || null, 'in_progress', chapterOrder++);
+				}
+			}
+			
+			// Create Codex Entries
+			if (codexResponse) {
+				if (codexResponse.characters && codexResponse.characters.length > 0) {
+					let charCategory = db.prepare('SELECT id FROM codex_categories WHERE novel_id = ? AND name = ?').get(novelId, 'Characters');
+					if (!charCategory) {
+						const result = db.prepare('INSERT INTO codex_categories (novel_id, name, description) VALUES (?, ?, ?)')
+							.run(novelId, 'Characters', 'All major and minor characters in the story.');
+						charCategory = { id: result.lastInsertRowid };
+					}
+					for (const charData of codexResponse.characters) {
+						db.prepare('INSERT INTO codex_entries (novel_id, codex_category_id, title, description, content) VALUES (?, ?, ?, ?, ?)')
+							.run(novelId, charCategory.id, charData.name, charData.description || null, charData.content || null);
+					}
+				}
+				if (codexResponse.locations && codexResponse.locations.length > 0) {
+					let locCategory = db.prepare('SELECT id FROM codex_categories WHERE novel_id = ? AND name = ?').get(novelId, 'Locations');
+					if (!locCategory) {
+						const result = db.prepare('INSERT INTO codex_categories (novel_id, name, description) VALUES (?, ?, ?)')
+							.run(novelId, 'Locations', 'Key settings and places in the story.');
+						locCategory = { id: result.lastInsertRowid };
+					}
+					for (const locData of codexResponse.locations) {
+						db.prepare('INSERT INTO codex_entries (novel_id, codex_category_id, title, description, content) VALUES (?, ?, ?, ?, ?)')
+							.run(novelId, locCategory.id, locData.name, locData.description || null, locData.content || null);
+					}
+				}
+			}
+		});
+		
+		runTransaction();
+		return { success: true };
+	});
+	
+	// --- File System Handlers ---
+	// NEW: Handler to read structure files for the form dropdown.
+	ipcMain.handle('files:getStructureFiles', () => {
+		try {
+			const structuresDir = path.join(__dirname, 'structures');
+			const files = fs.readdirSync(structuresDir);
+			return files
+				.filter(file => file.endsWith('.txt'))
+				.map(file => {
+					// Create a more readable name from the filename
+					const name = path.basename(file, '.txt')
+						.replace(/-/g, ' ')
+						.replace(/\b\w/g, l => l.toUpperCase());
+					return { name: name, value: file };
+				});
+		} catch (error) {
+			console.error('Could not read structure files:', error);
+			return [];
+		}
+	});
+	
 	// --- Author Handlers ---
+	// ... (authors:getDistinct handler remains unchanged) ...
 	ipcMain.handle('authors:getDistinct', () => {
 		const stmt = db.prepare('SELECT DISTINCT author FROM novels WHERE author IS NOT NULL ORDER BY author ASC');
 		return stmt.all().map(row => row.author);
 	});
 	
 	// --- Series Handlers ---
+	// ... (series:getAll and series:store handlers remain unchanged) ...
 	ipcMain.handle('series:getAll', () => {
 		return db.prepare('SELECT * FROM series ORDER BY title ASC').all();
 	});
@@ -238,7 +359,7 @@ function setupIpcHandlers() {
 }
 
 // --- App Lifecycle Events ---
-
+// ... (app.on events remain unchanged) ...
 /**
  * This is the main entry point for the application.
  * It waits for Electron to be ready before doing anything.

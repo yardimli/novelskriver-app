@@ -12,6 +12,27 @@ document.addEventListener('DOMContentLoaded', () => {
 	const newSeriesTitleInput = document.getElementById('new_series_title');
 	const newSeriesError = document.getElementById('new-series-error');
 	
+	// --- NEW: Helper function to manage button loading state ---
+	/**
+	 * Toggles the loading state of a button.
+	 * @param {HTMLButtonElement} button The button element.
+	 * @param {boolean} isLoading Whether to show the loading state.
+	 */
+	function setButtonLoading(button, isLoading) {
+		const content = button.querySelector('.js-btn-content');
+		const spinner = button.querySelector('.js-btn-spinner');
+		
+		if (isLoading) {
+			button.disabled = true;
+			if (content) content.classList.add('hidden');
+			if (spinner) spinner.classList.remove('hidden');
+		} else {
+			button.disabled = false;
+			if (content) content.classList.remove('hidden');
+			if (spinner) spinner.classList.add('hidden');
+		}
+	}
+	
 	// --- Load Initial Data ---
 	
 	async function loadSeries() {
@@ -38,7 +59,6 @@ document.addEventListener('DOMContentLoaded', () => {
 				a.textContent = author;
 				a.addEventListener('click', () => {
 					authorInput.value = author;
-					// Close dropdown by removing focus
 					if (document.activeElement) document.activeElement.blur();
 				});
 				li.appendChild(a);
@@ -53,11 +73,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	
 	// "Surprise Me" Title Generation
 	surpriseMeBtn.addEventListener('click', async () => {
-		const originalText = surpriseMeBtn.textContent;
-		surpriseMeBtn.disabled = true;
-		// MODIFIED: Use DaisyUI loading class
-		surpriseMeBtn.classList.add('loading');
-		surpriseMeBtn.textContent = '';
+		// MODIFIED: Use the helper function to manage loading state.
+		setButtonLoading(surpriseMeBtn, true);
 		
 		try {
 			const data = await window.api.generateTitle();
@@ -68,18 +85,12 @@ document.addEventListener('DOMContentLoaded', () => {
 			console.error('Title generation failed:', error);
 			alert('Could not generate a title. Please check your API key and network connection.');
 		} finally {
-			surpriseMeBtn.disabled = false;
-			// MODIFIED: Remove DaisyUI loading class
-			surpriseMeBtn.classList.remove('loading');
-			surpriseMeBtn.textContent = originalText;
+			// MODIFIED: Restore button state using the helper.
+			setButtonLoading(surpriseMeBtn, false);
 		}
 	});
 	
-	// MODIFIED: Dropdown is now handled by DaisyUI via CSS (:focus-within)
-	// so the JS for toggling it is no longer needed.
-	
 	// New Series Modal Logic
-	// MODIFIED: Use DaisyUI modal methods
 	newSeriesBtn.addEventListener('click', () => newSeriesModal.showModal());
 	
 	saveNewSeriesBtn.addEventListener('click', async () => {
@@ -91,26 +102,21 @@ document.addEventListener('DOMContentLoaded', () => {
 		}
 		newSeriesError.classList.add('hidden');
 		
-		const originalText = saveNewSeriesBtn.textContent;
-		saveNewSeriesBtn.disabled = true;
-		// MODIFIED: Use DaisyUI loading class
-		saveNewSeriesBtn.classList.add('loading');
-		saveNewSeriesBtn.textContent = '';
+		// MODIFIED: Use the helper function to manage loading state.
+		setButtonLoading(saveNewSeriesBtn, true);
 		
 		try {
 			const newSeries = await window.api.createSeries({ title });
 			seriesSelect.add(new Option(newSeries.title, newSeries.id, true, true));
 			newSeriesTitleInput.value = '';
-			newSeriesModal.close(); // Close the modal
+			newSeriesModal.close();
 		} catch (error) {
 			console.error('Failed to create series:', error);
 			newSeriesError.textContent = error.message;
 			newSeriesError.classList.remove('hidden');
 		} finally {
-			saveNewSeriesBtn.disabled = false;
-			// MODIFIED: Remove DaisyUI loading class
-			saveNewSeriesBtn.classList.remove('loading');
-			saveNewSeriesBtn.textContent = originalText;
+			// MODIFIED: Restore button state using the helper.
+			setButtonLoading(saveNewSeriesBtn, false);
 		}
 	});
 	
@@ -118,11 +124,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	createNovelForm.addEventListener('submit', async (event) => {
 		event.preventDefault();
 		const submitBtn = document.getElementById('create-novel-submit-btn');
-		const originalText = submitBtn.textContent;
-		submitBtn.disabled = true;
-		// MODIFIED: Use DaisyUI loading class
-		submitBtn.classList.add('loading');
-		submitBtn.textContent = '';
+		// MODIFIED: Use the helper function to manage loading state.
+		setButtonLoading(submitBtn, true);
 		
 		const formData = new FormData(createNovelForm);
 		const data = Object.fromEntries(formData.entries());
@@ -133,10 +136,8 @@ document.addEventListener('DOMContentLoaded', () => {
 		} catch (error) {
 			console.error('Failed to create novel:', error);
 			alert('Error: Could not create the novel. ' + error.message);
-			submitBtn.disabled = false;
-			// MODIFIED: Remove DaisyUI loading class
-			submitBtn.classList.remove('loading');
-			submitBtn.textContent = originalText;
+			// MODIFIED: Restore button state on error.
+			setButtonLoading(submitBtn, false);
 		}
 	});
 	

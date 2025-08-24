@@ -1,10 +1,10 @@
-public/create-novel.html:
 <!DOCTYPE html>
 <html lang="en">
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';">
+	<!-- MODIFIED: Added img-src 'data:' to the CSP meta tag for consistency, though the header from electron-main.js takes precedence. This change is for correctness if the file were used in a different context. -->
+	<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;">
 	<title>Create a New Novel</title>
 	<!-- NEW: Added Bootstrap Icons stylesheet -->
 	<link rel="stylesheet" href="../node_modules/bootstrap-icons/font/bootstrap-icons.css">
@@ -24,9 +24,15 @@ public/create-novel.html:
 				<label for="title" class="label"><span class="label-text">Title</span></label>
 				<div class="join w-full">
 					<input type="text" id="title" name="title" class="input input-bordered grow rounded-r-none" required>
+					<!-- MODIFIED: Button content is wrapped in spans to allow toggling with a spinner. -->
 					<button type="button" id="surprise-me-btn" class="btn btn-neutral rounded-l-none gap-2">
-						<i class="bi bi-magic"></i>
-						Surprise me
+						<span class="js-btn-content flex items-center gap-2">
+							<i class="bi bi-magic"></i>
+							<span>Surprise me</span>
+						</span>
+						<span class="js-btn-spinner hidden">
+							<i class="bi bi-arrow-repeat animate-spin"></i>
+						</span>
 					</button>
 				</div>
 			</div>
@@ -75,7 +81,13 @@ public/create-novel.html:
 			
 			<div class="card-actions justify-between pt-6">
 				<a href="index.html" class="btn btn-ghost">Back</a>
-				<button type="submit" id="create-novel-submit-btn" class="btn btn-primary w-36">Create Novel</button>
+				<!-- MODIFIED: Button content is wrapped in spans to allow toggling with a spinner. -->
+				<button type="submit" id="create-novel-submit-btn" class="btn btn-primary w-36">
+					<span class="js-btn-content">Create Novel</span>
+					<span class="js-btn-spinner hidden">
+						<i class="bi bi-arrow-repeat animate-spin"></i>
+					</span>
+				</button>
 			</div>
 		</div>
 	</form>
@@ -93,7 +105,13 @@ public/create-novel.html:
 		<div class="modal-action">
 			<form method="dialog" class="flex gap-3">
 				<button class="btn js-close-modal">Cancel</button>
-				<button type="button" id="save-new-series-btn" class="btn btn-primary w-28">Save Series</button>
+				<!-- MODIFIED: Button content is wrapped in spans to allow toggling with a spinner. -->
+				<button type="button" id="save-new-series-btn" class="btn btn-primary w-28">
+					<span class="js-btn-content">Save Series</span>
+					<span class="js-btn-spinner hidden">
+						<i class="bi bi-arrow-repeat animate-spin"></i>
+					</span>
+				</button>
 			</form>
 		</div>
 	</div>
