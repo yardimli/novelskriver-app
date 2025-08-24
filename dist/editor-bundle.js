@@ -39,9 +39,12 @@
       win.style.minHeight = "200px";
       win.style.left = `${x}px`;
       win.style.top = `${y}px`;
+      const isChapterWindow = windowId.startsWith("chapter-");
       const titleBar = document.createElement("div");
       titleBar.className = "window-title-bar card-title flex items-center justify-between h-10 bg-base-200/70 px-3 cursor-move border-b border-base-300 flex-shrink-0";
-      titleBar.addEventListener("dblclick", () => this.maximize(windowId));
+      if (isChapterWindow) {
+        titleBar.addEventListener("dblclick", () => this.maximize(windowId));
+      }
       const controls = document.createElement("div");
       controls.className = "flex items-center gap-2";
       const controlButtons = [];
@@ -49,12 +52,14 @@
         controlButtons.push(this.createControlButton("bg-red-500", () => this.close(windowId), "close"));
       }
       controlButtons.push(this.createControlButton("bg-yellow-500", () => this.minimize(windowId), "minimize"));
-      controlButtons.push(this.createControlButton("bg-green-500", () => this.maximize(windowId), "maximize"));
+      if (isChapterWindow) {
+        controlButtons.push(this.createControlButton("bg-green-500", () => this.maximize(windowId), "maximize"));
+      }
       controls.append(...controlButtons);
       const titleWrapper = document.createElement("div");
       titleWrapper.className = "flex items-center overflow-hidden";
       const iconEl = document.createElement("div");
-      iconEl.className = "w-5 h-5 mr-2 text-base-content/70 flex-shrink-0";
+      iconEl.className = "w-5 h-5 mr-2 text-base-content/70 flex-shrink-0 flex items-center justify-center";
       iconEl.innerHTML = icon || "";
       const titleText = document.createElement("span");
       titleText.className = "font-bold text-sm truncate";
@@ -76,8 +81,15 @@
       contentArea.className = "card-body flex-grow overflow-auto p-1";
       contentArea.innerHTML = content;
       contentArea.addEventListener("dblclick", () => {
-        this.scale = 1;
-        this.scrollIntoView(windowId);
+        const winState = this.windows.get(windowId);
+        if (winState.dblClickState === "scrolled") {
+          this.zoomTo(1);
+          this.scrollIntoView(windowId);
+          winState.dblClickState = "zoomed";
+        } else {
+          this.scrollIntoView(windowId);
+          winState.dblClickState = "scrolled";
+        }
       });
       const modals = contentArea.querySelectorAll("dialog.modal");
       modals.forEach((modal) => {
@@ -93,7 +105,9 @@
         icon,
         isMinimized: false,
         isMaximized: false,
-        originalRect: { x, y, width, height }
+        originalRect: { x, y, width, height },
+        dblClickState: "none"
+        // NEW: State to track double-click actions.
       };
       this.windows.set(windowId, windowState);
       this.makeDraggable(win, titleBar);
@@ -115,10 +129,10 @@
       let iconSvg = "";
       switch (type) {
         case "close":
-          iconSvg = '<i class="bi bi-x-lg" style="font-size: 8px; line-height: 1;"></i>';
+          iconSvg = '<i class="bi bi-x" style="font-size: 8px; line-height: 1;"></i>';
           break;
         case "minimize":
-          iconSvg = '<i class="bi bi-dash-lg" style="font-size: 8px; line-height: 1;"></i>';
+          iconSvg = '<i class="bi bi-dash" style="font-size: 8px; line-height: 1;"></i>';
           break;
         case "maximize":
           iconSvg = '<i class="bi bi-square" style="font-size: 6px; line-height: 1;"></i>';
@@ -134,7 +148,7 @@
       console.log("isShiftPressed:", this.isShiftPressed);
       if (this.isShiftPressed) return;
       const el = win.element;
-      const padding = 150;
+      const padding = 25;
       const winLeft = el.offsetLeft;
       const winTop = el.offsetTop;
       const winWidth = el.offsetWidth;
@@ -173,6 +187,9 @@
       const win = this.windows.get(windowId);
       if (!win) return;
       const isShiftPressed = event && event.shiftKey;
+      if (this.activeWindow === windowId && !isShiftPressed) {
+        return;
+      }
       this.isShiftPressed = isShiftPressed;
       if (this.activeWindow && this.windows.has(this.activeWindow)) {
         this.windows.get(this.activeWindow).element.classList.remove("active");
@@ -195,7 +212,11 @@
           win.element.classList.add("selected");
         }
       }
-      this.scrollIntoView(windowId);
+      this.windows.forEach((w, id) => {
+        if (id !== windowId) {
+          w.dblClickState = "none";
+        }
+      });
       this.updateTaskbar();
       this.saveState();
     }
@@ -305,6 +326,9 @@
       handle.addEventListener("mousedown", (e) => {
         const winState = this.windows.get(win.id);
         if (winState && winState.isMaximized) return;
+        if (winState) {
+          winState.dblClickState = "none";
+        }
         win.classList.add("dragging");
         this.selectedWindows.forEach((id) => {
           const currentWinEl = this.windows.get(id).element;
@@ -502,13 +526,14 @@
         } else {
           taskbarItem.classList.add("btn-ghost");
         }
-        taskbarItem.innerHTML = `<div class="w-5 h-5 flex-shrink-0">${item.icon || ""}</div><span class="truncate normal-case font-semibold">${item.title}</span>`;
+        taskbarItem.innerHTML = `<div class="w-5 h-5 flex-shrink-0 flex items-center justify-center">${item.icon || ""}</div><span class="truncate normal-case font-semibold">${item.title}</span>`;
         taskbarItem.dataset.windowId = item.id;
         taskbarItem.addEventListener("click", () => {
           if (win.isMinimized) {
             this.restore(item.id);
           } else {
             this.focus(item.id);
+            this.scrollIntoView(item.id);
           }
         });
         this.minimizedContainer.appendChild(taskbarItem);
@@ -710,6 +735,7 @@
         } else {
           windowManager.focus(windowId);
         }
+        windowManager.scrollIntoView(windowId);
         return;
       }
       try {
@@ -731,6 +757,7 @@
           icon: entryIcon,
           closable: true
         });
+        setTimeout(() => windowManager.scrollIntoView(windowId), 150);
       } catch (error) {
         console.error("Error opening codex entry window:", error);
         alert(error.message);
@@ -752,6 +779,7 @@
         } else {
           windowManager.focus(windowId);
         }
+        windowManager.scrollIntoView(windowId);
         return;
       }
       try {
@@ -773,6 +801,7 @@
           icon: chapterIcon,
           closable: true
         });
+        setTimeout(() => windowManager.scrollIntoView(windowId), 150);
       } catch (error) {
         console.error("Error opening chapter window:", error);
         alert(error.message);

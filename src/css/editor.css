@@ -29,6 +29,13 @@
     @apply text-black dark:text-white;
 }
 
+/* NEW: Fix for Bootstrap Icon vertical alignment within flex containers like buttons. */
+/* This ensures the icon itself is centered, preventing cropping or misalignment. */
+i[class^="bi-"], i[class*=" bi-"] {
+    display: inline-flex;
+    align-items: center;
+}
+
 .selected {
     @apply ring-2 ring-blue-500;
 }

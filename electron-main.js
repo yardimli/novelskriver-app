@@ -81,6 +81,9 @@ function createMainWindow() {
 	mainWindow.on('closed', () => {
 		mainWindow = null;
 	});
+	
+	mainWindow.webContents.openDevTools();
+	
 }
 
 /**
@@ -121,6 +124,9 @@ function createEditorWindow(novelId) {
 	editorWindow.on('closed', () => {
 		editorWindows.delete(novelId);
 	});
+	
+	editorWindow.webContents.openDevTools();
+	
 }
 
 

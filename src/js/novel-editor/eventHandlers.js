@@ -25,6 +25,8 @@ export function setupCodexEntryHandler(desktop, windowManager) {
 			} else {
 				windowManager.focus(windowId);
 			}
+			// MODIFIED: Scroll the existing window into view when it's opened/focused from the codex list.
+			windowManager.scrollIntoView(windowId);
 			return;
 		}
 		
@@ -50,6 +52,10 @@ export function setupCodexEntryHandler(desktop, windowManager) {
 				icon: entryIcon,
 				closable: true
 			});
+			
+			// NEW: Scroll the newly created window into view.
+			// A timeout ensures the browser has rendered the window and its dimensions are available for calculation.
+			setTimeout(() => windowManager.scrollIntoView(windowId), 150);
 		} catch (error) {
 			console.error('Error opening codex entry window:', error);
 			alert(error.message);
@@ -80,6 +86,8 @@ export function setupChapterHandler(desktop, windowManager) {
 			} else {
 				windowManager.focus(windowId);
 			}
+			// MODIFIED: Scroll the existing window into view when it's opened/focused from the outline.
+			windowManager.scrollIntoView(windowId);
 			return;
 		}
 		
@@ -105,6 +113,10 @@ export function setupChapterHandler(desktop, windowManager) {
 				icon: chapterIcon,
 				closable: true
 			});
+			
+			// NEW: Scroll the newly created window into view.
+			// A timeout ensures the browser has rendered the window and its dimensions are available for calculation.
+			setTimeout(() => windowManager.scrollIntoView(windowId), 150);
 		} catch (error) {
 			console.error('Error opening chapter window:', error);
 			alert(error.message);

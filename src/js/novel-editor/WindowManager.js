@@ -44,10 +44,15 @@ export default class WindowManager {
 		win.style.left = `${x}px`;
 		win.style.top = `${y}px`;
 		
+		const isChapterWindow = windowId.startsWith('chapter-'); // NEW: Check if it's a chapter window.
+		
 		const titleBar = document.createElement('div');
 		titleBar.className = 'window-title-bar card-title flex items-center justify-between h-10 bg-base-200/70 px-3 cursor-move border-b border-base-300 flex-shrink-0';
 		
-		titleBar.addEventListener('dblclick', () => this.maximize(windowId));
+		// MODIFIED: Only add double-click listener to chapter windows.
+		if (isChapterWindow) {
+			titleBar.addEventListener('dblclick', () => this.maximize(windowId));
+		}
 		
 		const controls = document.createElement('div');
 		controls.className = 'flex items-center gap-2';
@@ -57,14 +62,18 @@ export default class WindowManager {
 			controlButtons.push(this.createControlButton('bg-red-500', () => this.close(windowId), 'close'));
 		}
 		controlButtons.push(this.createControlButton('bg-yellow-500', () => this.minimize(windowId), 'minimize'));
-		controlButtons.push(this.createControlButton('bg-green-500', () => this.maximize(windowId), 'maximize'));
+		// MODIFIED: Only add maximize button to chapter windows.
+		if (isChapterWindow) {
+			controlButtons.push(this.createControlButton('bg-green-500', () => this.maximize(windowId), 'maximize'));
+		}
 		controls.append(...controlButtons);
 		
 		const titleWrapper = document.createElement('div');
 		titleWrapper.className = 'flex items-center overflow-hidden';
 		
 		const iconEl = document.createElement('div');
-		iconEl.className = 'w-5 h-5 mr-2 text-base-content/70 flex-shrink-0';
+		// MODIFIED: Added flexbox classes to center the icon within its container.
+		iconEl.className = 'w-5 h-5 mr-2 text-base-content/70 flex-shrink-0 flex items-center justify-center';
 		iconEl.innerHTML = icon || '';
 		
 		const titleText = document.createElement('span');
@@ -92,9 +101,19 @@ export default class WindowManager {
 		contentArea.className = 'card-body flex-grow overflow-auto p-1';
 		contentArea.innerHTML = content;
 		
+		// MODIFIED: Changed the double-click logic to handle scrolling and zooming.
 		contentArea.addEventListener('dblclick', () => {
-			this.scale = 1;
-			this.scrollIntoView(windowId);
+			const winState = this.windows.get(windowId);
+			// The second consecutive double-click will zoom to 100%.
+			if (winState.dblClickState === 'scrolled') {
+				this.zoomTo(1);
+				this.scrollIntoView(windowId);
+				winState.dblClickState = 'zoomed';
+			} else {
+				// The first double-click will scroll the window into view.
+				this.scrollIntoView(windowId);
+				winState.dblClickState = 'scrolled';
+			}
 		});
 		
 		const modals = contentArea.querySelectorAll('dialog.modal');
@@ -114,7 +133,8 @@ export default class WindowManager {
 			icon,
 			isMinimized: false,
 			isMaximized: false,
-			originalRect: { x, y, width, height }
+			originalRect: { x, y, width, height },
+			dblClickState: 'none' // NEW: State to track double-click actions.
 		};
 		this.windows.set(windowId, windowState);
 		
@@ -142,10 +162,10 @@ export default class WindowManager {
 		let iconSvg = '';
 		switch (type) {
 			case 'close':
-				iconSvg = '<i class="bi bi-x-lg" style="font-size: 8px; line-height: 1;"></i>';
+				iconSvg = '<i class="bi bi-x" style="font-size: 8px; line-height: 1;"></i>';
 				break;
 			case 'minimize':
-				iconSvg = '<i class="bi bi-dash-lg" style="font-size: 8px; line-height: 1;"></i>';
+				iconSvg = '<i class="bi bi-dash" style="font-size: 8px; line-height: 1;"></i>';
 				break;
 			case 'maximize':
 				iconSvg = '<i class="bi bi-square" style="font-size: 6px; line-height: 1;"></i>';
@@ -164,7 +184,7 @@ export default class WindowManager {
 		if (this.isShiftPressed) return; // Skip auto-scroll when Shift is held.
 		
 		const el = win.element;
-		const padding = 150;
+		const padding = 25;
 		
 		const winLeft = el.offsetLeft;
 		const winTop = el.offsetTop;
@@ -226,6 +246,13 @@ export default class WindowManager {
 		if (!win) return;
 		
 		const isShiftPressed = event && event.shiftKey;
+		
+		// MODIFIED: If the window is already active and we are not shift-clicking, do nothing.
+		// This prevents unnecessary z-index changes and taskbar redraws.
+		if (this.activeWindow === windowId && !isShiftPressed) {
+			return;
+		}
+		
 		this.isShiftPressed = isShiftPressed;
 		
 		if (this.activeWindow && this.windows.has(this.activeWindow)) {
@@ -251,7 +278,15 @@ export default class WindowManager {
 			}
 		}
 		
-		this.scrollIntoView(windowId);
+		// MODIFIED: Removed automatic scroll on single click. This is now handled by double-clicking.
+		
+		// NEW: Reset the double-click state of all other windows so the next double-click on them is a 'scroll'.
+		this.windows.forEach((w, id) => {
+			if (id !== windowId) {
+				w.dblClickState = 'none';
+			}
+		});
+		
 		this.updateTaskbar();
 		this.saveState();
 	}
@@ -385,6 +420,11 @@ export default class WindowManager {
 		handle.addEventListener('mousedown', (e) => {
 			const winState = this.windows.get(win.id);
 			if (winState && winState.isMaximized) return;
+			
+			// NEW: Reset double-click state on drag to ensure the next double-click is a 'scroll'.
+			if (winState) {
+				winState.dblClickState = 'none';
+			}
 			
 			win.classList.add('dragging');
 			
@@ -622,7 +662,8 @@ export default class WindowManager {
 				taskbarItem.classList.add('btn-ghost');
 			}
 			
-			taskbarItem.innerHTML = `<div class="w-5 h-5 flex-shrink-0">${item.icon || ''}</div><span class="truncate normal-case font-semibold">${item.title}</span>`;
+			// MODIFIED: Added flexbox classes to center the icon within its container.
+			taskbarItem.innerHTML = `<div class="w-5 h-5 flex-shrink-0 flex items-center justify-center">${item.icon || ''}</div><span class="truncate normal-case font-semibold">${item.title}</span>`;
 			taskbarItem.dataset.windowId = item.id;
 			
 			taskbarItem.addEventListener('click', () => {
@@ -630,6 +671,7 @@ export default class WindowManager {
 					this.restore(item.id);
 				} else {
 					this.focus(item.id);
+					this.scrollIntoView(item.id);
 				}
 			});
 			this.minimizedContainer.appendChild(taskbarItem);
