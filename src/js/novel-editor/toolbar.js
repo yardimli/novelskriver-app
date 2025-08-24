@@ -251,6 +251,10 @@ async function handleRetry() {
 		floatingToolbar = null;
 	}
 	
+	// MODIFIED: Temporarily reset the active flag to allow the action to run again.
+	// This is the key fix for the retry functionality.
+	isAiActionActive = false;
+	
 	// Now, re-run the AI action with the stored parameters.
 	await handleAiAction(null, currentAiParams);
 }
