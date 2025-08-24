@@ -279,7 +279,6 @@ function createFloatingToolbar(view, from, to, model) {
         <span class="text-gray-400">${wordCount} Words, ${modelName}</span>
     `;
 	
-	// MODIFIED: Append to the viewport instead of the body to handle canvas transforms.
 	const viewport = document.getElementById('viewport');
 	if (!viewport) {
 		console.error('Could not find viewport element for floating toolbar.');
@@ -289,17 +288,35 @@ function createFloatingToolbar(view, from, to, model) {
 	}
 	floatingToolbar = toolbarEl;
 	
-	// Position the toolbar below the generated text.
-	const endCoords = view.coordsAtPos(to);
-	// MODIFIED: Get viewport's position to calculate relative coordinates.
+	// MODIFIED: This entire positioning block is updated for boundary detection.
+	const toolbarWidth = toolbarEl.offsetWidth;
+	const toolbarHeight = toolbarEl.offsetHeight;
 	const viewportRect = viewport.getBoundingClientRect();
 	
-	// Adjust coordinates to be relative to the viewport element, which is the positioning parent.
-	const finalLeft = endCoords.left - viewportRect.left;
-	const finalTop = endCoords.bottom - viewportRect.top;
+	// Get coordinates for the start of the selection.
+	const startCoords = view.coordsAtPos(from);
+	
+	// --- Horizontal Positioning ---
+	const padding = { left: 100, right: 400, top: 100, bottom: 100 };
+	let desiredLeft = startCoords.left - viewportRect.left;
+	const minLeft = padding.left;
+	const maxLeft = viewport.clientWidth - toolbarWidth - padding.right;
+	const finalLeft = Math.max(minLeft, Math.min(desiredLeft, maxLeft));
+	
+	// --- Vertical Positioning (try above first, then below) ---
+	let desiredTop = startCoords.top - viewportRect.top - toolbarHeight - 5; // Attempt to place above selection
+	
+	// If placing it above pushes it past the top boundary, place it below instead.
+	if (desiredTop < padding.top) {
+		desiredTop = startCoords.bottom - viewportRect.top + 5;
+	}
+	
+	const minTop = padding.top;
+	const maxTop = viewport.clientHeight - toolbarHeight - padding.bottom;
+	const finalTop = Math.max(minTop, Math.min(desiredTop, maxTop));
 	
 	toolbarEl.style.left = `${finalLeft}px`;
-	toolbarEl.style.top = `${finalTop + 5}px`;
+	toolbarEl.style.top = `${finalTop}px`;
 	
 	// Add event listeners for the toolbar buttons.
 	toolbarEl.addEventListener('mousedown', (e) => e.preventDefault()); // Prevent editor from losing focus
@@ -346,7 +363,6 @@ async function handleAiAction(button, params = null) {
 		}
 		
 		// Store original state for potential discard/retry.
-		// MODIFIED: Store the full Slice object, not just its .content. This is crucial for the replace transaction.
 		originalFragment = state.doc.slice(from, to);
 		aiActionRange = { from, to };
 		currentAiParams = { text, action, model };
