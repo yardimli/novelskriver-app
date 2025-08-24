@@ -386,19 +386,34 @@ async function handleAiAction(button, params = null) {
 		if (payload.chunk) {
 			const { schema } = activeEditorView.state;
 			const mark = schema.marks.ai_suggestion.create();
-			const textNode = schema.text(payload.chunk, [mark]);
-			let tr;
+			let tr = activeEditorView.state.tr;
 			
 			if (isFirstChunk) {
-				// On the first chunk, replace the entire user selection.
-				tr = activeEditorView.state.tr.replaceWith(from, to, textNode);
+				// On the first chunk, replace the entire user selection with an empty node array.
+				// We will insert the new content piece by piece.
+				tr.replaceWith(from, to, []);
 				isFirstChunk = false;
-			} else {
-				// For subsequent chunks, insert text at the end of the last insertion.
-				tr = activeEditorView.state.tr.insert(currentInsertionPos, textNode);
 			}
 			
-			currentInsertionPos += payload.chunk.length;
+			// MODIFIED: Split the incoming chunk by newlines to handle paragraph breaks.
+			const parts = payload.chunk.split('\n');
+			
+			parts.forEach((part, index) => {
+				if (part) { // Insert the text part if it's not empty.
+					const textNode = schema.text(part, [mark]);
+					tr.insert(currentInsertionPos, textNode);
+					currentInsertionPos += part.length;
+				}
+				
+				// If this isn't the last part, it means a newline was present.
+				if (index < parts.length - 1) {
+					// Split the current block node (e.g., paragraph) to create a new one.
+					tr.split(currentInsertionPos);
+					// A split for a paragraph adds 2 positions for the close and open tags (e.g., </p><p>).
+					currentInsertionPos += 2;
+				}
+			});
+			
 			aiActionRange.to = currentInsertionPos; // Update the end of the suggestion range.
 			
 			activeEditorView.dispatch(tr);

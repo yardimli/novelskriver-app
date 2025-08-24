@@ -74,7 +74,7 @@ export const schema = new Schema({
 	},
 });
 
-// MODIFIED: This schema is used for simple, single-paragraph fields like description or summary.
+// MODIFIED: This schema is no longer used for summaries, but is kept for potential future use.
 const descriptionSchema = new Schema({
 	nodes: {
 		doc: { content: 'paragraph' },
@@ -124,19 +124,24 @@ async function saveWindowContent(windowContent) {
 	const isChapter = windowContent.matches('.chapter-window-content');
 	const isCodex = windowContent.matches('.codex-entry-window-content');
 	
+	// NEW: Helper to serialize a ProseMirror document to an HTML string.
+	const serializeDocToHtml = (view) => {
+		const serializer = DOMSerializer.fromSchema(view.state.schema);
+		const fragment = serializer.serializeFragment(view.state.doc.content);
+		const tempDiv = document.createElement('div');
+		tempDiv.appendChild(fragment);
+		return tempDiv.innerHTML;
+	};
+	
 	if (isCodex) {
 		const entryId = windowContent.dataset.entryId;
 		const instances = editorInstances.get(`codex-${entryId}`);
 		if (!instances) return;
 		
 		const titleInput = windowContent.querySelector('.js-codex-title-input');
-		const description = instances.descriptionView.state.doc.textContent;
-		
-		const serializer = DOMSerializer.fromSchema(schema);
-		const fragment = serializer.serializeFragment(instances.contentView.state.doc.content);
-		const tempDiv = document.createElement('div');
-		tempDiv.appendChild(fragment);
-		const content = tempDiv.innerHTML;
+		// MODIFIED: Serialize description to HTML instead of getting plain text.
+		const description = serializeDocToHtml(instances.descriptionView);
+		const content = serializeDocToHtml(instances.contentView);
 		
 		const data = { title: titleInput.value, description, content };
 		
@@ -153,18 +158,13 @@ async function saveWindowContent(windowContent) {
 		if (!instances) return;
 		
 		const titleInput = windowContent.querySelector('.js-chapter-title-input');
-		const summary = instances.summaryView.state.doc.textContent;
-		
-		const serializer = DOMSerializer.fromSchema(schema);
-		const fragment = serializer.serializeFragment(instances.contentView.state.doc.content);
-		const tempDiv = document.createElement('div');
-		tempDiv.appendChild(fragment);
-		const content = tempDiv.innerHTML;
+		// MODIFIED: Serialize summary to HTML instead of getting plain text.
+		const summary = serializeDocToHtml(instances.summaryView);
+		const content = serializeDocToHtml(instances.contentView);
 		
 		const data = { title: titleInput.value, summary, content };
 		
 		try {
-			// NEW: Call the API to update chapter content, title, and summary.
 			const response = await window.api.updateChapterContent(chapterId, data);
 			if (!response.success) throw new Error(response.message || 'Failed to save chapter.');
 		} catch (error) {
@@ -266,7 +266,8 @@ function initEditorsForWindow(windowContent) {
 		
 		if (!descriptionMount || !contentMount) return;
 		
-		const descriptionView = createEditor(descriptionMount, true);
+		// MODIFIED: Use the full schema for the description field to allow rich text.
+		const descriptionView = createEditor(descriptionMount, false);
 		const contentView = createEditor(contentMount, false);
 		
 		editorInstances.set(key, { descriptionView, contentView });
@@ -279,7 +280,8 @@ function initEditorsForWindow(windowContent) {
 		
 		if (!summaryMount || !contentMount) return;
 		
-		const summaryView = createEditor(summaryMount, true);
+		// MODIFIED: Use the full schema for the summary field to allow rich text.
+		const summaryView = createEditor(summaryMount, false);
 		const contentView = createEditor(contentMount, false);
 		
 		editorInstances.set(key, { summaryView, contentView });
