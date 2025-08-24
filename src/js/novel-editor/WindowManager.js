@@ -33,7 +33,6 @@ export default class WindowManager {
 			return;
 		}
 		
-		// MODIFIED: Adapted to DaisyUI card component for window styling
 		const win = document.createElement('div');
 		win.id = windowId;
 		win.className = 'window-element card bg-base-100 shadow-2xl border border-base-300 overflow-hidden absolute flex flex-col transition-all duration-100 ease-in-out';
@@ -97,7 +96,6 @@ export default class WindowManager {
 			this.scrollIntoView(windowId);
 		});
 		
-		// MODIFIED: Find DaisyUI dialogs and move them to the body
 		const modals = contentArea.querySelectorAll('dialog.modal');
 		modals.forEach(modal => {
 			document.body.appendChild(modal);
@@ -472,7 +470,6 @@ export default class WindowManager {
 		};
 		
 		try {
-			// MODIFIED: Replaced fetch with window.api call
 			await window.api.saveEditorState(this.novelId, fullState);
 		} catch (error) {
 			console.error('Error saving editor state:', error);
@@ -502,19 +499,18 @@ export default class WindowManager {
 				let closable = true;
 				
 				try {
+					// MODIFIED: Get pre-rendered content from body data attributes.
 					if (state.id === 'outline-window') {
-						content = document.getElementById('outline-window-template').innerHTML;
+						content = document.body.dataset.outlineContent;
 						closable = false;
 					} else if (state.id === 'codex-window') {
-						content = document.getElementById('codex-window-template').innerHTML;
+						content = document.body.dataset.codexContent;
 						closable = false;
 					} else if (state.id.startsWith('codex-entry-')) {
 						const entryId = state.id.replace('codex-entry-', '');
-						// MODIFIED: Replaced fetch with window.api call
 						content = await window.api.getCodexEntryHtml(entryId);
 					} else if (state.id.startsWith('chapter-')) {
 						const chapterId = state.id.replace('chapter-', '');
-						// MODIFIED: Replaced fetch with window.api call
 						content = await window.api.getChapterHtml(chapterId);
 					}
 				} catch (e) {
@@ -595,7 +591,6 @@ export default class WindowManager {
 			const win = this.windows.get(item.id);
 			const taskbarItem = document.createElement('button');
 			
-			// MODIFIED: Adapted to DaisyUI button classes
 			taskbarItem.className = 'window-minimized btn btn-sm h-10 flex-shrink min-w-[120px] max-w-[256px] flex-grow basis-0 justify-start';
 			
 			if (!win.isMinimized && item.id === this.activeWindow) {
@@ -627,12 +622,13 @@ export default class WindowManager {
 		const canvasCenterX = 2500;
 		const canvasCenterY = 2500;
 		
-		const outlineTemplate = document.getElementById('outline-window-template');
-		if (outlineTemplate) {
+		// MODIFIED: Get pre-rendered content from body data attributes.
+		const outlineContent = document.body.dataset.outlineContent;
+		if (outlineContent) {
 			this.createWindow({
 				id: 'outline-window',
 				title: 'Novel Outline',
-				content: outlineTemplate.innerHTML,
+				content: outlineContent,
 				x: canvasCenterX - 520,
 				y: canvasCenterY - 300,
 				width: 500,
@@ -642,12 +638,13 @@ export default class WindowManager {
 			});
 		}
 		
-		const codexTemplate = document.getElementById('codex-window-template');
-		if (codexTemplate) {
+		// MODIFIED: Get pre-rendered content from body data attributes.
+		const codexContent = document.body.dataset.codexContent;
+		if (codexContent) {
 			this.createWindow({
 				id: 'codex-window',
 				title: 'Codex',
-				content: codexTemplate.innerHTML,
+				content: codexContent,
 				x: canvasCenterX + 20,
 				y: canvasCenterY - 270,
 				width: 450,

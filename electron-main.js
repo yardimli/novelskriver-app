@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron'); // MODIFIED: Added dialog
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const url = require('url');
 const fetch = require('node-fetch');
@@ -9,12 +9,44 @@ require('dotenv').config();
 const { initializeDatabase } = require('./src/database/database.js');
 const aiService = require('./src/ai/ai.js');
 const imageHandler = require('./src/utils/image-handler.js');
-// NEW: Import HTML rendering helpers
-const { renderChapterWindow, renderCodexEntryWindow } = require('./src/utils/html-renderer.js');
+// MODIFIED: Removed html-renderer.js import
 
 let db;
 let mainWindow;
 let editorWindows = new Map();
+
+// --- NEW: Template and HTML Helper Functions ---
+
+/**
+ * Reads an HTML template file from the public/templates directory.
+ * @param {string} templateName - The name of the template file (without extension).
+ * @returns {string} The content of the template file.
+ */
+function getTemplate(templateName) {
+	const templatePath = path.join(__dirname, 'public', 'templates', `${templateName}.html`);
+	try {
+		return fs.readFileSync(templatePath, 'utf8');
+	} catch (error) {
+		console.error(`Failed to read template: ${templateName}`, error);
+		return `<p class="text-error">Error: Could not load template ${templateName}.</p>`;
+	}
+}
+
+/**
+ * Sanitizes text to be safely included in HTML attributes.
+ * @param {string | null} text
+ * @returns {string}
+ */
+function escapeAttr(text) {
+	if (text === null || typeof text === 'undefined') return '';
+	return String(text)
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#039;');
+}
+
 
 // --- Window Creation Functions ---
 
@@ -35,12 +67,10 @@ function createMainWindow() {
 		}
 	});
 	
-	// Add a Content Security Policy to allow loading local file images.
 	mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
 		callback({
 			responseHeaders: {
 				...details.responseHeaders,
-				// MODIFIED: Added 'data:' to img-src for image previews
 				'Content-Security-Policy': ["default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' file: data:;"]
 			}
 		});
@@ -76,7 +106,6 @@ function createEditorWindow(novelId) {
 		}
 	});
 	
-	// MODIFIED: Added CSP for editor window
 	editorWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
 		callback({
 			responseHeaders: {
@@ -128,7 +157,6 @@ function setupIpcHandlers() {
 		const novel = db.prepare('SELECT * FROM novels WHERE id = ?').get(novelId);
 		if (!novel) return null;
 		
-		// This function now returns all data needed to bootstrap the editor.
 		novel.sections = db.prepare('SELECT * FROM sections WHERE novel_id = ? ORDER BY `order`').all(novelId);
 		novel.sections.forEach(section => {
 			section.chapters = db.prepare('SELECT * FROM chapters WHERE section_id = ? ORDER BY `order`').all(section.id);
@@ -148,7 +176,6 @@ function setupIpcHandlers() {
                 WHERE ce.codex_category_id = ? ORDER BY ce.title
             `).all(category.id);
 			
-			// Construct full thumbnail URL
 			category.entries.forEach(entry => {
 				entry.thumbnail_url = entry.thumbnail_local_path
 					? `file://${path.join(imageHandler.IMAGES_DIR, entry.thumbnail_local_path)}`
@@ -360,7 +387,12 @@ function setupIpcHandlers() {
 		return { id: result.lastInsertRowid, title: data.title };
 	});
 	
-	// --- NEW: Editor IPC Handlers ---
+	// --- Editor IPC Handlers ---
+	
+	// NEW: IPC handler to provide HTML templates to the renderer process.
+	ipcMain.handle('templates:get', (event, templateName) => {
+		return getTemplate(templateName);
+	});
 	
 	ipcMain.handle('editor:saveState', (event, novelId, state) => {
 		try {
@@ -373,6 +405,7 @@ function setupIpcHandlers() {
 		}
 	});
 	
+	// MODIFIED: This handler now uses the template file system.
 	ipcMain.handle('chapters:getOneHtml', (event, chapterId) => {
 		const chapter = db.prepare(`
             SELECT c.*, s.order as section_order
@@ -398,9 +431,40 @@ function setupIpcHandlers() {
 				: './assets/codex-placeholder.png';
 		});
 		
-		return renderChapterWindow(chapter);
+		const codexTagsHtml = chapter.codexEntries.map(entry => `
+            <div class="js-codex-tag group/tag relative inline-flex items-center gap-2 bg-gray-200 dark:bg-gray-700 rounded-full pr-2" data-entry-id="${entry.id}">
+                <button type="button"
+                        class="js-open-codex-entry flex items-center gap-2 pl-1 pr-2 py-1 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                        data-entry-id="${entry.id}"
+                        data-entry-title="${escapeAttr(entry.title)}">
+                    <img src="${escapeAttr(entry.thumbnail_url)}" alt="Thumbnail for ${escapeAttr(entry.title)}" class="w-5 h-5 object-cover rounded-full flex-shrink-0">
+                    <span class="js-codex-tag-title text-xs font-medium">${escapeAttr(entry.title)}</span>
+                </button>
+                <button type="button"
+                        class="js-remove-codex-link absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover/tag:opacity-100 transition-opacity"
+                        data-chapter-id="${chapter.id}"
+                        data-entry-id="${entry.id}"
+                        title="Unlink this entry">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor" viewBox="0 0 16 16"><path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8z"/></svg>
+                </button>
+            </div>
+        `).join('');
+		
+		const sectionInfoHtml = chapter.section_order ? `<h3 class="text-sm font-semibold uppercase tracking-wider text-indigo-500 dark:text-indigo-400">Act ${chapter.section_order} &ndash; Chapter ${chapter.order}</h3>` : '';
+		const summaryHtml = chapter.summary ? `<p class="lead">${escapeAttr(chapter.summary)}</p>` : '';
+		
+		let template = getTemplate('chapter-window');
+		template = template.replace('{{CHAPTER_ID}}', chapter.id);
+		template = template.replace('{{SECTION_INFO_HTML}}', sectionInfoHtml);
+		template = template.replace('{{CHAPTER_TITLE}}', escapeAttr(chapter.title));
+		template = template.replace('{{CHAPTER_SUMMARY_HTML}}', summaryHtml);
+		template = template.replace('{{TAGS_WRAPPER_HIDDEN}}', chapter.codexEntries.length === 0 ? 'hidden' : '');
+		template = template.replace('{{CODEX_TAGS_HTML}}', codexTagsHtml);
+		
+		return template;
 	});
 	
+	// MODIFIED: This handler now uses the template file system.
 	ipcMain.handle('codex-entries:getOneHtml', (event, entryId) => {
 		const codexEntry = db.prepare('SELECT * FROM codex_entries WHERE id = ?').get(entryId);
 		if (!codexEntry) throw new Error('Codex Entry not found');
@@ -425,7 +489,35 @@ function setupIpcHandlers() {
 				: './assets/codex-placeholder.png';
 		});
 		
-		return renderCodexEntryWindow(codexEntry);
+		const linkedTagsHtml = codexEntry.linkedEntries.map(entry => `
+            <div class="js-codex-tag group/tag relative inline-flex items-center gap-2 bg-gray-200 dark:bg-gray-700 rounded-full pr-2" data-entry-id="${entry.id}">
+                <button type="button"
+                        class="js-open-codex-entry flex items-center gap-2 pl-1 pr-2 py-1 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                        data-entry-id="${entry.id}"
+                        data-entry-title="${escapeAttr(entry.title)}">
+                    <img src="${escapeAttr(entry.thumbnail_url)}" alt="Thumbnail for ${escapeAttr(entry.title)}" class="w-5 h-5 object-cover rounded-full flex-shrink-0">
+                    <span class="js-codex-tag-title text-xs font-medium">${escapeAttr(entry.title)}</span>
+                </button>
+                <button type="button"
+                        class="js-remove-codex-codex-link absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover/tag:opacity-100 transition-opacity"
+                        data-parent-entry-id="${codexEntry.id}"
+                        data-entry-id="${entry.id}"
+                        title="Unlink this entry">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor" viewBox="0 0 16 16"><path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8z"/></svg>
+                </button>
+            </div>
+        `).join('');
+		
+		let template = getTemplate('codex-entry-window');
+		template = template.replace(/{{ENTRY_ID}}/g, codexEntry.id);
+		template = template.replace(/{{ENTRY_TITLE_ATTR}}/g, escapeAttr(codexEntry.title));
+		template = template.replace('{{IMAGE_URL}}', escapeAttr(codexEntry.image_url));
+		template = template.replace('{{DESCRIPTION_HTML}}', codexEntry.description || '');
+		template = template.replace('{{CONTENT_HTML}}', codexEntry.content || '');
+		template = template.replace('{{LINKED_TAGS_WRAPPER_HIDDEN}}', codexEntry.linkedEntries.length === 0 ? 'hidden' : '');
+		template = template.replace('{{LINKED_TAGS_HTML}}', linkedTagsHtml);
+		
+		return template;
 	});
 	
 	ipcMain.handle('chapters:codex:attach', (event, chapterId, codexEntryId) => {
@@ -548,7 +640,6 @@ function setupIpcHandlers() {
 		
 		const paths = await imageHandler.storeImageFromUrl(imageUrl, entry.novel_id, `codex-image-${entryId}`);
 		
-		// Delete old image if it exists
 		const oldImage = db.prepare('SELECT * FROM images WHERE codex_entry_id = ?').get(entryId);
 		if (oldImage) {
 			const oldPath = path.join(imageHandler.IMAGES_DIR, oldImage.image_local_path);

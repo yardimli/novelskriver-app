@@ -407,10 +407,10 @@
           let closable = true;
           try {
             if (state.id === "outline-window") {
-              content = document.getElementById("outline-window-template").innerHTML;
+              content = document.body.dataset.outlineContent;
               closable = false;
             } else if (state.id === "codex-window") {
-              content = document.getElementById("codex-window-template").innerHTML;
+              content = document.body.dataset.codexContent;
               closable = false;
             } else if (state.id.startsWith("codex-entry-")) {
               const entryId = state.id.replace("codex-entry-", "");
@@ -511,12 +511,12 @@
       const codexIcon = `<i class="bi bi-book-half text-lg"></i>`;
       const canvasCenterX = 2500;
       const canvasCenterY = 2500;
-      const outlineTemplate = document.getElementById("outline-window-template");
-      if (outlineTemplate) {
+      const outlineContent = document.body.dataset.outlineContent;
+      if (outlineContent) {
         this.createWindow({
           id: "outline-window",
           title: "Novel Outline",
-          content: outlineTemplate.innerHTML,
+          content: outlineContent,
           x: canvasCenterX - 520,
           y: canvasCenterY - 300,
           width: 500,
@@ -525,12 +525,12 @@
           closable: false
         });
       }
-      const codexTemplate = document.getElementById("codex-window-template");
-      if (codexTemplate) {
+      const codexContent = document.body.dataset.codexContent;
+      if (codexContent) {
         this.createWindow({
           id: "codex-window",
           title: "Codex",
-          content: codexTemplate.innerHTML,
+          content: codexContent,
           x: canvasCenterX + 20,
           y: canvasCenterY - 270,
           width: 450,
@@ -14536,7 +14536,7 @@
   });
 
   // src/js/novel-editor/main.js
-  function renderOutlineWindow(novelData) {
+  function populateOutlineTemplate(template, novelData) {
     if (!novelData.sections || novelData.sections.length === 0) {
       return '<p class="text-center text-base-content/70 p-4">No sections found for this novel.</p>';
     }
@@ -14560,9 +14560,9 @@
             </div>
         `;
     }).join("");
-    return `<div class="p-4 space-y-4">${sectionsHtml}</div>`;
+    return template.replace("<!-- SECTIONS_PLACEHOLDER -->", sectionsHtml);
   }
-  function renderCodexWindow(novelData) {
+  function populateCodexTemplate(template, novelData) {
     if (!novelData.codexCategories || novelData.codexCategories.length === 0) {
       return '<p class="text-center text-base-content/70 p-4">No codex categories found.</p>';
     }
@@ -14591,7 +14591,7 @@
             </div>
         `;
     }).join("");
-    return `<div class="p-4 space-y-4">${categoriesHtml}</div>`;
+    return template.replace("<!-- CATEGORIES_PLACEHOLDER -->", categoriesHtml);
   }
   document.addEventListener("DOMContentLoaded", async () => {
     const viewport = document.getElementById("viewport");
@@ -14606,10 +14606,12 @@
     }
     document.body.dataset.novelId = novelId;
     try {
+      const outlineTemplateHtml = await window.api.getTemplate("outline-window");
+      const codexTemplateHtml = await window.api.getTemplate("codex-window");
       const novelData = await window.api.getOneNovel(novelId);
       if (!novelData) throw new Error("Novel not found.");
-      document.getElementById("outline-window-template").innerHTML = renderOutlineWindow(novelData);
-      document.getElementById("codex-window-template").innerHTML = renderCodexWindow(novelData);
+      document.body.dataset.outlineContent = populateOutlineTemplate(outlineTemplateHtml, novelData);
+      document.body.dataset.codexContent = populateCodexTemplate(codexTemplateHtml, novelData);
       const categorySelect = document.getElementById("new-codex-category");
       novelData.codexCategories.forEach((category) => {
         const option = new Option(category.name, category.id);

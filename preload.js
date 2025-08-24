@@ -11,13 +11,15 @@ contextBridge.exposeInMainWorld('api', {
 	generateTitle: () => ipcRenderer.invoke('novels:generateTitle'),
 	getAuthors: () => ipcRenderer.invoke('authors:getDistinct'),
 	
-	// NEW: Expose structure generation functions
 	getStructureFiles: () => ipcRenderer.invoke('files:getStructureFiles'),
 	generateStructure: (data) => ipcRenderer.invoke('novels:generateStructure', data),
 	
 	onCoverUpdated: (callback) => ipcRenderer.on('novels:cover-updated', callback),
 	
-	// --- NEW: Editor Specific APIs ---
+	// --- Editor Specific APIs ---
+	
+	// NEW: Template fetching
+	getTemplate: (templateName) => ipcRenderer.invoke('templates:get', templateName),
 	
 	// State Management
 	saveEditorState: (novelId, state) => ipcRenderer.invoke('editor:saveState', novelId, state),

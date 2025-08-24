@@ -6,11 +6,12 @@ import { setupTopToolbar } from './toolbar.js';
 import './codex-entry-editor.js'; // Import for side-effects (attaches event listeners)
 
 /**
- * Renders the outline window content from novel data.
+ * NEW: Populates the outline window template with novel data.
+ * @param {string} template - The raw HTML template string.
  * @param {object} novelData - The full novel data object.
- * @returns {string} - The rendered HTML string.
+ * @returns {string} - The populated HTML string.
  */
-function renderOutlineWindow(novelData) {
+function populateOutlineTemplate(template, novelData) {
 	if (!novelData.sections || novelData.sections.length === 0) {
 		return '<p class="text-center text-base-content/70 p-4">No sections found for this novel.</p>';
 	}
@@ -39,15 +40,16 @@ function renderOutlineWindow(novelData) {
         `;
 	}).join('');
 	
-	return `<div class="p-4 space-y-4">${sectionsHtml}</div>`;
+	return template.replace('<!-- SECTIONS_PLACEHOLDER -->', sectionsHtml);
 }
 
 /**
- * Renders the codex window content from novel data.
+ * NEW: Populates the codex window template with novel data.
+ * @param {string} template - The raw HTML template string.
  * @param {object} novelData - The full novel data object.
- * @returns {string} - The rendered HTML string.
+ * @returns {string} - The populated HTML string.
  */
-function renderCodexWindow(novelData) {
+function populateCodexTemplate(template, novelData) {
 	if (!novelData.codexCategories || novelData.codexCategories.length === 0) {
 		return '<p class="text-center text-base-content/70 p-4">No codex categories found.</p>';
 	}
@@ -81,7 +83,7 @@ function renderCodexWindow(novelData) {
         `;
 	}).join('');
 	
-	return `<div class="p-4 space-y-4">${categoriesHtml}</div>`;
+	return template.replace('<!-- CATEGORIES_PLACEHOLDER -->', categoriesHtml);
 }
 
 /**
@@ -104,12 +106,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 	document.body.dataset.novelId = novelId;
 	
 	try {
+		// MODIFIED: Fetch templates via IPC.
+		const outlineTemplateHtml = await window.api.getTemplate('outline-window');
+		const codexTemplateHtml = await window.api.getTemplate('codex-window');
+		
 		const novelData = await window.api.getOneNovel(novelId);
 		if (!novelData) throw new Error('Novel not found.');
 		
-		// Populate templates with initial data
-		document.getElementById('outline-window-template').innerHTML = renderOutlineWindow(novelData);
-		document.getElementById('codex-window-template').innerHTML = renderCodexWindow(novelData);
+		// MODIFIED: Populate templates and store the result on the body element.
+		document.body.dataset.outlineContent = populateOutlineTemplate(outlineTemplateHtml, novelData);
+		document.body.dataset.codexContent = populateCodexTemplate(codexTemplateHtml, novelData);
 		
 		// Populate the "New Codex Entry" modal's category dropdown
 		const categorySelect = document.getElementById('new-codex-category');
