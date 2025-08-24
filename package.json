@@ -2,17 +2,16 @@
   "name": "novelskriver-electron",
   "version": "0.1.1",
   "description": "A standalone novel writing application.",
-  "main": "main.js",
-  "private": true,
+  "main": "electron-main.js",
   "scripts": {
     "build": "tailwindcss -i ./src/css/input.css -o ./public/styles.css",
+    "watch": "tailwindcss -i ./src/css/input.css -o ./public/styles.css --watch",
     "start": "npm run build && electron .",
-    "watch:css": "tailwindcss -i ./src/css/input.css -o ./public/styles.css --watch",
-    "watch:electron": "nodemon --watch main.js --watch src/ --exec \"electron .\"",
-    "dev": "concurrently \"npm:watch:css\" \"npm:watch:electron\"",
     "postinstall": "electron-rebuild",
     "rebuild": "electron-rebuild -f -w better-sqlite3"
   },
+  "author": "locutus de borg",
+  "license": "ISC",
   "devDependencies": {
     "@tailwindcss/forms": "^0.5.7",
     "@tailwindcss/typography": "^0.5.13",

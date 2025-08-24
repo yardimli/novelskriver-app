@@ -111,10 +111,12 @@ function setupIpcHandlers() {
         `);
 		const novels = stmt.all();
 		
+		// MODIFIED: Convert the relative cover path to an absolute path for the renderer.
 		novels.forEach(novel => {
 			if (novel.cover_path) {
-				const absolutePath = path.join(imageHandler.IMAGES_DIR, novel.cover_path);
-				novel.cover_path_url = url.pathToFileURL(absolutePath).href;
+				// The path stored in the DB is relative to the images directory.
+				// We construct the full, absolute path here so the `file://` protocol works correctly in the HTML.
+				novel.cover_path = path.join(imageHandler.IMAGES_DIR, novel.cover_path);
 			}
 		});
 		return novels;
@@ -171,10 +173,12 @@ function setupIpcHandlers() {
                                 INSERT INTO images (user_id, novel_id, image_local_path, remote_url, prompt, image_type)
                                 VALUES (?, ?, ?, ?, ?, ?)
                             `).run(userId, novelId, localPath, imageUrl, imagePrompt, 'generated');
+							
+							// MODIFIED: Send an absolute path to the renderer for the live update.
 							const absolutePath = path.join(imageHandler.IMAGES_DIR, localPath);
-							const imageFileUrl = url.pathToFileURL(absolutePath).href;
+							// The frontend listener `onCoverUpdated` expects a payload with `imagePath`.
 							if (mainWindow) {
-								mainWindow.webContents.send('novels:cover-updated', { novelId, imageUrl: imageFileUrl });
+								mainWindow.webContents.send('novels:cover-updated', { novelId, imagePath: absolutePath });
 							}
 						}
 					}

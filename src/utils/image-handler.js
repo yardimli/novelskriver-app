@@ -4,7 +4,7 @@ const fetch = require('node-fetch');
 const { app } = require('electron');
 
 // Define a consistent place to store user-generated images.
-const IMAGES_DIR = path.join(app.getPath('userData'), 'images', 'novels');
+const IMAGES_DIR = path.join(app.getPath('userData'), 'images');
 
 /**
  * Downloads an image from a URL and saves it locally.
