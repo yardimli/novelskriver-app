@@ -10,6 +10,13 @@ let activeEditorView = null;
 const toolbar = document.getElementById('top-toolbar');
 const wordCountEl = document.getElementById('js-word-count');
 
+// NEW: State management for the AI text generation review process
+let isAiActionActive = false;
+let originalFragment = null;
+let aiActionRange = null;
+let currentAiParams = null;
+let floatingToolbar = null;
+
 function isNodeActive(state, type) {
 	const { $from } = state.selection;
 	for (let i = $from.depth; i > 0; i--) {
@@ -72,7 +79,7 @@ export function updateToolbarState(view) {
 			}
 			
 			if (btn.closest('.js-dropdown-container') || btn.classList.contains('js-ai-action-btn')) {
-				btn.disabled = !isTextSelected;
+				btn.disabled = !isTextSelected || isAiActionActive; // MODIFIED: Disable AI buttons during an active session
 			}
 			
 			if (commandFn) {
@@ -172,26 +179,185 @@ function applyHighlight(color) {
 	activeEditorView.dispatch(tr);
 }
 
-// MODIFIED: This function is completely rewritten to handle streaming AI responses.
-async function handleAiAction(button) {
-	if (!activeEditorView) return;
-	
-	const action = button.dataset.action;
-	const dropdown = button.closest('.js-dropdown-container').querySelector('.js-dropdown');
-	const modelSelect = dropdown.querySelector('.js-llm-model-select');
-	const model = modelSelect.value;
-	
-	const { state } = activeEditorView;
-	const { from, to } = state.selection;
-	const text = state.doc.textBetween(from, to, ' ');
-	
-	if (!action || !model || !text || state.selection.empty) {
-		alert('Could not perform AI action. Please select text and choose a model.');
-		return;
+// --- NEW: AI Action Review Workflow ---
+
+/**
+ * Toggles the editable state of the active ProseMirror editor.
+ * @param {EditorView} view The editor view instance.
+ * @param {boolean} isEditable Whether the editor should be editable.
+ */
+function setEditorEditable(view, isEditable) {
+	view.setProps({
+		editable: () => isEditable,
+	});
+}
+
+/**
+ * Cleans up the editor state after an AI action is completed (applied or discarded).
+ */
+function cleanupAiAction() {
+	if (floatingToolbar) {
+		floatingToolbar.remove();
+		floatingToolbar = null;
 	}
 	
-	button.disabled = true;
-	button.textContent = 'Processing...';
+	if (activeEditorView) {
+		setEditorEditable(activeEditorView, true);
+		const { state, dispatch } = activeEditorView;
+		const { schema } = state;
+		// Remove the suggestion mark from the entire document to be safe.
+		const tr = state.tr.removeMark(0, state.doc.content.size, schema.marks.ai_suggestion);
+		dispatch(tr);
+		activeEditorView.focus();
+	}
+	
+	isAiActionActive = false;
+	originalFragment = null;
+	aiActionRange = null;
+	currentAiParams = null;
+	updateToolbarState(activeEditorView);
+}
+
+/** Handles the 'Apply' action from the floating toolbar. */
+function handleApply() {
+	if (!isAiActionActive || !activeEditorView) return;
+	cleanupAiAction();
+}
+
+/** Handles the 'Discard' action from the floating toolbar. */
+function handleDiscard() {
+	if (!isAiActionActive || !activeEditorView || !originalFragment) return;
+	
+	const { state, dispatch } = activeEditorView;
+	// Replace the AI suggestion with the stored original text fragment.
+	const tr = state.tr.replace(aiActionRange.from, aiActionRange.to, originalFragment);
+	dispatch(tr);
+	
+	cleanupAiAction();
+}
+
+/** Handles the 'Retry' action from the floating toolbar. */
+async function handleRetry() {
+	if (!isAiActionActive || !activeEditorView || !currentAiParams) return;
+	
+	const { state, dispatch } = activeEditorView;
+	
+	// First, discard the current changes to reset the editor state.
+	const tr = state.tr.replace(aiActionRange.from, aiActionRange.to, originalFragment);
+	dispatch(tr);
+	
+	if (floatingToolbar) {
+		floatingToolbar.remove();
+		floatingToolbar = null;
+	}
+	
+	// Now, re-run the AI action with the stored parameters.
+	await handleAiAction(null, currentAiParams);
+}
+
+/**
+ * Creates and displays the floating toolbar for reviewing AI suggestions.
+ * @param {EditorView} view The editor view instance.
+ * @param {number} from The starting position of the suggestion.
+ * @param {number} to The ending position of the suggestion.
+ * @param {string} model The AI model used for generation.
+ */
+function createFloatingToolbar(view, from, to, model) {
+	if (floatingToolbar) floatingToolbar.remove();
+	
+	const text = view.state.doc.textBetween(from, to, ' ');
+	const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
+	const modelName = model.split('/').pop() || model;
+	
+	const toolbarEl = document.createElement('div');
+	toolbarEl.id = 'ai-floating-toolbar';
+	toolbarEl.innerHTML = `
+        <button data-action="apply" title="Apply"><i class="bi bi-check-lg"></i> Apply</button>
+        <button data-action="retry" title="Retry"><i class="bi bi-arrow-repeat"></i> Retry</button>
+        <button data-action="discard" title="Discard"><i class="bi bi-x-lg"></i> Discard</button>
+        <div class="divider-vertical"></div>
+        <span class="text-gray-400">${wordCount} Words, ${modelName}</span>
+    `;
+	
+	// MODIFIED: Append to the viewport instead of the body to handle canvas transforms.
+	const viewport = document.getElementById('viewport');
+	if (!viewport) {
+		console.error('Could not find viewport element for floating toolbar.');
+		document.body.appendChild(toolbarEl);
+	} else {
+		viewport.appendChild(toolbarEl);
+	}
+	floatingToolbar = toolbarEl;
+	
+	// Position the toolbar below the generated text.
+	const endCoords = view.coordsAtPos(to);
+	// MODIFIED: Get viewport's position to calculate relative coordinates.
+	const viewportRect = viewport.getBoundingClientRect();
+	
+	// Adjust coordinates to be relative to the viewport element, which is the positioning parent.
+	const finalLeft = endCoords.left - viewportRect.left;
+	const finalTop = endCoords.bottom - viewportRect.top;
+	
+	toolbarEl.style.left = `${finalLeft}px`;
+	toolbarEl.style.top = `${finalTop + 5}px`;
+	
+	// Add event listeners for the toolbar buttons.
+	toolbarEl.addEventListener('mousedown', (e) => e.preventDefault()); // Prevent editor from losing focus
+	toolbarEl.addEventListener('click', (e) => {
+		const button = e.target.closest('button');
+		if (!button) return;
+		const action = button.dataset.action;
+		if (action === 'apply') handleApply();
+		if (action === 'discard') handleDiscard();
+		if (action === 'retry') handleRetry();
+	});
+}
+
+/**
+ * Initiates and manages the AI text processing stream and review workflow.
+ * @param {HTMLButtonElement | null} button The button that triggered the action, or null for a retry.
+ * @param {object | null} params The parameters for a retry action.
+ */
+async function handleAiAction(button, params = null) {
+	if (!activeEditorView || isAiActionActive) return;
+	
+	let action, model, text, from, to;
+	
+	if (params) { // This is a retry action.
+		action = params.action;
+		model = params.model;
+		text = params.text;
+		from = aiActionRange.from;
+		to = aiActionRange.from + originalFragment.size;
+	} else { // This is a new action from the main toolbar.
+		action = button.dataset.action;
+		const dropdown = button.closest('.js-dropdown-container').querySelector('.js-dropdown');
+		const modelSelect = dropdown.querySelector('.js-llm-model-select');
+		model = modelSelect.value;
+		
+		const { state } = activeEditorView;
+		from = state.selection.from;
+		to = state.selection.to;
+		text = state.doc.textBetween(from, to, ' ');
+		
+		if (!action || !model || !text || state.selection.empty) {
+			alert('Could not perform AI action. Please select text and choose a model.');
+			return;
+		}
+		
+		// Store original state for potential discard/retry.
+		// MODIFIED: Store the full Slice object, not just its .content. This is crucial for the replace transaction.
+		originalFragment = state.doc.slice(from, to);
+		aiActionRange = { from, to };
+		currentAiParams = { text, action, model };
+		
+		button.disabled = true;
+		button.textContent = 'Processing...';
+	}
+	
+	isAiActionActive = true;
+	updateToolbarState(activeEditorView);
+	setEditorEditable(activeEditorView, false);
 	
 	let isFirstChunk = true;
 	let currentInsertionPos = from;
@@ -199,53 +365,54 @@ async function handleAiAction(button) {
 	const onData = (payload) => {
 		if (payload.chunk) {
 			const { schema } = activeEditorView.state;
+			const mark = schema.marks.ai_suggestion.create();
+			const textNode = schema.text(payload.chunk, [mark]);
 			let tr;
+			
 			if (isFirstChunk) {
 				// On the first chunk, replace the entire user selection.
-				tr = activeEditorView.state.tr.replaceWith(from, to, schema.text(payload.chunk));
+				tr = activeEditorView.state.tr.replaceWith(from, to, textNode);
 				isFirstChunk = false;
 			} else {
 				// For subsequent chunks, insert text at the end of the last insertion.
-				tr = activeEditorView.state.tr.insertText(payload.chunk, currentInsertionPos);
+				tr = activeEditorView.state.tr.insert(currentInsertionPos, textNode);
 			}
 			
-			// Update the position for the next chunk.
 			currentInsertionPos += payload.chunk.length;
-			
-			// Move the user's cursor to the end of the newly inserted text.
-			const newSelection = activeEditorView.state.selection.constructor.create(tr.doc, currentInsertionPos);
-			tr.setSelection(newSelection);
+			aiActionRange.to = currentInsertionPos; // Update the end of the suggestion range.
 			
 			activeEditorView.dispatch(tr);
 			
 		} else if (payload.done) {
 			// Stream finished successfully.
-			button.disabled = false;
-			button.textContent = 'Apply';
-			activeEditorView.focus();
+			if (button) {
+				button.disabled = false;
+				button.textContent = 'Apply';
+			}
+			createFloatingToolbar(activeEditorView, aiActionRange.from, aiActionRange.to, model);
 			
 		} else if (payload.error) {
 			// An error occurred during the stream.
 			console.error('AI Action Error:', payload.error);
 			alert(`Error: ${payload.error}`);
-			button.disabled = false;
-			button.textContent = 'Apply';
-			
-			// Revert the changes by replacing the partially generated text with the original selection.
-			const { schema } = activeEditorView.state;
-			const tr = activeEditorView.state.tr.replaceWith(from, currentInsertionPos, schema.text(text));
-			activeEditorView.dispatch(tr);
+			if (button) {
+				button.disabled = false;
+				button.textContent = 'Apply';
+			}
+			handleDiscard(); // Revert changes on error.
 		}
 	};
 	
 	try {
-		// Call the new streaming API.
 		window.api.processCodexTextStream({ text, action, model }, onData);
 	} catch (error) {
 		console.error('AI Action Error:', error);
 		alert(`Error: ${error.message}`);
-		button.disabled = false;
-		button.textContent = 'Apply';
+		if (button) {
+			button.disabled = false;
+			button.textContent = 'Apply';
+		}
+		handleDiscard();
 	}
 }
 
@@ -268,7 +435,7 @@ async function handleToolbarAction(button) {
 		applyHighlight(button.dataset.bg.replace('highlight-', ''));
 		closeAllDropdowns();
 	} else if (button.classList.contains('js-ai-apply-btn')) {
-		await handleAiAction(button);
+		await handleAiAction(button); // MODIFIED: Call the new handler
 		closeAllDropdowns();
 	} else if (button.classList.contains('js-heading-option')) {
 		const level = parseInt(button.dataset.level, 10);
@@ -276,7 +443,7 @@ async function handleToolbarAction(button) {
 		closeAllDropdowns();
 	}
 	
-	if (activeEditorView) {
+	if (activeEditorView && !isAiActionActive) { // MODIFIED: Don't refocus if an AI action is active
 		activeEditorView.focus();
 	}
 }

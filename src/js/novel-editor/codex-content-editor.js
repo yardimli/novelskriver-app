@@ -67,6 +67,11 @@ export const schema = new Schema({
 		highlight_green: highlightMarkSpec('highlight-green'),
 		highlight_blue: highlightMarkSpec('highlight-blue'),
 		highlight_red: highlightMarkSpec('highlight-red'),
+		// NEW: Add a mark for AI-generated text that is under review.
+		ai_suggestion: {
+			parseDOM: [{ tag: 'span.ai-suggestion' }],
+			toDOM: () => ['span', { class: 'ai-suggestion' }, 0],
+		},
 	},
 });
 

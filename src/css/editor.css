@@ -70,6 +70,25 @@ i[class^="bi-"], i[class*=" bi-"] {
     cursor: text;
 }
 
+/* NEW: Style for AI-generated text during review */
+.ai-suggestion {
+    @apply text-sky-600 dark:text-sky-400 bg-sky-500/10;
+}
+
+/* NEW: Styles for the floating AI action toolbar */
+#ai-floating-toolbar {
+    @apply absolute z-50 bg-gray-800 text-white rounded-md shadow-lg p-1 flex items-center gap-1 text-xs;
+    user-select: none; /* Prevent text selection inside the toolbar */
+}
+
+#ai-floating-toolbar button {
+    @apply btn btn-ghost btn-xs text-white hover:bg-gray-700 normal-case font-normal flex items-center gap-1;
+}
+
+#ai-floating-toolbar .divider-vertical {
+    @apply w-px h-4 bg-gray-600 mx-1;
+}
+
 /* Styles for the top toolbar */
 #top-toolbar .js-toolbar-btn {
     @apply p-2 rounded text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors;
