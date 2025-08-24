@@ -13,7 +13,7 @@ import { baseKeymap, toggleMark } from 'prosemirror-commands';
 import { updateToolbarState } from './toolbar.js';
 
 const debounceTimers = new Map();
-const editorInstances = new Map();
+const editorInstances = new Map(); // MODIFIED: Uses a prefixed key (e.g., 'codex-1', 'chapter-2')
 let activeEditorView = null;
 
 const highlightMarkSpec = (colorClass) => ({
@@ -74,6 +74,7 @@ export const schema = new Schema({
 	},
 });
 
+// MODIFIED: This schema is used for simple, single-paragraph fields like description or summary.
 const descriptionSchema = new Schema({
 	nodes: {
 		doc: { content: 'paragraph' },
@@ -87,34 +88,44 @@ export function getActiveEditor() {
 	return activeEditorView;
 }
 
-// MODIFIED: This function now triggers a debounced save for any editable window.
-function triggerSave(windowContent) {
-	const entryId = windowContent.dataset.entryId;
-	const chapterId = windowContent.dataset.chapterId;
-	// NEW: Create a unique key for the debounce timer based on window type and ID.
-	const key = entryId ? `codex-${entryId}` : `chapter-${chapterId}`;
+// MODIFIED: Generalized function to trigger a debounced save for any window type.
+function triggerDebouncedSave(windowContent) {
+	const isChapter = windowContent.matches('.chapter-window-content');
+	const isCodex = windowContent.matches('.codex-entry-window-content');
 	
-	if (!key) return;
+	let id, key;
+	
+	if (isChapter) {
+		id = windowContent.dataset.chapterId;
+		key = `chapter-${id}`;
+	} else if (isCodex) {
+		id = windowContent.dataset.entryId;
+		key = `codex-${id}`;
+	} else {
+		return;
+	}
+	
+	if (!id) return;
 	
 	if (debounceTimers.has(key)) {
 		clearTimeout(debounceTimers.get(key));
 	}
 	
 	const timer = setTimeout(() => {
-		saveContent(windowContent);
+		saveWindowContent(windowContent);
 		debounceTimers.delete(key);
 	}, 2000);
 	
 	debounceTimers.set(key, timer);
 }
 
-// NEW: Generalized save function that handles both codex entries and chapters.
-async function saveContent(windowContent) {
-	const entryId = windowContent.dataset.entryId;
-	const chapterId = windowContent.dataset.chapterId;
+// MODIFIED: Generalized function to save content for either a codex entry or a chapter.
+async function saveWindowContent(windowContent) {
+	const isChapter = windowContent.matches('.chapter-window-content');
+	const isCodex = windowContent.matches('.codex-entry-window-content');
 	
-	if (entryId) {
-		// --- Save Codex Entry ---
+	if (isCodex) {
+		const entryId = windowContent.dataset.entryId;
 		const instances = editorInstances.get(`codex-${entryId}`);
 		if (!instances) return;
 		
@@ -127,26 +138,22 @@ async function saveContent(windowContent) {
 		tempDiv.appendChild(fragment);
 		const content = tempDiv.innerHTML;
 		
-		const data = {
-			title: titleInput.value,
-			description: description,
-			content: content,
-		};
+		const data = { title: titleInput.value, description, content };
 		
 		try {
 			const response = await window.api.updateCodexEntry(entryId, data);
-			if (!response.success) {
-				throw new Error(response.message || 'Failed to save codex entry.');
-			}
+			if (!response.success) throw new Error(response.message || 'Failed to save codex entry.');
 		} catch (error) {
 			console.error('Error saving codex entry:', error);
 			alert('Error: Could not save changes to codex entry.');
 		}
-		
-	} else if (chapterId) {
-		// --- Save Chapter Content ---
+	} else if (isChapter) {
+		const chapterId = windowContent.dataset.chapterId;
 		const instances = editorInstances.get(`chapter-${chapterId}`);
-		if (!instances || !instances.contentView) return;
+		if (!instances) return;
+		
+		const titleInput = windowContent.querySelector('.js-chapter-title-input');
+		const summary = instances.summaryView.state.doc.textContent;
 		
 		const serializer = DOMSerializer.fromSchema(schema);
 		const fragment = serializer.serializeFragment(instances.contentView.state.doc.content);
@@ -154,36 +161,46 @@ async function saveContent(windowContent) {
 		tempDiv.appendChild(fragment);
 		const content = tempDiv.innerHTML;
 		
-		const data = { content: content };
+		const data = { title: titleInput.value, summary, content };
 		
 		try {
+			// NEW: Call the API to update chapter content, title, and summary.
 			const response = await window.api.updateChapterContent(chapterId, data);
-			if (!response.success) {
-				throw new Error(response.message || 'Failed to save chapter content.');
-			}
+			if (!response.success) throw new Error(response.message || 'Failed to save chapter.');
 		} catch (error) {
-			console.error('Error saving chapter content:', error);
+			console.error('Error saving chapter:', error);
 			alert('Error: Could not save changes to chapter.');
 		}
 	}
 }
 
-// MODIFIED: Generalized to initialize editors for any window with editable content.
+// MODIFIED: Generalized function to initialize editors for a given window.
 function initEditorsForWindow(windowContent) {
-	const entryId = windowContent.dataset.entryId;
-	const chapterId = windowContent.dataset.chapterId;
-	const key = entryId ? `codex-${entryId}` : `chapter-${chapterId}`;
+	const isChapter = windowContent.matches('.chapter-window-content');
+	const isCodex = windowContent.matches('.codex-entry-window-content');
 	
-	if (!key || editorInstances.has(key)) return;
+	let id, key;
+	
+	if (isChapter) {
+		id = windowContent.dataset.chapterId;
+		key = `chapter-${id}`;
+	} else if (isCodex) {
+		id = windowContent.dataset.entryId;
+		key = `codex-${id}`;
+	} else {
+		return;
+	}
+	
+	if (!id || editorInstances.has(key)) return;
 	
 	const initialContentContainer = windowContent.querySelector('.js-pm-content');
 	if (!initialContentContainer) return;
 	
-	const createEditor = (mount, isDescription) => {
+	const createEditor = (mount, isSimpleSchema) => {
 		const name = mount.dataset.name;
 		const placeholder = mount.dataset.placeholder || '';
 		const initialContentEl = initialContentContainer.querySelector(`[data-name="${name}"]`);
-		const currentSchema = isDescription ? descriptionSchema : schema;
+		const currentSchema = isSimpleSchema ? descriptionSchema : schema;
 		
 		const doc = DOMParser.fromSchema(currentSchema).parse(initialContentEl);
 		
@@ -202,7 +219,7 @@ function initEditorsForWindow(windowContent) {
 					history(),
 					keymap({ 'Mod-z': undo, 'Mod-y': redo, 'Shift-Mod-z': redo }),
 					keymap(customKeymap),
-					isDescription ? keymap({ 'Enter': () => true }) : keymap({}),
+					isSimpleSchema ? keymap({ 'Enter': () => true }) : keymap({}),
 					new Plugin({
 						props: {
 							handleDOMEvents: {
@@ -230,8 +247,7 @@ function initEditorsForWindow(windowContent) {
 				const newState = view.state.apply(transaction);
 				view.updateState(newState);
 				if (transaction.docChanged) {
-					// MODIFIED: Call the generalized save trigger.
-					triggerSave(windowContent);
+					triggerDebouncedSave(windowContent);
 				}
 				if ((transaction.selectionSet || transaction.docChanged)) {
 					updateToolbarState(view);
@@ -241,37 +257,42 @@ function initEditorsForWindow(windowContent) {
 		return view;
 	};
 	
-	if (entryId) {
-		// --- Initialize Codex Editors ---
+	if (isCodex) {
 		const titleInput = windowContent.querySelector('.js-codex-title-input');
-		titleInput.addEventListener('input', () => triggerSave(windowContent));
+		titleInput.addEventListener('input', () => triggerDebouncedSave(windowContent));
 		
-		const descriptionMount = windowContent.querySelector('[data-name="description"]');
-		const contentMount = windowContent.querySelector('[data-name="content"]');
+		const descriptionMount = windowContent.querySelector('.js-codex-editable[data-name="description"]');
+		const contentMount = windowContent.querySelector('.js-codex-editable[data-name="content"]');
 		
-		if (descriptionMount && contentMount) {
-			const descriptionView = createEditor(descriptionMount, true);
-			const contentView = createEditor(contentMount, false);
-			editorInstances.set(key, { descriptionView, contentView });
-		}
-	} else if (chapterId) {
-		// --- Initialize Chapter Editor ---
-		const contentMount = windowContent.querySelector('[data-name="content"]');
-		if (contentMount) {
-			const contentView = createEditor(contentMount, false);
-			editorInstances.set(key, { contentView });
-		}
+		if (!descriptionMount || !contentMount) return;
+		
+		const descriptionView = createEditor(descriptionMount, true);
+		const contentView = createEditor(contentMount, false);
+		
+		editorInstances.set(key, { descriptionView, contentView });
+	} else if (isChapter) {
+		const titleInput = windowContent.querySelector('.js-chapter-title-input');
+		titleInput.addEventListener('input', () => triggerDebouncedSave(windowContent));
+		
+		const summaryMount = windowContent.querySelector('.js-editable[data-name="summary"]');
+		const contentMount = windowContent.querySelector('.js-editable[data-name="content"]');
+		
+		if (!summaryMount || !contentMount) return;
+		
+		const summaryView = createEditor(summaryMount, true);
+		const contentView = createEditor(contentMount, false);
+		
+		editorInstances.set(key, { summaryView, contentView });
 	}
 }
 
-// MODIFIED: Renamed function and updated observer to look for both window types.
+// MODIFIED: Renamed function and updated observer to watch for both window types.
 export function setupContentEditor(desktop) {
 	const observer = new MutationObserver((mutationsList) => {
 		for (const mutation of mutationsList) {
 			if (mutation.type === 'childList') {
 				mutation.addedNodes.forEach(node => {
 					if (node.nodeType !== Node.ELEMENT_NODE) return;
-					// MODIFIED: Selector now includes chapter windows.
 					const windowContent = node.querySelector('.codex-entry-window-content, .chapter-window-content') || (node.matches('.codex-entry-window-content, .chapter-window-content') ? node : null);
 					if (windowContent) {
 						initEditorsForWindow(windowContent);
@@ -279,18 +300,18 @@ export function setupContentEditor(desktop) {
 				});
 				mutation.removedNodes.forEach(node => {
 					if (node.nodeType !== Node.ELEMENT_NODE) return;
-					// MODIFIED: Selector now includes chapter windows.
 					const windowContent = node.querySelector('.codex-entry-window-content, .chapter-window-content') || (node.matches('.codex-entry-window-content, .chapter-window-content') ? node : null);
 					if (windowContent) {
-						const entryId = windowContent.dataset.entryId;
-						const chapterId = windowContent.dataset.chapterId;
-						const key = entryId ? `codex-${entryId}` : `chapter-${chapterId}`;
+						let key;
+						if (windowContent.matches('.codex-entry-window-content')) {
+							key = `codex-${windowContent.dataset.entryId}`;
+						} else if (windowContent.matches('.chapter-window-content')) {
+							key = `chapter-${windowContent.dataset.chapterId}`;
+						}
 						
-						if (editorInstances.has(key)) {
-							const instances = editorInstances.get(key);
-							// MODIFIED: Safely destroy editors that may or may not exist.
-							if (instances.descriptionView) instances.descriptionView.destroy();
-							if (instances.contentView) instances.contentView.destroy();
+						if (key && editorInstances.has(key)) {
+							const views = editorInstances.get(key);
+							Object.values(views).forEach(view => view.destroy());
 							editorInstances.delete(key);
 							debounceTimers.delete(key);
 						}
@@ -302,6 +323,5 @@ export function setupContentEditor(desktop) {
 	
 	observer.observe(desktop, { childList: true, subtree: true });
 	
-	// MODIFIED: Initial scan includes chapter windows.
 	desktop.querySelectorAll('.codex-entry-window-content, .chapter-window-content').forEach(initEditorsForWindow);
 }

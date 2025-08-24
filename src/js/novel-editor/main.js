@@ -1,7 +1,6 @@
 import WindowManager from './WindowManager.js';
 import { setupCodexEntryHandler, setupChapterHandler, setupOpenWindowsMenu, setupCanvasControls } from './eventHandlers.js';
 import { setupChapterEditor } from './chapter-editor.js';
-// MODIFIED: Renamed import from 'codex-content-editor' to 'content-editor'.
 import { setupContentEditor } from './content-editor.js';
 import { setupTopToolbar } from './toolbar.js';
 import './codex-entry-editor.js'; // Import for side-effects (attaches event listeners)

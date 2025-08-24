@@ -440,11 +440,9 @@ function setupIpcHandlers() {
 				: './assets/codex-placeholder.png';
 		});
 		
-		// NEW: Get template for codex tags within a chapter.
 		const chapterCodexTagTemplate = getTemplate('chapter-codex-tag');
 		
 		const codexTagsHtml = chapter.codexEntries.map(entry => {
-			// NEW: Use template instead of hardcoded string.
 			return chapterCodexTagTemplate
 				.replace(/{{ENTRY_ID}}/g, entry.id)
 				.replace(/{{ENTRY_TITLE}}/g, escapeAttr(entry.title))
@@ -457,8 +455,9 @@ function setupIpcHandlers() {
 		let template = getTemplate('chapter-window');
 		template = template.replace('{{CHAPTER_ID}}', chapter.id);
 		template = template.replace('{{SECTION_INFO_HTML}}', sectionInfoHtml);
-		template = template.replace('{{CHAPTER_TITLE}}', escapeAttr(chapter.title));
-		template = template.replace('{{CHAPTER_SUMMARY}}', escapeAttr(chapter.summary || ''));
+		// MODIFIED: Use new placeholders for the editable title input and summary div.
+		template = template.replace('{{CHAPTER_TITLE_ATTR}}', escapeAttr(chapter.title));
+		template = template.replace('{{CHAPTER_SUMMARY_HTML}}', chapter.summary || '');
 		template = template.replace('{{CONTENT_HTML}}', chapter.content || '');
 		template = template.replace('{{TAGS_WRAPPER_HIDDEN}}', chapter.codexEntries.length === 0 ? 'hidden' : '');
 		template = template.replace('{{CODEX_TAGS_HTML}}', codexTagsHtml);
@@ -468,8 +467,9 @@ function setupIpcHandlers() {
 	
 	ipcMain.handle('chapters:updateContent', (event, chapterId, data) => {
 		try {
-			db.prepare('UPDATE chapters SET content = ? WHERE id = ?')
-				.run(data.content, chapterId);
+			// MODIFIED: Update title, summary, and content for a chapter.
+			db.prepare('UPDATE chapters SET title = ?, summary = ?, content = ? WHERE id = ?')
+				.run(data.title, data.summary, data.content, chapterId);
 			return { success: true, message: 'Chapter content updated.' };
 		} catch (error) {
 			console.error(`Failed to update chapter ${chapterId}:`, error);
@@ -501,11 +501,9 @@ function setupIpcHandlers() {
 				: './assets/codex-placeholder.png';
 		});
 		
-		// NEW: Get template for linked codex entries.
 		const codexLinkTagTemplate = getTemplate('codex-link-tag');
 		
 		const linkedTagsHtml = codexEntry.linkedEntries.map(entry => {
-			// NEW: Use template instead of hardcoded string.
 			return codexLinkTagTemplate
 				.replace(/{{ENTRY_ID}}/g, entry.id)
 				.replace(/{{ENTRY_TITLE}}/g, escapeAttr(entry.title))

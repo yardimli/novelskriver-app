@@ -2,17 +2,19 @@
 <div class="p-4 flex flex-col h-full chapter-window-content select-text js-chapter-drop-zone transition-colors duration-300" data-chapter-id="{{CHAPTER_ID}}">
 	<div class="prose prose-sm dark:prose-invert max-w-none flex-shrink-0">
 		{{SECTION_INFO_HTML}}
-		<h2>{{CHAPTER_TITLE}}</h2>
-		<!-- MODIFIED: Now displays only the static summary text -->
-		<p class="lead">{{CHAPTER_SUMMARY}}</p>
+		<!-- MODIFIED: Replaced static h2 with an editable input for the chapter title -->
+		<input type="text" name="title" value="{{CHAPTER_TITLE_ATTR}}" class="js-chapter-title-input text-2xl font-bold w-full bg-transparent border-0 p-0 focus:ring-0 focus:border-b-2 focus:border-indigo-500" placeholder="Chapter Title">
+		<!-- MODIFIED: Replaced static summary paragraph with an editable div for ProseMirror -->
+		<div class="js-editable lead mt-2 relative" data-name="summary" data-placeholder="Enter a short summary..."></div>
 	</div>
 	<div class="js-codex-tags-wrapper mt-4 flex-shrink-0 border-t border-gray-200 dark:border-gray-700 pt-3 {{TAGS_WRAPPER_HIDDEN}}">
 		<div class="js-codex-tags-container flex flex-wrap gap-2">{{CODEX_TAGS_HTML}}</div>
 	</div>
-	<!-- NEW: Added editable content area for ProseMirror -->
+	<!-- MODIFIED: The main content area is now a ProseMirror editor instance -->
 	<div class="mt-4 flex-grow overflow-y-auto prose prose-sm dark:prose-invert max-w-none js-editable relative" data-name="content" data-placeholder="Start writing your chapter here..."></div>
-	<!-- NEW: Hidden container for initial ProseMirror content -->
+	<!-- MODIFIED: Hidden container for initial ProseMirror content now includes the summary -->
 	<div class="js-pm-content hidden">
+		<div data-name="summary">{{CHAPTER_SUMMARY_HTML}}</div>
 		<div data-name="content">{{CONTENT_HTML}}</div>
 	</div>
 </div>

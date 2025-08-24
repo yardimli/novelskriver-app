@@ -31,7 +31,7 @@ contextBridge.exposeInMainWorld('api', {
 	attachCodexToChapter: (chapterId, codexEntryId) => ipcRenderer.invoke('chapters:codex:attach', chapterId, codexEntryId),
 	detachCodexFromChapter: (chapterId, codexEntryId) => ipcRenderer.invoke('chapters:codex:detach', chapterId, codexEntryId),
 	
-	// NEW: Chapter Content Management
+	// MODIFIED: Chapter Content Management now handles title, summary, and content.
 	updateChapterContent: (chapterId, data) => ipcRenderer.invoke('chapters:updateContent', chapterId, data),
 	
 	// Codex Entry Management
