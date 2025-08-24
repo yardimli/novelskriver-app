@@ -62,9 +62,10 @@ async function generateCoverPrompt(novelTitle) {
 /**
  * Generates an image using the Fal.ai API.
  * @param {string} prompt - The text prompt for the image.
+ * @param {string} [imageSize='portrait_16_9'] - The desired image size.
  * @returns {Promise<string|null>} The URL of the generated image, or null on failure.
  */
-async function generateFalImage(prompt) {
+async function generateFalImage(prompt, imageSize = 'portrait_16_9') {
 	if (!FAL_API_KEY) {
 		console.error('Fal.ai API key is not configured.');
 		return null;
@@ -79,7 +80,7 @@ async function generateFalImage(prompt) {
 			},
 			body: JSON.stringify({
 				prompt: prompt,
-				image_size: 'portrait_16_9', // Default size for covers
+				image_size: imageSize,
 			})
 		});
 		
@@ -178,9 +179,43 @@ Focus on the most prominent elements mentioned in the synopsis and chapter summa
 	});
 }
 
+/**
+ * NEW: Processes a text selection using an LLM for actions like rephrasing.
+ * @param {object} params - The parameters for the text processing.
+ * @param {string} params.text - The text to process.
+ * @param {string} params.action - The action to perform ('expand', 'rephrase', 'shorten').
+ * @param {string} params.model - The LLM model to use.
+ * @returns {Promise<object>} The parsed JSON response with the processed text.
+ */
+async function processCodexText({ text, action, model }) {
+	const actionInstruction = {
+		'expand': 'Expand on the following text, adding more detail, description, and context. Make it about twice as long.',
+		'rephrase': 'Rephrase the following text to make it clearer, more engaging, or to have a different tone, while preserving the core meaning.',
+		'shorten': 'Shorten the following text, condensing it to its most essential points. Make it about half as long.',
+	}[action] || 'Process the following text.';
+	
+	const prompt = `
+You are a writing assistant. Your task is to process a piece of text based on a specific instruction.
+
+**Instruction:** ${actionInstruction}
+
+**Original Text:**
+"${text}"
+
+Please provide only the modified text as your response. The output must be a single, valid JSON object with one key: "processed_text". Do not include any explanations or surrounding text.`;
+	
+	return callOpenRouter({
+		model: model,
+		messages: [{ role: 'user', content: prompt }],
+		response_format: { type: 'json_object' },
+		temperature: 0.7,
+	});
+}
+
 module.exports = {
 	generateCoverPrompt,
 	generateFalImage,
-	generateNovelOutline, // NEW
-	generateNovelCodex,   // NEW
+	generateNovelOutline,
+	generateNovelCodex,
+	processCodexText, // NEW
 };

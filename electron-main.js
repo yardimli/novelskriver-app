@@ -1,23 +1,22 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog } = require('electron'); // MODIFIED: Added dialog
 const path = require('path');
 const url = require('url');
 const fetch = require('node-fetch');
-const fs = require('fs'); // NEW: Import fs module
+const fs = require('fs');
 
-// Load environment variables from .env file
 require('dotenv').config();
 
-// Import the initialization function, not the db instance directly.
 const { initializeDatabase } = require('./src/database/database.js');
 const aiService = require('./src/ai/ai.js');
 const imageHandler = require('./src/utils/image-handler.js');
+// NEW: Import HTML rendering helpers
+const { renderChapterWindow, renderCodexEntryWindow } = require('./src/utils/html-renderer.js');
 
 let db;
 let mainWindow;
 let editorWindows = new Map();
 
 // --- Window Creation Functions ---
-// ... (createMainWindow and createEditorWindow functions remain unchanged) ...
 
 /**
  * Creates the main application window (Dashboard).
@@ -41,7 +40,8 @@ function createMainWindow() {
 		callback({
 			responseHeaders: {
 				...details.responseHeaders,
-				'Content-Security-Policy': ["default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' file:;"]
+				// MODIFIED: Added 'data:' to img-src for image previews
+				'Content-Security-Policy': ["default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' file: data:;"]
 			}
 		});
 	});
@@ -76,6 +76,16 @@ function createEditorWindow(novelId) {
 		}
 	});
 	
+	// MODIFIED: Added CSP for editor window
+	editorWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+		callback({
+			responseHeaders: {
+				...details.responseHeaders,
+				'Content-Security-Policy': ["default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' file: data:;"]
+			}
+		});
+	});
+	
 	editorWindow.loadFile('public/novel-editor.html', { query: { novelId: novelId } });
 	editorWindows.set(novelId, editorWindow);
 	
@@ -87,13 +97,11 @@ function createEditorWindow(novelId) {
 
 /**
  * Wraps all IPC handler registrations in a single function.
- * This ensures they are only set up AFTER the database is ready.
  */
 function setupIpcHandlers() {
 	// --- Novel Handlers ---
 	
 	ipcMain.handle('novels:getAllWithCovers', () => {
-		// MODIFIED: Also retrieve chapter count to determine if the AI button should show.
 		const stmt = db.prepare(`
             SELECT
                 n.*,
@@ -116,26 +124,38 @@ function setupIpcHandlers() {
 		return novels;
 	});
 	
-	// ... (novels:getOne handler remains unchanged) ...
 	ipcMain.handle('novels:getOne', (event, novelId) => {
 		const novel = db.prepare('SELECT * FROM novels WHERE id = ?').get(novelId);
 		if (!novel) return null;
+		
+		// This function now returns all data needed to bootstrap the editor.
 		novel.sections = db.prepare('SELECT * FROM sections WHERE novel_id = ? ORDER BY `order`').all(novelId);
 		novel.sections.forEach(section => {
 			section.chapters = db.prepare('SELECT * FROM chapters WHERE section_id = ? ORDER BY `order`').all(section.id);
 		});
+		
 		novel.codexCategories = db.prepare(`
             SELECT cc.*, COUNT(ce.id) as entries_count FROM codex_categories cc
             LEFT JOIN codex_entries ce ON ce.codex_category_id = cc.id
             WHERE cc.novel_id = ? GROUP BY cc.id ORDER BY cc.name
         `).all(novelId);
+		
 		novel.codexCategories.forEach(category => {
 			category.entries = db.prepare(`
-                SELECT ce.*, i.thumbnail_local_path FROM codex_entries ce
+                SELECT ce.*, i.thumbnail_local_path
+                FROM codex_entries ce
                 LEFT JOIN images i ON i.codex_entry_id = ce.id
                 WHERE ce.codex_category_id = ? ORDER BY ce.title
             `).all(category.id);
+			
+			// Construct full thumbnail URL
+			category.entries.forEach(entry => {
+				entry.thumbnail_url = entry.thumbnail_local_path
+					? `file://${path.join(imageHandler.IMAGES_DIR, entry.thumbnail_local_path)}`
+					: './assets/codex-placeholder.png';
+			});
 		});
+		
 		if (novel.editor_state) {
 			try {
 				novel.editor_state = JSON.parse(novel.editor_state);
@@ -147,7 +167,6 @@ function setupIpcHandlers() {
 		return novel;
 	});
 	
-	// ... (novels:store handler remains unchanged) ...
 	ipcMain.handle('novels:store', async (event, data) => {
 		const userId = 1;
 		const stmt = db.prepare(`
@@ -170,9 +189,7 @@ function setupIpcHandlers() {
                                 VALUES (?, ?, ?, ?, ?, ?)
                             `).run(userId, novelId, localPath, imageUrl, imagePrompt, 'generated');
 							
-							// MODIFIED: Send an absolute path to the renderer for the live update.
 							const absolutePath = path.join(imageHandler.IMAGES_DIR, localPath);
-							// The frontend listener `onCoverUpdated` expects a payload with `imagePath`.
 							if (mainWindow) {
 								mainWindow.webContents.send('novels:cover-updated', { novelId, imagePath: absolutePath });
 							}
@@ -187,7 +204,6 @@ function setupIpcHandlers() {
 		return { id: novelId, ...data };
 	});
 	
-	// ... (novels:openEditor and novels:generateTitle handlers remain unchanged) ...
 	ipcMain.on('novels:openEditor', (event, novelId) => {
 		createEditorWindow(novelId);
 	});
@@ -219,11 +235,9 @@ function setupIpcHandlers() {
 		}
 	});
 	
-	// --- NEW: Structure Generation Handler ---
 	ipcMain.handle('novels:generateStructure', async (event, data) => {
 		const { novelId, book_about, book_structure, language, llm_model } = data;
 		
-		// 1. Authorization/Validation
 		const novel = db.prepare('SELECT id, title FROM novels WHERE id = ?').get(novelId);
 		if (!novel) {
 			throw new Error('Novel not found.');
@@ -233,14 +247,12 @@ function setupIpcHandlers() {
 			throw new Error('This novel already has chapters and cannot be auto-filled.');
 		}
 		
-		// 2. Read structure file
 		const structurePath = path.join(__dirname, 'structures', book_structure);
 		if (!fs.existsSync(structurePath)) {
 			throw new Error('Selected structure file not found.');
 		}
 		const structureContent = fs.readFileSync(structurePath, 'utf8');
 		
-		// 3. LLM Call 1: Generate Outline
 		const outlineResponse = await aiService.generateNovelOutline({
 			title: novel.title,
 			about: book_about,
@@ -252,20 +264,16 @@ function setupIpcHandlers() {
 			throw new Error('Failed to generate a valid novel structure from the LLM.');
 		}
 		
-		// 4. LLM Call 2: Generate Codex
 		const codexResponse = await aiService.generateNovelCodex({
 			outlineJson: JSON.stringify(outlineResponse),
 			language: language,
 			model: llm_model,
 		});
 		
-		// 5. Database Transaction
 		const runTransaction = db.transaction(() => {
-			// Update novel details
 			db.prepare('UPDATE novels SET genre = ?, logline = ?, synopsis = ? WHERE id = ?')
 				.run(outlineResponse.genre || null, outlineResponse.logline || null, outlineResponse.synopsis || null, novelId);
 			
-			// Create Sections and Chapters
 			let sectionOrder = 1;
 			for (const sectionData of outlineResponse.sections) {
 				const sectionResult = db.prepare('INSERT INTO sections (novel_id, title, description, "order") VALUES (?, ?, ?, ?)')
@@ -279,7 +287,6 @@ function setupIpcHandlers() {
 				}
 			}
 			
-			// Create Codex Entries
 			if (codexResponse) {
 				if (codexResponse.characters && codexResponse.characters.length > 0) {
 					let charCategory = db.prepare('SELECT id FROM codex_categories WHERE novel_id = ? AND name = ?').get(novelId, 'Characters');
@@ -313,7 +320,6 @@ function setupIpcHandlers() {
 	});
 	
 	// --- File System Handlers ---
-	// NEW: Handler to read structure files for the form dropdown.
 	ipcMain.handle('files:getStructureFiles', () => {
 		try {
 			const structuresDir = path.join(__dirname, 'structures');
@@ -321,7 +327,6 @@ function setupIpcHandlers() {
 			return files
 				.filter(file => file.endsWith('.txt'))
 				.map(file => {
-					// Create a more readable name from the filename
 					const name = path.basename(file, '.txt')
 						.replace(/-/g, ' ')
 						.replace(/\b\w/g, l => l.toUpperCase());
@@ -334,14 +339,12 @@ function setupIpcHandlers() {
 	});
 	
 	// --- Author Handlers ---
-	// ... (authors:getDistinct handler remains unchanged) ...
 	ipcMain.handle('authors:getDistinct', () => {
 		const stmt = db.prepare('SELECT DISTINCT author FROM novels WHERE author IS NOT NULL ORDER BY author ASC');
 		return stmt.all().map(row => row.author);
 	});
 	
 	// --- Series Handlers ---
-	// ... (series:getAll and series:store handlers remain unchanged) ...
 	ipcMain.handle('series:getAll', () => {
 		return db.prepare('SELECT * FROM series ORDER BY title ASC').all();
 	});
@@ -356,36 +359,260 @@ function setupIpcHandlers() {
 		const result = stmt.run(userId, data.title);
 		return { id: result.lastInsertRowid, title: data.title };
 	});
+	
+	// --- NEW: Editor IPC Handlers ---
+	
+	ipcMain.handle('editor:saveState', (event, novelId, state) => {
+		try {
+			const jsonState = JSON.stringify(state);
+			db.prepare('UPDATE novels SET editor_state = ? WHERE id = ?').run(jsonState, novelId);
+			return { success: true };
+		} catch (error) {
+			console.error('Failed to save editor state:', error);
+			throw error;
+		}
+	});
+	
+	ipcMain.handle('chapters:getOneHtml', (event, chapterId) => {
+		const chapter = db.prepare(`
+            SELECT c.*, s.order as section_order
+            FROM chapters c
+            LEFT JOIN sections s ON c.section_id = s.id
+            WHERE c.id = ?
+        `).get(chapterId);
+		
+		if (!chapter) throw new Error('Chapter not found');
+		
+		chapter.codexEntries = db.prepare(`
+            SELECT ce.*, i.thumbnail_local_path
+            FROM codex_entries ce
+            JOIN chapter_codex_entry cce ON ce.id = cce.codex_entry_id
+            LEFT JOIN images i ON ce.id = i.codex_entry_id
+            WHERE cce.chapter_id = ?
+            ORDER BY ce.title
+        `).all(chapterId);
+		
+		chapter.codexEntries.forEach(entry => {
+			entry.thumbnail_url = entry.thumbnail_local_path
+				? `file://${path.join(imageHandler.IMAGES_DIR, entry.thumbnail_local_path)}`
+				: './assets/codex-placeholder.png';
+		});
+		
+		return renderChapterWindow(chapter);
+	});
+	
+	ipcMain.handle('codex-entries:getOneHtml', (event, entryId) => {
+		const codexEntry = db.prepare('SELECT * FROM codex_entries WHERE id = ?').get(entryId);
+		if (!codexEntry) throw new Error('Codex Entry not found');
+		
+		const image = db.prepare('SELECT * FROM images WHERE codex_entry_id = ?').get(entryId);
+		codexEntry.image_url = image
+			? `file://${path.join(imageHandler.IMAGES_DIR, image.image_local_path)}`
+			: './assets/codex-placeholder.png';
+		
+		codexEntry.linkedEntries = db.prepare(`
+            SELECT ce.*, i.thumbnail_local_path
+            FROM codex_entries ce
+            JOIN codex_entry_links cel ON ce.id = cel.linked_codex_entry_id
+            LEFT JOIN images i ON ce.id = i.codex_entry_id
+            WHERE cel.codex_entry_id = ?
+            ORDER BY ce.title
+        `).all(entryId);
+		
+		codexEntry.linkedEntries.forEach(entry => {
+			entry.thumbnail_url = entry.thumbnail_local_path
+				? `file://${path.join(imageHandler.IMAGES_DIR, entry.thumbnail_local_path)}`
+				: './assets/codex-placeholder.png';
+		});
+		
+		return renderCodexEntryWindow(codexEntry);
+	});
+	
+	ipcMain.handle('chapters:codex:attach', (event, chapterId, codexEntryId) => {
+		db.prepare('INSERT OR IGNORE INTO chapter_codex_entry (chapter_id, codex_entry_id) VALUES (?, ?)')
+			.run(chapterId, codexEntryId);
+		
+		const codexEntry = db.prepare('SELECT ce.*, i.thumbnail_local_path FROM codex_entries ce LEFT JOIN images i ON ce.id = i.codex_entry_id WHERE ce.id = ?')
+			.get(codexEntryId);
+		
+		codexEntry.thumbnail_url = codexEntry.thumbnail_local_path
+			? `file://${path.join(imageHandler.IMAGES_DIR, codexEntry.thumbnail_local_path)}`
+			: './assets/codex-placeholder.png';
+		
+		return {
+			success: true,
+			message: 'Codex entry linked successfully.',
+			codexEntry: {
+				id: codexEntry.id,
+				title: codexEntry.title,
+				thumbnail_url: codexEntry.thumbnail_url,
+			}
+		};
+	});
+	
+	ipcMain.handle('chapters:codex:detach', (event, chapterId, codexEntryId) => {
+		db.prepare('DELETE FROM chapter_codex_entry WHERE chapter_id = ? AND codex_entry_id = ?')
+			.run(chapterId, codexEntryId);
+		return { success: true, message: 'Codex entry unlinked.' };
+	});
+	
+	ipcMain.handle('codex-entries:store', async (event, novelId, formData) => {
+		const { title, description, content, codex_category_id, new_category_name, imagePath } = formData;
+		const userId = 1;
+		let categoryId = codex_category_id;
+		let newCategoryData = null;
+		
+		const runTransaction = db.transaction(() => {
+			if (new_category_name) {
+				const result = db.prepare('INSERT INTO codex_categories (novel_id, name) VALUES (?, ?)')
+					.run(novelId, new_category_name);
+				categoryId = result.lastInsertRowid;
+				newCategoryData = { id: categoryId, name: new_category_name };
+			}
+			
+			const entryResult = db.prepare('INSERT INTO codex_entries (novel_id, codex_category_id, title, description, content) VALUES (?, ?, ?, ?, ?)')
+				.run(novelId, categoryId, title, description, content);
+			const entryId = entryResult.lastInsertRowid;
+			
+			if (imagePath) {
+				const paths = imageHandler.storeImageFromPath(imagePath, novelId, entryId, 'codex-image-upload')._settledValue;
+				db.prepare('INSERT INTO images (user_id, novel_id, codex_entry_id, image_local_path, thumbnail_local_path, image_type) VALUES (?, ?, ?, ?, ?, ?)')
+					.run(userId, novelId, entryId, paths.original_path, paths.thumbnail_path, 'upload');
+			}
+			
+			const newEntry = db.prepare('SELECT ce.*, i.thumbnail_local_path FROM codex_entries ce LEFT JOIN images i ON ce.id = i.codex_entry_id WHERE ce.id = ?')
+				.get(entryId);
+			
+			return {
+				success: true,
+				message: 'Codex entry created successfully.',
+				codexEntry: {
+					id: newEntry.id,
+					title: newEntry.title,
+					description: newEntry.description,
+					thumbnail_url: newEntry.thumbnail_local_path
+						? `file://${path.join(imageHandler.IMAGES_DIR, newEntry.thumbnail_local_path)}`
+						: './assets/codex-placeholder.png',
+					category_id: newEntry.codex_category_id,
+				},
+				newCategory: newCategoryData,
+			};
+		});
+		
+		return runTransaction();
+	});
+	
+	ipcMain.handle('codex-entries:update', (event, entryId, data) => {
+		db.prepare('UPDATE codex_entries SET title = ?, description = ?, content = ? WHERE id = ?')
+			.run(data.title, data.description, data.content, entryId);
+		return { success: true, message: 'Codex entry updated successfully.' };
+	});
+	
+	ipcMain.handle('codex-entries:link:attach', (event, parentEntryId, linkedEntryId) => {
+		db.prepare('INSERT OR IGNORE INTO codex_entry_links (codex_entry_id, linked_codex_entry_id) VALUES (?, ?)')
+			.run(parentEntryId, linkedEntryId);
+		
+		const linkedEntry = db.prepare('SELECT ce.*, i.thumbnail_local_path FROM codex_entries ce LEFT JOIN images i ON ce.id = i.codex_entry_id WHERE ce.id = ?')
+			.get(linkedEntryId);
+		
+		linkedEntry.thumbnail_url = linkedEntry.thumbnail_local_path
+			? `file://${path.join(imageHandler.IMAGES_DIR, linkedEntry.thumbnail_local_path)}`
+			: './assets/codex-placeholder.png';
+		
+		return {
+			success: true,
+			message: 'Codex entry linked successfully.',
+			codexEntry: {
+				id: linkedEntry.id,
+				title: linkedEntry.title,
+				thumbnail_url: linkedEntry.thumbnail_url,
+			}
+		};
+	});
+	
+	ipcMain.handle('codex-entries:link:detach', (event, parentEntryId, linkedEntryId) => {
+		db.prepare('DELETE FROM codex_entry_links WHERE codex_entry_id = ? AND linked_codex_entry_id = ?')
+			.run(parentEntryId, linkedEntryId);
+		return { success: true, message: 'Codex entry unlinked.' };
+	});
+	
+	ipcMain.handle('codex-entries:process-text', async (event, entryId, data) => {
+		const result = await aiService.processCodexText(data);
+		return { success: true, text: result.processed_text };
+	});
+	
+	ipcMain.handle('codex-entries:generate-image', async (event, entryId, prompt) => {
+		const entry = db.prepare('SELECT novel_id FROM codex_entries WHERE id = ?').get(entryId);
+		const imageUrl = await aiService.generateFalImage(prompt, 'square_hd');
+		if (!imageUrl) throw new Error('Failed to get image URL from AI service.');
+		
+		const paths = await imageHandler.storeImageFromUrl(imageUrl, entry.novel_id, `codex-image-${entryId}`);
+		
+		// Delete old image if it exists
+		const oldImage = db.prepare('SELECT * FROM images WHERE codex_entry_id = ?').get(entryId);
+		if (oldImage) {
+			const oldPath = path.join(imageHandler.IMAGES_DIR, oldImage.image_local_path);
+			if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+			db.prepare('DELETE FROM images WHERE id = ?').run(oldImage.id);
+		}
+		
+		db.prepare('INSERT INTO images (user_id, novel_id, codex_entry_id, image_local_path, thumbnail_local_path, remote_url, prompt, image_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+			.run(1, entry.novel_id, entryId, paths, paths, imageUrl, prompt, 'generated');
+		
+		return {
+			success: true,
+			message: 'Image generated successfully!',
+			image_url: `file://${path.join(imageHandler.IMAGES_DIR, paths)}?t=${Date.now()}`
+		};
+	});
+	
+	ipcMain.handle('codex-entries:upload-image', async (event, entryId, filePath) => {
+		const entry = db.prepare('SELECT novel_id FROM codex_entries WHERE id = ?').get(entryId);
+		const paths = await imageHandler.storeImageFromPath(filePath, entry.novel_id, entryId, 'codex-image-upload');
+		
+		const oldImage = db.prepare('SELECT * FROM images WHERE codex_entry_id = ?').get(entryId);
+		if (oldImage) {
+			const oldPath = path.join(imageHandler.IMAGES_DIR, oldImage.image_local_path);
+			if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+			db.prepare('DELETE FROM images WHERE id = ?').run(oldImage.id);
+		}
+		
+		db.prepare('INSERT INTO images (user_id, novel_id, codex_entry_id, image_local_path, thumbnail_local_path, image_type) VALUES (?, ?, ?, ?, ?, ?)')
+			.run(1, entry.novel_id, entryId, paths.original_path, paths.thumbnail_path, 'upload');
+		
+		return {
+			success: true,
+			message: 'Image uploaded successfully!',
+			image_url: `file://${path.join(imageHandler.IMAGES_DIR, paths.original_path)}?t=${Date.now()}`
+		};
+	});
+	
+	ipcMain.handle('dialog:showOpenImage', async () => {
+		const { canceled, filePaths } = await dialog.showOpenDialog({
+			properties: ['openFile'],
+			filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp'] }]
+		});
+		if (!canceled) {
+			return filePaths[0];
+		}
+		return null;
+	});
 }
 
 // --- App Lifecycle Events ---
-// ... (app.on events remain unchanged) ...
-/**
- * This is the main entry point for the application.
- * It waits for Electron to be ready before doing anything.
- */
 app.on('ready', () => {
-	// 1. Initialize the database. This MUST be the first step.
 	db = initializeDatabase();
-	
-	// 2. Set up all the IPC handlers that depend on the database.
 	setupIpcHandlers();
-	
-	// 3. Create the main application window.
 	createMainWindow();
 });
 
 app.on('window-all-closed', () => {
-	// On macOS it's common for applications and their menu bar
-	// to stay active until the user quits explicitly with Cmd + Q
 	if (process.platform !== 'darwin') {
 		app.quit();
 	}
 });
 
 app.on('activate', () => {
-	// On macOS it's common to re-create a window in the app when the
-	// dock icon is clicked and there are no other windows open.
 	if (mainWindow === null) {
 		createMainWindow();
 	}
