@@ -1,0 +1,10 @@
+<!-- NEW: Template for a single chapter in the outline window -->
+<button type="button"
+        class="js-open-chapter btn btn-ghost w-full justify-start text-left h-auto p-2"
+        data-chapter-id="{{CHAPTER_ID}}"
+        data-chapter-title="{{CHAPTER_TITLE}}">
+	<div class="flex flex-col">
+		<h4 class="font-semibold">{{CHAPTER_ORDER}}. {{CHAPTER_TITLE}}</h4>
+		{{CHAPTER_SUMMARY_HTML}}
+	</div>
+</button>

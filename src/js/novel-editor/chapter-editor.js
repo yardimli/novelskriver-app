@@ -48,13 +48,13 @@ export function setupChapterEditor(desktop) {
 		if (dropZone.querySelector(`.js-codex-tag[data-entry-id="${codexEntryId}"]`)) return;
 		
 		try {
-			// MODIFIED: Replaced fetch with window.api call
 			const data = await window.api.attachCodexToChapter(chapterId, codexEntryId);
 			if (!data.success) throw new Error(data.message || 'Failed to link codex entry.');
 			
 			const tagContainer = dropZone.querySelector('.js-codex-tags-container');
 			if (tagContainer) {
-				const newTag = createCodexTagElement(chapterId, data.codexEntry);
+				// MODIFIED: Await the async function call.
+				const newTag = await createCodexTagElement(chapterId, data.codexEntry);
 				tagContainer.appendChild(newTag);
 				const tagsWrapper = dropZone.querySelector('.js-codex-tags-wrapper');
 				if (tagsWrapper) tagsWrapper.classList.remove('hidden');
@@ -80,7 +80,6 @@ export function setupChapterEditor(desktop) {
 		}
 		
 		try {
-			// MODIFIED: Replaced fetch with window.api call
 			const data = await window.api.detachCodexFromChapter(chapterId, codexEntryId);
 			if (!data.success) throw new Error(data.message || 'Failed to unlink codex entry.');
 			
@@ -99,33 +98,23 @@ export function setupChapterEditor(desktop) {
 }
 
 /**
- * Helper function to create the HTML for a new codex tag.
+ * MODIFIED: Helper function to create the HTML for a new codex tag using a template.
  * @param {string} chapterId
  * @param {object} codexEntry
- * @returns {HTMLElement}
+ * @returns {Promise<HTMLElement>}
  */
-function createCodexTagElement(chapterId, codexEntry) {
-	const div = document.createElement('div');
-	div.className = 'js-codex-tag group/tag relative inline-flex items-center gap-2 bg-gray-200 dark:bg-gray-700 rounded-full pr-2';
-	div.dataset.entryId = codexEntry.id;
+async function createCodexTagElement(chapterId, codexEntry) {
+	// NEW: Fetch the template for a codex tag in a chapter window.
+	let template = await window.api.getTemplate('chapter-codex-tag');
 	
-	div.innerHTML = `
-        <button type="button"
-                class="js-open-codex-entry flex items-center gap-2 pl-1 pr-2 py-1 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-                data-entry-id="${codexEntry.id}"
-                data-entry-title="${codexEntry.title}">
-            <img src="${codexEntry.thumbnail_url}" alt="Thumbnail for ${codexEntry.title}" class="w-5 h-5 object-cover rounded-full flex-shrink-0">
-            <span class="js-codex-tag-title text-xs font-medium">${codexEntry.title}</span>
-        </button>
-        <button type="button"
-                class="js-remove-codex-link absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover/tag:opacity-100 transition-opacity"
-                data-chapter-id="${chapterId}"
-                data-entry-id="${codexEntry.id}"
-                title="Unlink this entry">
-            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8z"/>
-            </svg>
-        </button>
-    `;
-	return div;
+	// NEW: Populate the template with data.
+	template = template.replace(/{{CHAPTER_ID}}/g, chapterId);
+	template = template.replace(/{{ENTRY_ID}}/g, codexEntry.id);
+	template = template.replace(/{{ENTRY_TITLE}}/g, codexEntry.title);
+	template = template.replace(/{{THUMBNAIL_URL}}/g, codexEntry.thumbnail_url);
+	
+	// NEW: Create an element from the populated HTML string.
+	const div = document.createElement('div');
+	div.innerHTML = template.trim();
+	return div.firstChild;
 }

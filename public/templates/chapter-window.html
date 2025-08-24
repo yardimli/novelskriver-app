@@ -1,12 +1,18 @@
-<!-- NEW: Template for a single chapter window -->
+<!-- MODIFIED: Template for a single chapter window, now with an editable content area -->
 <div class="p-4 flex flex-col h-full chapter-window-content select-text js-chapter-drop-zone transition-colors duration-300" data-chapter-id="{{CHAPTER_ID}}">
 	<div class="prose prose-sm dark:prose-invert max-w-none flex-shrink-0">
 		{{SECTION_INFO_HTML}}
 		<h2>{{CHAPTER_TITLE}}</h2>
-		{{CHAPTER_SUMMARY_HTML}}
+		<!-- MODIFIED: Now displays only the static summary text -->
+		<p class="lead">{{CHAPTER_SUMMARY}}</p>
 	</div>
 	<div class="js-codex-tags-wrapper mt-4 flex-shrink-0 border-t border-gray-200 dark:border-gray-700 pt-3 {{TAGS_WRAPPER_HIDDEN}}">
 		<div class="js-codex-tags-container flex flex-wrap gap-2">{{CODEX_TAGS_HTML}}</div>
 	</div>
-	<div class="flex-grow"></div>
+	<!-- NEW: Added editable content area for ProseMirror -->
+	<div class="mt-4 flex-grow overflow-y-auto prose prose-sm dark:prose-invert max-w-none js-editable relative" data-name="content" data-placeholder="Start writing your chapter here..."></div>
+	<!-- NEW: Hidden container for initial ProseMirror content -->
+	<div class="js-pm-content hidden">
+		<div data-name="content">{{CONTENT_HTML}}</div>
+	</div>
 </div>

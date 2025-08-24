@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS chapters (
     section_id INTEGER NOT NULL,
     title TEXT NOT NULL,
     summary TEXT,
+    content TEXT,
     status TEXT,
     chapter_order INTEGER NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

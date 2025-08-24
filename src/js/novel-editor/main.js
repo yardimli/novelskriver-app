@@ -1,86 +1,99 @@
 import WindowManager from './WindowManager.js';
 import { setupCodexEntryHandler, setupChapterHandler, setupOpenWindowsMenu, setupCanvasControls } from './eventHandlers.js';
 import { setupChapterEditor } from './chapter-editor.js';
-import { setupCodexContentEditor } from './codex-content-editor.js';
+// MODIFIED: Renamed import from 'codex-content-editor' to 'content-editor'.
+import { setupContentEditor } from './content-editor.js';
 import { setupTopToolbar } from './toolbar.js';
 import './codex-entry-editor.js'; // Import for side-effects (attaches event listeners)
 
 /**
- * NEW: Populates the outline window template with novel data.
- * @param {string} template - The raw HTML template string.
+ * MODIFIED: Populates the outline window template with novel data using templates.
+ * @param {string} template - The raw HTML template string for the outline window.
  * @param {object} novelData - The full novel data object.
- * @returns {string} - The populated HTML string.
+ * @returns {Promise<string>} - The populated HTML string.
  */
-function populateOutlineTemplate(template, novelData) {
+async function populateOutlineTemplate(template, novelData) {
 	if (!novelData.sections || novelData.sections.length === 0) {
 		return '<p class="text-center text-base-content/70 p-4">No sections found for this novel.</p>';
 	}
 	
+	// NEW: Fetch templates for sections and chapters.
+	const sectionTemplateHtml = await window.api.getTemplate('outline-section');
+	const chapterTemplateHtml = await window.api.getTemplate('outline-chapter');
+	
 	const sectionsHtml = novelData.sections.map(section => {
 		const chaptersHtml = section.chapters && section.chapters.length > 0
-			? section.chapters.map(chapter => `
-                <button type="button"
-                        class="js-open-chapter btn btn-ghost w-full justify-start text-left h-auto p-2"
-                        data-chapter-id="${chapter.id}"
-                        data-chapter-title="${chapter.title}">
-                    <div class="flex flex-col">
-                        <h4 class="font-semibold">${chapter.chapter_order}. ${chapter.title}</h4>
-                        ${chapter.summary ? `<p class="text-xs text-base-content/70 mt-1 font-normal normal-case">${chapter.summary}</p>` : ''}
-                    </div>
-                </button>
-            `).join('')
+			? section.chapters.map(chapter => {
+				// NEW: Populate chapter template.
+				const summaryHtml = chapter.summary ? `<p class="text-xs text-base-content/70 mt-1 font-normal normal-case">${chapter.summary}</p>` : '';
+				return chapterTemplateHtml
+					.replace('{{CHAPTER_ID}}', chapter.id)
+					.replace(/{{CHAPTER_TITLE}}/g, chapter.title)
+					.replace('{{CHAPTER_ORDER}}', chapter.chapter_order)
+					.replace('{{CHAPTER_SUMMARY_HTML}}', summaryHtml);
+			}).join('')
 			: '<p class="text-sm text-base-content/70 px-2">No chapters in this section yet.</p>';
 		
-		return `
-            <div class="p-3 rounded-lg bg-base-200 hover:bg-base-300 transition-colors">
-                <h3 class="text-lg font-bold text-indigo-500">${section.section_order}. ${section.title}</h3>
-                ${section.description ? `<p class="text-sm italic text-base-content/70 mt-1">${section.description}</p>` : ''}
-                <div class="mt-3 pl-4 border-l-2 border-base-300 space-y-2">${chaptersHtml}</div>
-            </div>
-        `;
+		// NEW: Populate section template.
+		const descriptionHtml = section.description ? `<p class="text-sm italic text-base-content/70 mt-1">${section.description}</p>` : '';
+		return sectionTemplateHtml
+			.replace('{{SECTION_ORDER}}', section.section_order)
+			.replace('{{SECTION_TITLE}}', section.title)
+			.replace('{{SECTION_DESCRIPTION_HTML}}', descriptionHtml)
+			.replace('<!-- CHAPTERS_PLACEHOLDER -->', chaptersHtml);
 	}).join('');
 	
 	return template.replace('<!-- SECTIONS_PLACEHOLDER -->', sectionsHtml);
 }
 
 /**
- * NEW: Populates the codex window template with novel data.
- * @param {string} template - The raw HTML template string.
+ * MODIFIED: Populates the codex window template with novel data using templates.
+ * @param {string} template - The raw HTML template string for the codex window.
  * @param {object} novelData - The full novel data object.
- * @returns {string} - The populated HTML string.
+ * @returns {Promise<string>} - The populated HTML string.
  */
-function populateCodexTemplate(template, novelData) {
+async function populateCodexTemplate(template, novelData) {
 	if (!novelData.codexCategories || novelData.codexCategories.length === 0) {
 		return '<p class="text-center text-base-content/70 p-4">No codex categories found.</p>';
 	}
 	
+	// NEW: Fetch templates for categories and entries.
+	const categoryTemplateHtml = await window.api.getTemplate('codex-category-item');
+	const entryTemplateHtml = await window.api.getTemplate('codex-list-item');
+	
 	const categoriesHtml = novelData.codexCategories.map(category => {
 		const entriesHtml = category.entries && category.entries.length > 0
-			? category.entries.map(entry => `
-                <button type="button"
-                        class="js-open-codex-entry js-draggable-codex btn btn-ghost w-full justify-start text-left h-auto p-2"
-                        data-entry-id="${entry.id}"
-                        data-entry-title="${entry.title}"
-                        draggable="true">
-                    <img src="${entry.thumbnail_url}" alt="Thumbnail for ${entry.title}" class="w-12 h-12 object-cover rounded flex-shrink-0 bg-base-300 pointer-events-none">
-                    <div class="flex-grow min-w-0 pointer-events-none text-left">
-                        <h4 class="font-semibold truncate normal-case">${entry.title}</h4>
-                        ${entry.description ? `<p class="text-xs text-base-content/70 mt-1 font-normal normal-case">${entry.description}</p>` : ''}
-                    </div>
-                </button>
-            `).join('')
+			? category.entries.map(entry => {
+				// NEW: Populate entry template.
+				return entryTemplateHtml
+					.replace(/{{ENTRY_ID}}/g, entry.id)
+					.replace(/{{ENTRY_TITLE}}/g, entry.title)
+					.replace(/{{THUMBNAIL_URL}}/g, entry.thumbnail_url)
+					.replace('{{DESCRIPTION}}', entry.description || '');
+			}).join('')
 			: '<p class="text-sm text-base-content/70 px-2">No entries in this category yet.</p>';
 		
 		const itemCount = category.entries_count || 0;
-		return `
-            <div id="codex-category-${category.id}">
-                <h3 class="text-lg font-bold text-teal-500 sticky top-0 bg-base-100/90 backdrop-blur-sm py-2 -mx-1 px-1">
-                    ${category.name}
-                    <span class="js-codex-category-count text-sm font-normal text-base-content/70 ml-2">(${itemCount} ${itemCount === 1 ? 'item' : 'items'})</span>
-                </h3>
-                <div class="js-codex-entries-list mt-2 space-y-2">${entriesHtml}</div>
-            </div>
-        `;
+		const itemText = itemCount === 1 ? 'item' : 'items';
+		
+		// NEW: Populate category template with string replacements.
+		let populatedCategory = categoryTemplateHtml
+			.replace('{{CATEGORY_ID}}', category.id)
+			.replace('{{CATEGORY_NAME}}', category.name);
+		
+		// Replace the count placeholder.
+		populatedCategory = populatedCategory.replace(
+			'<span class="js-codex-category-count text-sm font-normal text-base-content/70 ml-2">(0 items)</span>',
+			`<span class="js-codex-category-count text-sm font-normal text-base-content/70 ml-2">(${itemCount} ${itemText})</span>`
+		);
+		
+		// Replace the entries list placeholder.
+		populatedCategory = populatedCategory.replace(
+			'<p class="text-sm text-base-content/70 px-2">No entries in this category yet.</p>',
+			entriesHtml
+		);
+		
+		return populatedCategory;
 	}).join('');
 	
 	return template.replace('<!-- CATEGORIES_PLACEHOLDER -->', categoriesHtml);
@@ -106,16 +119,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 	document.body.dataset.novelId = novelId;
 	
 	try {
-		// MODIFIED: Fetch templates via IPC.
 		const outlineTemplateHtml = await window.api.getTemplate('outline-window');
 		const codexTemplateHtml = await window.api.getTemplate('codex-window');
 		
 		const novelData = await window.api.getOneNovel(novelId);
 		if (!novelData) throw new Error('Novel not found.');
 		
-		// MODIFIED: Populate templates and store the result on the body element.
-		document.body.dataset.outlineContent = populateOutlineTemplate(outlineTemplateHtml, novelData);
-		document.body.dataset.codexContent = populateCodexTemplate(codexTemplateHtml, novelData);
+		// MODIFIED: Await the async template population functions.
+		document.body.dataset.outlineContent = await populateOutlineTemplate(outlineTemplateHtml, novelData);
+		document.body.dataset.codexContent = await populateCodexTemplate(codexTemplateHtml, novelData);
 		
 		// Populate the "New Codex Entry" modal's category dropdown
 		const categorySelect = document.getElementById('new-codex-category');
@@ -145,8 +157,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 	setupCodexEntryHandler(desktop, windowManager);
 	setupChapterHandler(desktop, windowManager);
 	setupChapterEditor(desktop);
-	setupCodexContentEditor(desktop);
-	// The theme toggle is now handled by the universal theme.js script
+	setupContentEditor(desktop);
 	setupOpenWindowsMenu(windowManager);
 	setupCanvasControls(windowManager);
 });
