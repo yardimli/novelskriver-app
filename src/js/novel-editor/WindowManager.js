@@ -620,23 +620,28 @@ export default class WindowManager {
 		}
 	}
 	
+	// MODIFIED: This function now intelligently updates the DOM instead of clearing and recreating it.
 	updateTaskbar() {
-		this.minimizedContainer.innerHTML = '';
+		// 1. Determine the desired state: which items should be in the taskbar and in what order.
 		const taskbarItems = new Map();
 		
+		// Add minimized windows.
 		this.windows.forEach((win, id) => {
 			if (win.isMinimized) {
 				taskbarItems.set(id, { id, title: win.title, icon: win.icon });
 			}
 		});
 		
+		// Always ensure outline and codex windows are represented.
+		// The Map structure automatically prevents duplicates if they are already added (i.e., minimized).
 		['outline-window', 'codex-window'].forEach(id => {
-			if (this.windows.has(id) && !taskbarItems.has(id)) {
+			if (this.windows.has(id)) {
 				const win = this.windows.get(id);
 				taskbarItems.set(id, { id, title: win.title, icon: win.icon });
 			}
 		});
 		
+		// Sort the items into the final display order.
 		const sortedItems = Array.from(taskbarItems.values()).sort((a, b) => {
 			const order = this.minimizedOrder;
 			const indexA = order.indexOf(a.id);
@@ -648,33 +653,65 @@ export default class WindowManager {
 			return a.title.localeCompare(b.title);
 		});
 		
+		// 2. Reconcile the desired state with the current DOM.
+		const desiredIds = new Set(sortedItems.map(item => item.id));
+		const currentElements = new Map();
+		const elementsToRemove = [];
+		
+		// Identify what's currently in the DOM and which elements are obsolete.
+		for (const child of this.minimizedContainer.children) {
+			const windowId = child.dataset.windowId;
+			if (desiredIds.has(windowId)) {
+				currentElements.set(windowId, child);
+			} else {
+				elementsToRemove.push(child);
+			}
+		}
+		
+		// Remove obsolete elements from the DOM.
+		elementsToRemove.forEach(el => el.remove());
+		
+		// 3. Update, create, and re-order the necessary elements.
+		let lastElement = null; // Used to track the correct position for insertion.
 		sortedItems.forEach(item => {
-			const win = this.windows.get(item.id);
-			const taskbarItem = document.createElement('button');
+			const windowId = item.id;
+			const win = this.windows.get(windowId);
+			let taskbarItem = currentElements.get(windowId);
 			
+			// Create the element if it's new.
+			if (!taskbarItem) {
+				taskbarItem = document.createElement('button');
+				taskbarItem.dataset.windowId = windowId;
+				taskbarItem.addEventListener('click', () => {
+					const currentWin = this.windows.get(windowId); // Get a fresh reference on click.
+					if (currentWin.isMinimized) {
+						this.restore(windowId);
+					} else {
+						this.focus(windowId);
+						this.scrollIntoView(windowId);
+					}
+				});
+			}
+			
+			// Update properties for both new and existing elements to keep them in sync.
 			taskbarItem.className = 'window-minimized btn btn-sm h-10 flex-shrink min-w-[120px] max-w-[256px] flex-grow basis-0 justify-start';
-			
-			if (!win.isMinimized && item.id === this.activeWindow) {
+			if (!win.isMinimized && windowId === this.activeWindow) {
 				taskbarItem.classList.add('btn-active', 'btn-primary');
 			} else if (!win.isMinimized) {
 				taskbarItem.classList.add('btn-neutral');
 			} else {
 				taskbarItem.classList.add('btn-ghost');
 			}
-			
-			// MODIFIED: Added flexbox classes to center the icon within its container.
 			taskbarItem.innerHTML = `<div class="w-5 h-5 flex-shrink-0 flex items-center justify-center">${item.icon || ''}</div><span class="truncate normal-case font-semibold">${item.title}</span>`;
-			taskbarItem.dataset.windowId = item.id;
 			
-			taskbarItem.addEventListener('click', () => {
-				if (win.isMinimized) {
-					this.restore(item.id);
-				} else {
-					this.focus(item.id);
-					this.scrollIntoView(item.id);
-				}
-			});
-			this.minimizedContainer.appendChild(taskbarItem);
+			// Ensure the element is in the correct position in the DOM.
+			// This efficiently moves existing elements if their order has changed.
+			const expectedNextSibling = lastElement ? lastElement.nextSibling : this.minimizedContainer.firstChild;
+			if (taskbarItem !== expectedNextSibling) {
+				this.minimizedContainer.insertBefore(taskbarItem, expectedNextSibling);
+			}
+			
+			lastElement = taskbarItem;
 		});
 	}
 	
