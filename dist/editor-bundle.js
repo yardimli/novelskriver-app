@@ -21,6 +21,7 @@
       this.panStartX = 0;
       this.panStartY = 0;
       this.handleKeyDown = this.handleKeyDown.bind(this);
+      this.isShiftPressed = false;
     }
     createWindow({ id, title, content, x, y, width, height, icon, closable = true }) {
       this.windowCounter++;
@@ -130,6 +131,8 @@
     scrollIntoView(windowId) {
       const win = this.windows.get(windowId);
       if (!win || win.isMinimized) return;
+      console.log("isShiftPressed:", this.isShiftPressed);
+      if (this.isShiftPressed) return;
       const el = win.element;
       const padding = 150;
       const winLeft = el.offsetLeft;
@@ -138,20 +141,24 @@
       const winHeight = el.offsetHeight;
       const viewLeft = winLeft * this.scale + this.panX;
       const viewTop = winTop * this.scale + this.panY;
-      const viewRight = viewLeft + winWidth * this.scale;
-      const viewBottom = viewTop + winHeight * this.scale;
+      const winScaledWidth = winWidth * this.scale;
+      const winScaledHeight = winHeight * this.scale;
+      const viewRight = viewLeft + winScaledWidth;
+      const viewBottom = viewTop + winScaledHeight;
       const viewportWidth = this.viewport.clientWidth;
       const viewportHeight = this.viewport.clientHeight;
       let deltaX = 0;
       let deltaY = 0;
+      const isWider = winScaledWidth > viewportWidth - 2 * padding;
+      const isTaller = winScaledHeight > viewportHeight - 2 * padding;
       if (viewLeft < padding) {
         deltaX = padding - viewLeft;
-      } else if (viewRight > viewportWidth - padding) {
+      } else if (viewRight > viewportWidth - padding && !isWider) {
         deltaX = viewportWidth - padding - viewRight;
       }
       if (viewTop < padding) {
         deltaY = padding - viewTop;
-      } else if (viewBottom > viewportHeight - padding) {
+      } else if (viewBottom > viewportHeight - padding && !isTaller) {
         deltaY = viewportHeight - padding - viewBottom;
       }
       const tolerance = 15;
@@ -166,6 +173,7 @@
       const win = this.windows.get(windowId);
       if (!win) return;
       const isShiftPressed = event && event.shiftKey;
+      this.isShiftPressed = isShiftPressed;
       if (this.activeWindow && this.windows.has(this.activeWindow)) {
         this.windows.get(this.activeWindow).element.classList.remove("active");
       }
@@ -14547,14 +14555,14 @@
                         data-chapter-id="${chapter.id}"
                         data-chapter-title="${chapter.title}">
                     <div class="flex flex-col">
-                        <h4 class="font-semibold">${chapter.order}. ${chapter.title}</h4>
+                        <h4 class="font-semibold">${chapter.chapter_order}. ${chapter.title}</h4>
                         ${chapter.summary ? `<p class="text-xs text-base-content/70 mt-1 font-normal normal-case">${chapter.summary}</p>` : ""}
                     </div>
                 </button>
             `).join("") : '<p class="text-sm text-base-content/70 px-2">No chapters in this section yet.</p>';
       return `
             <div class="p-3 rounded-lg bg-base-200 hover:bg-base-300 transition-colors">
-                <h3 class="text-lg font-bold text-indigo-500">${section.order}. ${section.title}</h3>
+                <h3 class="text-lg font-bold text-indigo-500">${section.section_order}. ${section.title}</h3>
                 ${section.description ? `<p class="text-sm italic text-base-content/70 mt-1">${section.description}</p>` : ""}
                 <div class="mt-3 pl-4 border-l-2 border-base-300 space-y-2">${chaptersHtml}</div>
             </div>

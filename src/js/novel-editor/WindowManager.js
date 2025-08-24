@@ -22,6 +22,7 @@ export default class WindowManager {
 		this.panStartX = 0;
 		this.panStartY = 0;
 		this.handleKeyDown = this.handleKeyDown.bind(this);
+		this.isShiftPressed = false;
 	}
 	
 	createWindow({ id, title, content, x, y, width, height, icon, closable = true }) {
@@ -159,6 +160,8 @@ export default class WindowManager {
 	scrollIntoView(windowId) {
 		const win = this.windows.get(windowId);
 		if (!win || win.isMinimized) return;
+		console.log('isShiftPressed:', this.isShiftPressed);
+		if (this.isShiftPressed) return; // Skip auto-scroll when Shift is held.
 		
 		const el = win.element;
 		const padding = 150;
@@ -170,8 +173,10 @@ export default class WindowManager {
 		
 		const viewLeft = (winLeft * this.scale) + this.panX;
 		const viewTop = (winTop * this.scale) + this.panY;
-		const viewRight = viewLeft + (winWidth * this.scale);
-		const viewBottom = viewTop + (winHeight * this.scale);
+		const winScaledWidth = winWidth * this.scale;
+		const winScaledHeight = winHeight * this.scale;
+		const viewRight = viewLeft + winScaledWidth;
+		const viewBottom = viewTop + winScaledHeight;
 		
 		const viewportWidth = this.viewport.clientWidth;
 		const viewportHeight = this.viewport.clientHeight;
@@ -179,15 +184,30 @@ export default class WindowManager {
 		let deltaX = 0;
 		let deltaY = 0;
 		
+		// MODIFIED: This logic is updated to prevent "jumping" when a window is already visible
+		// or is larger than the viewport's padded area, which caused oscillation.
+		
+		// Determine if the window is larger than the area defined by the padding.
+		const isWider = winScaledWidth > (viewportWidth - 2 * padding);
+		const isTaller = winScaledHeight > (viewportHeight - 2 * padding);
+		
+		// --- Horizontal Adjustment ---
 		if (viewLeft < padding) {
+			// Always adjust if the left edge is out of bounds.
 			deltaX = padding - viewLeft;
-		} else if (viewRight > viewportWidth - padding) {
+		} else if (viewRight > viewportWidth - padding && !isWider) {
+			// Only adjust from the right if the window is not wider than the padded area.
+			// This prioritizes keeping the left edge in view for oversized windows and prevents oscillation.
 			deltaX = (viewportWidth - padding) - viewRight;
 		}
 		
+		// --- Vertical Adjustment ---
 		if (viewTop < padding) {
+			// Always adjust if the top edge is out of bounds.
 			deltaY = padding - viewTop;
-		} else if (viewBottom > viewportHeight - padding) {
+		} else if (viewBottom > viewportHeight - padding && !isTaller) {
+			// Only adjust from the bottom if the window is not taller than the padded area.
+			// This prioritizes keeping the top edge in view for oversized windows and prevents oscillation.
 			deltaY = (viewportHeight - padding) - viewBottom;
 		}
 		
@@ -206,6 +226,7 @@ export default class WindowManager {
 		if (!win) return;
 		
 		const isShiftPressed = event && event.shiftKey;
+		this.isShiftPressed = isShiftPressed;
 		
 		if (this.activeWindow && this.windows.has(this.activeWindow)) {
 			this.windows.get(this.activeWindow).element.classList.remove('active');

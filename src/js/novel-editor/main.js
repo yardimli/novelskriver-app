@@ -24,7 +24,7 @@ function populateOutlineTemplate(template, novelData) {
                         data-chapter-id="${chapter.id}"
                         data-chapter-title="${chapter.title}">
                     <div class="flex flex-col">
-                        <h4 class="font-semibold">${chapter.order}. ${chapter.title}</h4>
+                        <h4 class="font-semibold">${chapter.chapter_order}. ${chapter.title}</h4>
                         ${chapter.summary ? `<p class="text-xs text-base-content/70 mt-1 font-normal normal-case">${chapter.summary}</p>` : ''}
                     </div>
                 </button>
@@ -33,7 +33,7 @@ function populateOutlineTemplate(template, novelData) {
 		
 		return `
             <div class="p-3 rounded-lg bg-base-200 hover:bg-base-300 transition-colors">
-                <h3 class="text-lg font-bold text-indigo-500">${section.order}. ${section.title}</h3>
+                <h3 class="text-lg font-bold text-indigo-500">${section.section_order}. ${section.title}</h3>
                 ${section.description ? `<p class="text-sm italic text-base-content/70 mt-1">${section.description}</p>` : ''}
                 <div class="mt-3 pl-4 border-l-2 border-base-300 space-y-2">${chaptersHtml}</div>
             </div>

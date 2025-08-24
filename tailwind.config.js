@@ -3,8 +3,7 @@ const defaultTheme = require('tailwindcss/defaultTheme');
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-	// MODIFIED: darkMode is handled by daisyUI themes, so 'class' is not needed here.
-	darkMode: 'class', // Kept for compatibility with any lingering dark: prefixes, but daisyUI is primary.
+	darkMode: ['selector', '[data-theme="dark"]'],
 	
 	content: [
 		'./public/**/*.html',

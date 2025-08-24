@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS sections (
     novel_id INTEGER NOT NULL,
     title TEXT NOT NULL,
     description TEXT,
-    "order" INTEGER NOT NULL,
+    section_order INTEGER NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (novel_id) REFERENCES novels(id)
@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS chapters (
     title TEXT NOT NULL,
     summary TEXT,
     status TEXT,
-    "order" INTEGER NOT NULL,
+    chapter_order INTEGER NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (novel_id) REFERENCES novels(id),

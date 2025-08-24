@@ -5,6 +5,15 @@ document.addEventListener('DOMContentLoaded', () => {
 	// Function to apply the theme
 	const applyTheme = (theme) => {
 		document.documentElement.setAttribute('data-theme', theme);
+		
+		// MODIFIED: Add or remove the 'dark' class on the body tag to sync with the theme.
+		// This provides compatibility for styles that specifically target `.dark`.
+		if (theme === 'dark') {
+			document.body.classList.add('dark');
+		} else {
+			document.body.classList.remove('dark');
+		}
+		
 		// If the toggle button exists, update its state
 		if (themeToggle) {
 			const checkbox = themeToggle.querySelector('input[type="checkbox"]');

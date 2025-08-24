@@ -157,9 +157,9 @@ function setupIpcHandlers() {
 		const novel = db.prepare('SELECT * FROM novels WHERE id = ?').get(novelId);
 		if (!novel) return null;
 		
-		novel.sections = db.prepare('SELECT * FROM sections WHERE novel_id = ? ORDER BY `order`').all(novelId);
+		novel.sections = db.prepare('SELECT * FROM sections WHERE novel_id = ? ORDER BY section_order').all(novelId);
 		novel.sections.forEach(section => {
-			section.chapters = db.prepare('SELECT * FROM chapters WHERE section_id = ? ORDER BY `order`').all(section.id);
+			section.chapters = db.prepare('SELECT * FROM chapters WHERE section_id = ? ORDER BY `chapter_order`').all(section.id);
 		});
 		
 		novel.codexCategories = db.prepare(`
@@ -303,13 +303,13 @@ function setupIpcHandlers() {
 			
 			let sectionOrder = 1;
 			for (const sectionData of outlineResponse.sections) {
-				const sectionResult = db.prepare('INSERT INTO sections (novel_id, title, description, "order") VALUES (?, ?, ?, ?)')
+				const sectionResult = db.prepare('INSERT INTO sections (novel_id, title, description, section_order) VALUES (?, ?, ?, ?)')
 					.run(novelId, sectionData.title, sectionData.description || null, sectionOrder++);
 				const sectionId = sectionResult.lastInsertRowid;
 				
 				let chapterOrder = 1;
 				for (const chapterData of sectionData.chapters) {
-					db.prepare('INSERT INTO chapters (novel_id, section_id, title, summary, status, "order") VALUES (?, ?, ?, ?, ?, ?)')
+					db.prepare('INSERT INTO chapters (novel_id, section_id, title, summary, status, chapter_order) VALUES (?, ?, ?, ?, ?, ?)')
 						.run(novelId, sectionId, chapterData.title, chapterData.summary || null, 'in_progress', chapterOrder++);
 				}
 			}
@@ -407,23 +407,30 @@ function setupIpcHandlers() {
 	
 	// MODIFIED: This handler now uses the template file system.
 	ipcMain.handle('chapters:getOneHtml', (event, chapterId) => {
+		// CORRECTED QUERY: Removed the extra "sections s" from the FROM clause.
 		const chapter = db.prepare(`
-            SELECT c.*, s.order as section_order
-            FROM chapters c
-            LEFT JOIN sections s ON c.section_id = s.id
-            WHERE c.id = ?
-        `).get(chapterId);
+        SELECT
+            c.*,
+            s.title as section_title,
+            s.section_order as section_order
+        FROM
+            chapters c
+        LEFT JOIN
+            sections s ON c.section_id = s.id
+        WHERE
+            c.id = ?
+    `).get(chapterId);
 		
 		if (!chapter) throw new Error('Chapter not found');
 		
 		chapter.codexEntries = db.prepare(`
-            SELECT ce.*, i.thumbnail_local_path
-            FROM codex_entries ce
-            JOIN chapter_codex_entry cce ON ce.id = cce.codex_entry_id
-            LEFT JOIN images i ON ce.id = i.codex_entry_id
-            WHERE cce.chapter_id = ?
-            ORDER BY ce.title
-        `).all(chapterId);
+        SELECT ce.*, i.thumbnail_local_path
+        FROM codex_entries ce
+        JOIN chapter_codex_entry cce ON ce.id = cce.codex_entry_id
+        LEFT JOIN images i ON ce.id = i.codex_entry_id
+        WHERE cce.chapter_id = ?
+        ORDER BY ce.title
+    `).all(chapterId);
 		
 		chapter.codexEntries.forEach(entry => {
 			entry.thumbnail_url = entry.thumbnail_local_path
@@ -432,25 +439,26 @@ function setupIpcHandlers() {
 		});
 		
 		const codexTagsHtml = chapter.codexEntries.map(entry => `
-            <div class="js-codex-tag group/tag relative inline-flex items-center gap-2 bg-gray-200 dark:bg-gray-700 rounded-full pr-2" data-entry-id="${entry.id}">
-                <button type="button"
-                        class="js-open-codex-entry flex items-center gap-2 pl-1 pr-2 py-1 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-                        data-entry-id="${entry.id}"
-                        data-entry-title="${escapeAttr(entry.title)}">
-                    <img src="${escapeAttr(entry.thumbnail_url)}" alt="Thumbnail for ${escapeAttr(entry.title)}" class="w-5 h-5 object-cover rounded-full flex-shrink-0">
-                    <span class="js-codex-tag-title text-xs font-medium">${escapeAttr(entry.title)}</span>
-                </button>
-                <button type="button"
-                        class="js-remove-codex-link absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover/tag:opacity-100 transition-opacity"
-                        data-chapter-id="${chapter.id}"
-                        data-entry-id="${entry.id}"
-                        title="Unlink this entry">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor" viewBox="0 0 16 16"><path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8z"/></svg>
-                </button>
-            </div>
-        `).join('');
+        <div class="js-codex-tag group/tag relative inline-flex items-center gap-2 bg-gray-200 dark:bg-gray-700 rounded-full pr-2" data-entry-id="${entry.id}">
+            <button type="button"
+                    class="js-open-codex-entry flex items-center gap-2 pl-1 pr-2 py-1 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                    data-entry-id="${entry.id}"
+                    data-entry-title="${escapeAttr(entry.title)}">
+                <img src="${escapeAttr(entry.thumbnail_url)}" alt="Thumbnail for ${escapeAttr(entry.title)}" class="w-5 h-5 object-cover rounded-full flex-shrink-0">
+                <span class="js-codex-tag-title text-xs font-medium">${escapeAttr(entry.title)}</span>
+            </button>
+            <button type="button"
+                    class="js-remove-codex-link absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover/tag:opacity-100 transition-opacity"
+                    data-chapter-id="${chapter.id}"
+                    data-entry-id="${entry.id}"
+                    title="Unlink this entry">
+                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor" viewBox="0 0 16 16"><path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8z"/></svg>
+            </button>
+        </div>
+    `).join('');
 		
-		const sectionInfoHtml = chapter.section_order ? `<h3 class="text-sm font-semibold uppercase tracking-wider text-indigo-500 dark:text-indigo-400">Act ${chapter.section_order} &ndash; Chapter ${chapter.order}</h3>` : '';
+		// I also added the section_title to the display for more context.
+		const sectionInfoHtml = chapter.section_order ? `<h3 class="text-sm font-semibold uppercase tracking-wider text-indigo-500 dark:text-indigo-400">Act ${chapter.section_order}: ${escapeAttr(chapter.section_title)} &ndash; Chapter ${chapter.chapter_order}</h3>` : '';
 		const summaryHtml = chapter.summary ? `<p class="lead">${escapeAttr(chapter.summary)}</p>` : '';
 		
 		let template = getTemplate('chapter-window');
