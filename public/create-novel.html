@@ -4,7 +4,7 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<!-- MODIFIED: Added img-src 'data:' to the CSP meta tag for consistency, though the header from electron-main.js takes precedence. This change is for correctness if the file were used in a different context. -->
-	<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:;">
 	<title>Create a New Novel</title>
 	<!-- NEW: Added Bootstrap Icons stylesheet -->
 	<link rel="stylesheet" href="../node_modules/bootstrap-icons/font/bootstrap-icons.css">

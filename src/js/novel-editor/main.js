@@ -131,7 +131,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 		
 		// Store the editor state on the body for the WindowManager to find
 		document.body.dataset.editorState = JSON.stringify(novelData.editor_state || null);
-		document.title = `Editing: ${novelData.title} - Novel Writer`;
+		document.title = `Novel Skriver - Editing: ${novelData.title}`;
 		
 	} catch (error) {
 		console.error('Failed to load initial novel data:', error);

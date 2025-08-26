@@ -81,7 +81,7 @@ function createMainWindow() {
 		mainWindow = null;
 	});
 	
-	mainWindow.webContents.openDevTools();
+	// mainWindow.webContents.openDevTools();
 	
 }
 
@@ -101,6 +101,9 @@ function createEditorWindow(novelId) {
 	const editorWindow = new BrowserWindow({
 		width: 1600,
 		height: 900,
+		icon: path.join(__dirname, 'assets/icon.png'),
+		title: 'Novel Skriver - Editor',
+		autoHideMenuBar: true,
 		webPreferences: {
 			preload: path.join(__dirname, 'preload.js'),
 			contextIsolation: true,
@@ -112,7 +115,7 @@ function createEditorWindow(novelId) {
 		callback({
 			responseHeaders: {
 				...details.responseHeaders,
-				'Content-Security-Policy': ["default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' file: data:;"]
+				'Content-Security-Policy': ["default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' file: data: https:;"]
 			}
 		});
 	});
@@ -124,8 +127,8 @@ function createEditorWindow(novelId) {
 		editorWindows.delete(novelId);
 	});
 	
-	editorWindow.webContents.openDevTools();
-	
+//	editorWindow.webContents.openDevTools();
+
 }
 
 

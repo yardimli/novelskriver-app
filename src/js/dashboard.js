@@ -67,7 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		if (currentNovel && currentNovel.cover_path) {
 			metaCoverPreview.innerHTML = `<img src="file://${currentNovel.cover_path}?t=${Date.now()}" alt="Current cover" class="w-full h-auto">`;
 		} else {
-			metaCoverPreview.innerHTML = `<span>No cover image</span>`;
+			metaCoverPreview.innerHTML = `<img src="./assets/book-placeholder.png" alt="No Cover" class="w-full h-auto">`;
 		}
 		
 		metaSeriesSelect.innerHTML = '<option value="">—</option>';
@@ -118,7 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			
 			const coverHtml = novel.cover_path
 				? `<img src="file://${novel.cover_path}" alt="Cover for ${novel.title}" class="w-full">`
-				: `<div class="bg-base-300 h-56 flex items-center justify-center"><span class="text-base-content/50">No Cover</span></div>`;
+				: `<img src="./assets/book-placeholder.png" alt="No Cover" class="w-full h-auto">`;
 			
 			const actionButtonHtml = novel.chapter_count > 0
 				? `<button class="btn btn-primary js-open-editor">Open Editor</button>`

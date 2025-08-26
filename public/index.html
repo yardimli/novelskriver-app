@@ -88,58 +88,64 @@
 
 <!-- Meta Settings Modal -->
 <dialog id="meta-settings-modal" class="modal">
-	<div class="modal-box w-11/12 max-w-2xl">
+	<!-- MODIFIED: Increased max-width for two-column layout -->
+	<div class="modal-box w-11/12 max-w-4xl">
 		<h3 class="font-bold text-lg">Edit Novel Details</h3>
-		<form id="meta-settings-form" class="py-4 space-y-4">
-			<input type="hidden" id="meta-novel-id" name="novelId">
-			
-			<!-- Title -->
-			<div class="form-control">
-				<label for="meta-title" class="label"><span class="label-text">Title</span></label>
-				<input type="text" id="meta-title" name="title" class="input input-bordered" required>
-			</div>
-			
-			<!-- Author -->
-			<div class="form-control">
-				<label for="meta-author" class="label"><span class="label-text">Author</span></label>
-				<input type="text" id="meta-author" name="author" class="input input-bordered" required>
-			</div>
-			
-			<!-- Series & Index -->
-			<div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-				<div class="md:col-span-2 form-control">
-					<label for="meta-series-id" class="label"><span class="label-text">Series (optional)</span></label>
-					<select id="meta-series-id" name="series_id" class="select select-bordered">
-						<option value="">—</option>
-						<!-- Series options loaded by JS -->
-					</select>
-				</div>
+		
+		<!-- MODIFIED: Added grid for two-column layout -->
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-8 py-4">
+			<!-- Left Column: Details -->
+			<form id="meta-settings-form" class="space-y-4">
+				<input type="hidden" id="meta-novel-id" name="novelId">
+				
+				<!-- Title -->
 				<div class="form-control">
-					<label for="meta-series-index" class="label"><span class="label-text">Index</span></label>
-					<input type="number" id="meta-series-index" name="order_in_series" class="input input-bordered" placeholder="Book #">
+					<label for="meta-title" class="label"><span class="label-text">Title</span></label>
+					<input type="text" id="meta-title" name="title" class="input input-bordered" required>
+				</div>
+				
+				<!-- Author -->
+				<div class="form-control">
+					<label for="meta-author" class="label"><span class="label-text">Author</span></label>
+					<input type="text" id="meta-author" name="author" class="input input-bordered" required>
+				</div>
+				
+				<!-- Series & Index -->
+				<div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+					<div class="md:col-span-2 form-control">
+						<label for="meta-series-id" class="label"><span class="label-text">Series (optional)</span></label>
+						<select id="meta-series-id" name="series_id" class="select select-bordered">
+							<option value="">—</option>
+							<!-- Series options loaded by JS -->
+						</select>
+					</div>
+					<div class="form-control">
+						<label for="meta-series-index" class="label"><span class="label-text">Index</span></label>
+						<input type="number" id="meta-series-index" name="order_in_series" class="input input-bordered" placeholder="Book #">
+					</div>
+				</div>
+			</form>
+			
+			<!-- Right Column: Cover Art -->
+			<div class="space-y-4">
+				<div id="meta-cover-preview" class="rounded-lg overflow-hidden w-full mx-auto bg-base-300 flex items-center justify-center min-h-48 text-base-content/50">
+					<!-- Preview image will be inserted here by JS -->
+					<span>No new cover selected</span>
+				</div>
+				<div class="flex gap-2 justify-center">
+					<button id="generate-cover-btn" class="btn btn-neutral w-40">
+						<span class="js-btn-content flex items-center gap-2"><i class="bi bi-magic"></i> Generate AI Cover</span>
+						<span class="js-btn-spinner animate-spin hidden"><i class="bi bi-arrow-repeat"></i></span>
+					</button>
+					<button id="upload-cover-btn" class="btn btn-neutral w-40">
+						<span class="js-btn-content flex items-center gap-2"><i class="bi bi-upload"></i> Upload Cover</span>
+						<span class="js-btn-spinner animate-spin hidden"><i class="bi bi-arrow-repeat"></i></span>
+					</button>
 				</div>
 			</div>
-		</form>
-		
-		<!-- Cover Actions -->
-		<div class="divider">Cover Art</div>
-		<!-- NEW: Added a preview area for the staged cover image. -->
-		<div id="meta-cover-preview" class="my-4 rounded-lg overflow-hidden max-w-xs mx-auto bg-base-300 flex items-center justify-center min-h-48 text-base-content/50">
-			<!-- Preview image will be inserted here by JS -->
-			<span>No new cover selected</span>
-		</div>
-		<div class="flex gap-2 justify-center">
-			<button id="generate-cover-btn" class="btn btn-neutral w-40">
-				<span class="js-btn-content flex items-center gap-2"><i class="bi bi-magic"></i> Generate AI Cover</span>
-				<span class="js-btn-spinner animate-spin hidden"><i class="bi bi-arrow-repeat"></i></span>
-			</button>
-			<button id="upload-cover-btn" class="btn btn-neutral w-40">
-				<span class="js-btn-content flex items-center gap-2"><i class="bi bi-upload"></i> Upload Cover</span>
-				<span class="js-btn-spinner animate-spin hidden"><i class="bi bi-arrow-repeat"></i></span>
-			</button>
 		</div>
 		
-		<!-- Danger Zone -->
+		<!-- Danger Zone (Full Width) -->
 		<div class="divider">Danger Zone</div>
 		<div class="flex justify-between items-center bg-error/10 p-4 rounded-lg">
 			<p class="text-sm">Permanently delete this novel and all its content.</p>
@@ -158,27 +164,36 @@
 
 <!-- NEW: Added a new modal for the AI cover generation flow -->
 <dialog id="generate-cover-modal" class="modal">
-	<div class="modal-box w-11/12 max-w-2xl">
+	<!-- MODIFIED: Increased max-width for two-column layout -->
+	<div class="modal-box w-11/12 max-w-4xl">
 		<h3 class="font-bold text-lg">Generate AI Cover Art</h3>
-		<form id="generate-cover-form" class="py-4 space-y-4">
-			<div class="form-control">
-				<label for="generate-cover-prompt" class="label"><span class="label-text">Image Prompt</span></label>
-				<textarea id="generate-cover-prompt" class="textarea textarea-bordered h-24" placeholder="A lone astronaut on a red planet..."></textarea>
-			</div>
+		
+		<!-- MODIFIED: Added grid for two-column layout -->
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-8 py-4">
+			<!-- Left Column: Controls -->
+			<form id="generate-cover-form" class="space-y-4">
+				<div class="form-control">
+					<label for="generate-cover-prompt" class="label"><span class="label-text">Image Prompt</span></label>
+					<!-- MODIFIED: Increased textarea height for better layout balance -->
+					<textarea id="generate-cover-prompt" class="textarea textarea-bordered h-48" placeholder="A lone astronaut on a red planet..."></textarea>
+				</div>
+				
+				<div class="text-center">
+					<button type="button" id="run-generate-cover-btn" class="btn btn-accent w-40">
+						<span class="js-btn-content flex items-center gap-2"><i class="bi bi-stars"></i> Generate</span>
+						<span class="js-btn-spinner animate-spin hidden"><i class="bi bi-arrow-repeat"></i></span>
+					</button>
+				</div>
+			</form>
 			
-			<div class="text-center">
-				<button type="button" id="run-generate-cover-btn" class="btn btn-accent w-40">
-					<span class="js-btn-content flex items-center gap-2"><i class="bi bi-stars"></i> Generate</span>
-					<span class="js-btn-spinner animate-spin hidden"><i class="bi bi-arrow-repeat"></i></span>
-				</button>
+			<!-- Right Column: Preview -->
+			<div class="space-y-4">
+				<div id="generate-cover-preview" class="min-h-64 bg-base-200 rounded-lg flex items-center justify-center">
+					<p class="text-base-content/50">Image preview will appear here</p>
+				</div>
 			</div>
-			
-			<div class="divider">Preview</div>
-			
-			<div id="generate-cover-preview" class="min-h-64 bg-base-200 rounded-lg flex items-center justify-center">
-				<p class="text-base-content/50">Image preview will appear here</p>
-			</div>
-		</form>
+		</div>
+		
 		<div class="modal-action">
 			<form method="dialog" class="flex gap-3">
 				<button id="cancel-generate-cover-btn" class="btn">Cancel</button>
