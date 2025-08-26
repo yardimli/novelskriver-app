@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS series (
     description TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id)
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS novels (
@@ -35,14 +35,13 @@ CREATE TABLE IF NOT EXISTS novels (
     status TEXT NOT NULL DEFAULT 'draft',
     order_in_series INTEGER,
     editor_state TEXT, -- Stored as JSON
-    -- MODIFIED: Added columns for prose settings with sensible defaults.
     prose_tense TEXT DEFAULT 'past',
     prose_language TEXT DEFAULT 'English',
     prose_pov TEXT DEFAULT 'third_person_limited',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id),
-    FOREIGN KEY (series_id) REFERENCES series(id)
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (series_id) REFERENCES series(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS sections (
@@ -53,7 +52,7 @@ CREATE TABLE IF NOT EXISTS sections (
     section_order INTEGER NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (novel_id) REFERENCES novels(id)
+    FOREIGN KEY (novel_id) REFERENCES novels(id) ON DELETE CASCADE -- MODIFIED
 );
 
 CREATE TABLE IF NOT EXISTS chapters (
@@ -67,8 +66,8 @@ CREATE TABLE IF NOT EXISTS chapters (
     chapter_order INTEGER NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (novel_id) REFERENCES novels(id),
-    FOREIGN KEY (section_id) REFERENCES sections(id)
+    FOREIGN KEY (novel_id) REFERENCES novels(id) ON DELETE CASCADE, -- MODIFIED
+    FOREIGN KEY (section_id) REFERENCES sections(id) ON DELETE CASCADE -- MODIFIED
 );
 
 CREATE TABLE IF NOT EXISTS codex_categories (
@@ -78,7 +77,7 @@ CREATE TABLE IF NOT EXISTS codex_categories (
     description TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (novel_id) REFERENCES novels(id)
+    FOREIGN KEY (novel_id) REFERENCES novels(id) ON DELETE CASCADE -- MODIFIED
 );
 
 CREATE TABLE IF NOT EXISTS codex_entries (
@@ -91,8 +90,8 @@ CREATE TABLE IF NOT EXISTS codex_entries (
     image_path TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (novel_id) REFERENCES novels(id),
-    FOREIGN KEY (codex_category_id) REFERENCES codex_categories(id)
+    FOREIGN KEY (novel_id) REFERENCES novels(id) ON DELETE CASCADE, -- MODIFIED
+    FOREIGN KEY (codex_category_id) REFERENCES codex_categories(id) ON DELETE CASCADE -- MODIFIED
 );
 
 CREATE TABLE IF NOT EXISTS images (
@@ -107,9 +106,9 @@ CREATE TABLE IF NOT EXISTS images (
     image_type TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id),
-    FOREIGN KEY (novel_id) REFERENCES novels(id),
-    FOREIGN KEY (codex_entry_id) REFERENCES codex_entries(id)
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE, -- MODIFIED
+    FOREIGN KEY (novel_id) REFERENCES novels(id) ON DELETE CASCADE, -- MODIFIED
+    FOREIGN KEY (codex_entry_id) REFERENCES codex_entries(id) ON DELETE CASCADE -- MODIFIED
 );
 
 -- Pivot table for Chapter <-> CodexEntry
@@ -117,8 +116,8 @@ CREATE TABLE IF NOT EXISTS chapter_codex_entry (
     chapter_id INTEGER NOT NULL,
     codex_entry_id INTEGER NOT NULL,
     PRIMARY KEY (chapter_id, codex_entry_id),
-    FOREIGN KEY (chapter_id) REFERENCES chapters(id),
-    FOREIGN KEY (codex_entry_id) REFERENCES codex_entries(id)
+    FOREIGN KEY (chapter_id) REFERENCES chapters(id) ON DELETE CASCADE, -- MODIFIED
+    FOREIGN KEY (codex_entry_id) REFERENCES codex_entries(id) ON DELETE CASCADE -- MODIFIED
 );
 
 -- Pivot table for CodexEntry <-> CodexEntry (self-referencing)
@@ -126,8 +125,8 @@ CREATE TABLE IF NOT EXISTS codex_entry_links (
     codex_entry_id INTEGER NOT NULL,
     linked_codex_entry_id INTEGER NOT NULL,
     PRIMARY KEY (codex_entry_id, linked_codex_entry_id),
-    FOREIGN KEY (codex_entry_id) REFERENCES codex_entries(id),
-    FOREIGN KEY (linked_codex_entry_id) REFERENCES codex_entries(id)
+    FOREIGN KEY (codex_entry_id) REFERENCES codex_entries(id) ON DELETE CASCADE, -- MODIFIED
+    FOREIGN KEY (linked_codex_entry_id) REFERENCES codex_entries(id) ON DELETE CASCADE -- MODIFIED
 );
 
 -- Seed a default user if none exists

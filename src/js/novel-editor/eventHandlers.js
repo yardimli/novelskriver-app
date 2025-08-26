@@ -59,7 +59,6 @@ export function setupCodexEntryHandler(desktop, windowManager) {
 		}
 	}
 	
-	// MODIFIED: This now handles single-clicks for linked tags (e.g., in chapter or other codex windows).
 	desktop.addEventListener('click', (event) => {
 		const entryButton = event.target.closest('.js-open-codex-entry');
 		// This should NOT trigger for items in the main codex list.
@@ -72,7 +71,6 @@ export function setupCodexEntryHandler(desktop, windowManager) {
 		openCodexEntry(entryId, entryTitle);
 	});
 	
-	// NEW: This handles double-clicks for items in the main codex window list.
 	desktop.addEventListener('dblclick', (event) => {
 		const entryButton = event.target.closest('.js-open-codex-entry');
 		// This should ONLY trigger for items in the main codex list.
@@ -95,7 +93,6 @@ export function setupCodexEntryHandler(desktop, windowManager) {
 export function setupChapterHandler(desktop, windowManager) {
 	const chapterIcon = `<i class="bi bi-card-text text-lg"></i>`;
 	
-	// MODIFIED: Changed event from 'click' to 'dblclick' for opening chapters from the outline.
 	desktop.addEventListener('dblclick', async (event) => {
 		const chapterButton = event.target.closest('.js-open-chapter');
 		if (!chapterButton) return;
@@ -216,7 +213,6 @@ export function setupOpenWindowsMenu(windowManager) {
 		});
 	}
 	
-	// MODIFIED: DaisyUI dropdowns work on focus, so we populate on focusin.
 	openWindowsBtn.addEventListener('focusin', () => {
 		populateOpenWindowsMenu();
 	});

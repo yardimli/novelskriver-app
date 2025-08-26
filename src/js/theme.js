@@ -1,4 +1,3 @@
-// NEW: Universal theme script for DaisyUI
 document.addEventListener('DOMContentLoaded', () => {
 	const themeToggle = document.getElementById('theme-toggle');
 	
@@ -6,8 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	const applyTheme = (theme) => {
 		document.documentElement.setAttribute('data-theme', theme);
 		
-		// MODIFIED: Add or remove the 'dark' class on the body tag to sync with the theme.
-		// This provides compatibility for styles that specifically target `.dark`.
+		// Add or remove the 'dark' class on the body tag to sync with the theme.
 		if (theme === 'dark') {
 			document.body.classList.add('dark');
 		} else {

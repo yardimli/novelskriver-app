@@ -5,7 +5,6 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' file:;">
 	<title>Novel Writer - Dashboard</title>
-	<!-- NEW: Added Bootstrap Icons stylesheet -->
 	<link rel="stylesheet" href="../node_modules/bootstrap-icons/font/bootstrap-icons.css">
 	<link rel="stylesheet" href="../dist/styles.css">
 </head>
@@ -14,18 +13,11 @@
 	<div class="flex justify-between items-center mb-8">
 		<h1 class="text-4xl font-bold">My Novels</h1>
 		<div class="flex items-center gap-4">
-			<!-- MODIFIED: Added value="light" to the checkbox for the default (unchecked) state -->
 			<label id="theme-toggle" class="swap swap-rotate btn btn-ghost btn-circle">
-				<!-- this hidden checkbox controls the state -->
 				<input type="checkbox" class="theme-controller" value="dark"/>
-				
-				<!-- MODIFIED: Replaced sun icon SVG with Bootstrap Icon. `text-2xl` matches original w-6 h-6 size. -->
 				<i class="swap-off bi bi-sun-fill text-2xl"></i>
-				
-				<!-- MODIFIED: Replaced moon icon SVG with Bootstrap Icon. `text-2xl` matches original w-6 h-6 size. -->
 				<i class="swap-on bi bi-moon-fill text-2xl"></i>
 			</label>
-			<!-- MODIFIED: Added an icon and gap for better visual appearance. -->
 			<a href="create-novel.html" class="btn btn-primary gap-2">
 				<i class="bi bi-plus-lg"></i>
 				Create New Novel
@@ -38,7 +30,7 @@
 	</div>
 </div>
 
-<!-- NEW: Prose Settings Modal -->
+<!-- Prose Settings Modal -->
 <dialog id="prose-settings-modal" class="modal">
 	<div class="modal-box">
 		<h3 class="font-bold text-lg">Prose Settings</h3>
@@ -88,6 +80,71 @@
 			<form method="dialog" class="flex gap-3">
 				<button class="btn">Cancel</button>
 				<button id="save-prose-settings-btn" class="btn btn-primary">Save Settings</button>
+			</form>
+		</div>
+	</div>
+	<form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<!-- NEW: Meta Settings Modal -->
+<dialog id="meta-settings-modal" class="modal">
+	<div class="modal-box">
+		<h3 class="font-bold text-lg">Edit Novel Details</h3>
+		<form id="meta-settings-form" class="py-4 space-y-4">
+			<input type="hidden" id="meta-novel-id" name="novelId">
+			
+			<!-- Title -->
+			<div class="form-control">
+				<label for="meta-title" class="label"><span class="label-text">Title</span></label>
+				<input type="text" id="meta-title" name="title" class="input input-bordered" required>
+			</div>
+			
+			<!-- Author -->
+			<div class="form-control">
+				<label for="meta-author" class="label"><span class="label-text">Author</span></label>
+				<input type="text" id="meta-author" name="author" class="input input-bordered" required>
+			</div>
+			
+			<!-- Series & Index -->
+			<div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+				<div class="md:col-span-2 form-control">
+					<label for="meta-series-id" class="label"><span class="label-text">Series (optional)</span></label>
+					<select id="meta-series-id" name="series_id" class="select select-bordered">
+						<option value="">—</option>
+						<!-- Series options loaded by JS -->
+					</select>
+				</div>
+				<div class="form-control">
+					<label for="meta-series-index" class="label"><span class="label-text">Index</span></label>
+					<input type="number" id="meta-series-index" name="order_in_series" class="input input-bordered" placeholder="Book #">
+				</div>
+			</div>
+		</form>
+		
+		<!-- Cover Actions -->
+		<div class="divider">Cover Art</div>
+		<div class="flex gap-2 justify-center">
+			<button id="generate-cover-btn" class="btn btn-neutral w-40">
+				<span class="js-btn-content flex items-center gap-2"><i class="bi bi-magic"></i> Generate AI Cover</span>
+				<span class="js-btn-spinner animate-spin hidden"><i class="bi bi-arrow-repeat"></i></span>
+			</button>
+			<button id="upload-cover-btn" class="btn btn-neutral w-40">
+				<span class="js-btn-content flex items-center gap-2"><i class="bi bi-upload"></i> Upload Cover</span>
+				<span class="js-btn-spinner animate-spin hidden"><i class="bi bi-arrow-repeat"></i></span>
+			</button>
+		</div>
+		
+		<!-- Danger Zone -->
+		<div class="divider">Danger Zone</div>
+		<div class="flex justify-between items-center bg-error/10 p-4 rounded-lg">
+			<p class="text-sm">Permanently delete this novel and all its content.</p>
+			<button id="delete-novel-btn" class="btn btn-error">Delete Novel</button>
+		</div>
+		
+		<div class="modal-action">
+			<form method="dialog" class="flex gap-3">
+				<button class="btn">Cancel</button>
+				<button id="save-meta-settings-btn" class="btn btn-primary">Save Changes</button>
 			</form>
 		</div>
 	</div>

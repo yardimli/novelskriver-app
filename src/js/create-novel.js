@@ -73,7 +73,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	
 	// "Surprise Me" Title Generation
 	surpriseMeBtn.addEventListener('click', async () => {
-		// MODIFIED: Use the helper function to manage loading state.
 		setButtonLoading(surpriseMeBtn, true);
 		
 		try {
@@ -85,12 +84,10 @@ document.addEventListener('DOMContentLoaded', () => {
 			console.error('Title generation failed:', error);
 			alert('Could not generate a title. Please check your API key and network connection.');
 		} finally {
-			// MODIFIED: Restore button state using the helper.
 			setButtonLoading(surpriseMeBtn, false);
 		}
 	});
 	
-	// New Series Modal Logic
 	newSeriesBtn.addEventListener('click', () => newSeriesModal.showModal());
 	
 	saveNewSeriesBtn.addEventListener('click', async () => {
@@ -102,7 +99,6 @@ document.addEventListener('DOMContentLoaded', () => {
 		}
 		newSeriesError.classList.add('hidden');
 		
-		// MODIFIED: Use the helper function to manage loading state.
 		setButtonLoading(saveNewSeriesBtn, true);
 		
 		try {
@@ -115,7 +111,6 @@ document.addEventListener('DOMContentLoaded', () => {
 			newSeriesError.textContent = error.message;
 			newSeriesError.classList.remove('hidden');
 		} finally {
-			// MODIFIED: Restore button state using the helper.
 			setButtonLoading(saveNewSeriesBtn, false);
 		}
 	});
@@ -124,7 +119,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	createNovelForm.addEventListener('submit', async (event) => {
 		event.preventDefault();
 		const submitBtn = document.getElementById('create-novel-submit-btn');
-		// MODIFIED: Use the helper function to manage loading state.
 		setButtonLoading(submitBtn, true);
 		
 		const formData = new FormData(createNovelForm);
@@ -136,7 +130,6 @@ document.addEventListener('DOMContentLoaded', () => {
 		} catch (error) {
 			console.error('Failed to create novel:', error);
 			alert('Error: Could not create the novel. ' + error.message);
-			// MODIFIED: Restore button state on error.
 			setButtonLoading(submitBtn, false);
 		}
 	});

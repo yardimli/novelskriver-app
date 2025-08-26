@@ -53,7 +53,6 @@ export function setupChapterEditor(desktop) {
 			
 			const tagContainer = dropZone.querySelector('.js-codex-tags-container');
 			if (tagContainer) {
-				// MODIFIED: Await the async function call.
 				const newTag = await createCodexTagElement(chapterId, data.codexEntry);
 				tagContainer.appendChild(newTag);
 				const tagsWrapper = dropZone.querySelector('.js-codex-tags-wrapper');
@@ -104,16 +103,13 @@ export function setupChapterEditor(desktop) {
  * @returns {Promise<HTMLElement>}
  */
 async function createCodexTagElement(chapterId, codexEntry) {
-	// NEW: Fetch the template for a codex tag in a chapter window.
 	let template = await window.api.getTemplate('chapter-codex-tag');
 	
-	// NEW: Populate the template with data.
 	template = template.replace(/{{CHAPTER_ID}}/g, chapterId);
 	template = template.replace(/{{ENTRY_ID}}/g, codexEntry.id);
 	template = template.replace(/{{ENTRY_TITLE}}/g, codexEntry.title);
 	template = template.replace(/{{THUMBNAIL_URL}}/g, codexEntry.thumbnail_url);
 	
-	// NEW: Create an element from the populated HTML string.
 	const div = document.createElement('div');
 	div.innerHTML = template.trim();
 	return div.firstChild;

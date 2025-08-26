@@ -6,7 +6,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	const errorContainer = document.getElementById('error-message');
 	const errorText = document.getElementById('error-text');
 	
-	// NEW: Helper function to manage button loading state
 	/**
 	 * Toggles the loading state of a button.
 	 * @param {HTMLButtonElement} button The button element.
@@ -60,7 +59,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	form.addEventListener('submit', async (event) => {
 		event.preventDefault();
 		
-		// MODIFIED: Set loading state using the helper function.
 		setButtonLoading(generateBtn, true);
 		errorContainer.classList.add('hidden');
 		
@@ -79,7 +77,6 @@ document.addEventListener('DOMContentLoaded', () => {
 			errorText.textContent = error.message;
 			errorContainer.classList.remove('hidden');
 			
-			// MODIFIED: Restore button state on error.
 			setButtonLoading(generateBtn, false);
 		}
 	});

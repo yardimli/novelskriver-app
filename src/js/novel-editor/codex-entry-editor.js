@@ -2,7 +2,6 @@
  * Codex Entry Window Interaction Manager
  */
 
-// NEW: Helper function to create an element from an HTML string.
 /**
  * Creates an HTMLElement from an HTML string.
  * @param {string} htmlString The HTML string.
@@ -108,7 +107,6 @@ document.addEventListener('DOMContentLoaded', () => {
 		imageContainer.classList.add('opacity-50');
 		
 		try {
-			// MODIFIED: Replaced fetch with window.api call
 			const data = await window.api.generateCodexImage(entryId, prompt);
 			if (!data.success) throw new Error(data.message || 'An unknown error occurred.');
 			
@@ -135,7 +133,6 @@ document.addEventListener('DOMContentLoaded', () => {
 		const windowEl = document.querySelector(`.codex-entry-window-content[data-entry-id="${entryId}"]`);
 		const submitBtn = form.querySelector('.js-upload-submit-btn');
 		
-		// MODIFIED: Get file path from the stored attribute
 		const filePath = form.dataset.filePath;
 		if (!filePath) {
 			alert('No file selected.');
@@ -148,7 +145,6 @@ document.addEventListener('DOMContentLoaded', () => {
 		imageContainer.classList.add('opacity-50');
 		
 		try {
-			// MODIFIED: Replaced fetch with window.api call, sending file path
 			const data = await window.api.uploadCodexImage(entryId, filePath);
 			if (!data.success) {
 				throw new Error(data.message || 'Upload failed.');
@@ -166,7 +162,6 @@ document.addEventListener('DOMContentLoaded', () => {
 		}
 	});
 	
-	// MODIFIED: File Input Handling for Upload Modal
 	document.body.addEventListener('click', async (event) => {
 		if (!event.target.matches('.js-trigger-file-input')) return;
 		
@@ -234,13 +229,11 @@ document.addEventListener('DOMContentLoaded', () => {
 		if (dropZone.querySelector(`.js-codex-tag[data-entry-id="${linkedEntryId}"]`)) return;
 		
 		try {
-			// MODIFIED: Replaced fetch with window.api call
 			const data = await window.api.attachCodexToCodex(parentEntryId, linkedEntryId);
 			if (!data.success) throw new Error(data.message || 'Failed to link codex entry.');
 			
 			const tagContainer = dropZone.querySelector('.js-codex-tags-container');
 			if (tagContainer) {
-				// MODIFIED: Awaited the async function call.
 				const newTag = await createCodexLinkTagElement(parentEntryId, data.codexEntry);
 				tagContainer.appendChild(newTag);
 				const tagsWrapper = dropZone.querySelector('.js-codex-tags-wrapper');
@@ -265,7 +258,6 @@ document.addEventListener('DOMContentLoaded', () => {
 		if (!confirm(`Are you sure you want to unlink "${entryTitle}" from this entry?`)) return;
 		
 		try {
-			// MODIFIED: Replaced fetch with window.api call
 			const data = await window.api.detachCodexFromCodex(parentEntryId, linkedEntryId);
 			if (!data.success) throw new Error(data.message || 'Failed to unlink codex entry.');
 			
@@ -282,7 +274,6 @@ document.addEventListener('DOMContentLoaded', () => {
 		}
 	});
 	
-	// MODIFIED: This function is now async and uses a template.
 	async function createCodexLinkTagElement(parentEntryId, codexEntry) {
 		let template = await window.api.getTemplate('codex-link-tag');
 		template = template.replace(/{{PARENT_ENTRY_ID}}/g, parentEntryId);
@@ -339,7 +330,6 @@ document.addEventListener('DOMContentLoaded', () => {
 			const formData = new FormData(newCodexForm);
 			const data = Object.fromEntries(formData.entries());
 			
-			// MODIFIED: Handle file input for Electron
 			const imageInput = newCodexForm.querySelector('#new-codex-image');
 			if (imageInput.files[0]) {
 				data.imagePath = imageInput.files[0].path;
@@ -347,7 +337,6 @@ document.addEventListener('DOMContentLoaded', () => {
 			delete data.image; // Remove the file object itself
 			
 			try {
-				// MODIFIED: Replaced fetch with window.api call
 				const result = await window.api.createCodexEntry(novelId, data);
 				
 				if (!result.success) {
@@ -357,10 +346,8 @@ document.addEventListener('DOMContentLoaded', () => {
 				resetAndCloseNewCodexModal();
 				
 				if (result.newCategory) {
-					// MODIFIED: Awaited the async function call.
 					await addNewCategoryToCodexWindow(result.newCategory);
 				}
-				// MODIFIED: Awaited the async function call.
 				const newEntryButton = await addNewEntryToCategoryList(result.codexEntry);
 				
 				if (newEntryButton) {
@@ -407,7 +394,6 @@ document.addEventListener('DOMContentLoaded', () => {
 		}
 	}
 	
-	// MODIFIED: This function is now async and uses a template.
 	async function addNewEntryToCategoryList(entryData) {
 		const codexWindowContent = document.querySelector('#codex-window .p-4');
 		if (!codexWindowContent) return null;
@@ -442,7 +428,6 @@ document.addEventListener('DOMContentLoaded', () => {
 		return button;
 	}
 	
-	// MODIFIED: This function is now async and uses a template.
 	async function addNewCategoryToCodexWindow(categoryData) {
 		const codexWindowContent = document.querySelector('#codex-window .p-4');
 		if (!codexWindowContent) return;

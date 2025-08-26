@@ -1,14 +1,12 @@
-// MODIFIED: This module centralizes all external AI API calls.
-const fetch = require('node-fetch'); // Use node-fetch for making HTTP requests in Node.js
-const fs = require('fs'); // NEW: For file system access for caching
-const path = require('path'); // NEW: For handling file paths
-const { app } = require('electron'); // NEW: For getting user data path for caching
+const fetch = require('node-fetch');
+const fs = require('fs');
+const path = require('path');
+const { app } = require('electron');
 require('dotenv').config(); // Ensure .env variables are loaded
 
 const FAL_API_KEY = process.env.FAL_API_KEY;
 const OPEN_ROUTER_API_KEY = process.env.OPEN_ROUTER_API_KEY;
 
-// NEW: Function to log AI interactions to a file.
 /**
  * Logs an AI interaction to a file in the user's data directory.
  * @param {string} service - The name of the AI service being called.
@@ -67,11 +65,11 @@ async function callOpenRouter(payload) {
 	
 	const data = await response.json();
 	// The actual content is a JSON string within the response, so we parse it.
-	const finalContent = JSON.parse(data.choices[0].message.content); // MODIFIED: Store in a variable to log and return it.
+	const finalContent = JSON.parse(data.choices[0].message.content);
 	
-	logAiInteraction('OpenRouter (Non-streaming)', payload, finalContent); // NEW: Log the interaction.
+	logAiInteraction('OpenRouter (Non-streaming)', payload, finalContent);
 	
-	return finalContent; // MODIFIED: Return the stored variable.
+	return finalContent;
 }
 
 /**
@@ -101,7 +99,7 @@ async function streamOpenRouter(payload, onChunk) {
 		throw new Error(`OpenRouter API Error: ${response.status} ${errorText}`);
 	}
 	
-	let fullResponse = ''; // NEW: To accumulate the full response for logging.
+	let fullResponse = '';
 	
 	// Process the streaming response body
 	for await (const chunk of response.body) {
@@ -109,14 +107,14 @@ async function streamOpenRouter(payload, onChunk) {
 		for (const line of lines) {
 			const message = line.replace(/^data: /, '');
 			if (message === '[DONE]') {
-				logAiInteraction('OpenRouter (Streaming)', payload, fullResponse); // NEW: Log the complete interaction.
+				logAiInteraction('OpenRouter (Streaming)', payload, fullResponse);
 				return; // Stream finished
 			}
 			try {
 				const parsed = JSON.parse(message);
 				const content = parsed.choices[0]?.delta?.content;
 				if (content) {
-					fullResponse += content; // MODIFIED: Append chunk to full response.
+					fullResponse += content; // Append chunk to full response.
 					onChunk(content); // Send the text chunk to the callback
 				}
 			} catch (error) {
@@ -125,7 +123,7 @@ async function streamOpenRouter(payload, onChunk) {
 		}
 	}
 	
-	// NEW: Fallback log in case the stream ends without a [DONE] message.
+	// Fallback log in case the stream ends without a [DONE] message.
 	if (fullResponse) {
 		logAiInteraction('OpenRouter (Streaming)', payload, fullResponse);
 	}
@@ -167,7 +165,6 @@ async function generateFalImage(prompt, imageSize = 'portrait_16_9') {
 	}
 	
 	try {
-		// NEW: Create a payload object for consistent logging.
 		const payload = {
 			prompt: prompt,
 			image_size: imageSize,
@@ -179,7 +176,7 @@ async function generateFalImage(prompt, imageSize = 'portrait_16_9') {
 				'Authorization': `Key ${FAL_API_KEY}`,
 				'Content-Type': 'application/json'
 			},
-			body: JSON.stringify(payload) // MODIFIED: Use the payload object.
+			body: JSON.stringify(payload)
 		});
 		
 		if (!response.ok) {
@@ -189,7 +186,7 @@ async function generateFalImage(prompt, imageSize = 'portrait_16_9') {
 		
 		const data = await response.json();
 		if (data.images && data.images[0] && data.images[0].url) {
-			logAiInteraction('Fal.ai Image Generation', payload, data); // NEW: Log the interaction.
+			logAiInteraction('Fal.ai Image Generation', payload, data);
 			return data.images[0].url;
 		}
 		console.warn('Fal.ai response did not contain an image URL.', { response: data });
@@ -446,7 +443,7 @@ module.exports = {
 	generateNovelOutline,
 	generateNovelCodex,
 	processCodexText,
-	streamProcessCodexText, // NEW
-	getOpenRouterModels, // NEW
-	processModelsForView, // NEW
+	streamProcessCodexText,
+	getOpenRouterModels,
+	processModelsForView,
 };

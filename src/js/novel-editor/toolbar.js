@@ -10,7 +10,6 @@ let activeEditorView = null;
 const toolbar = document.getElementById('top-toolbar');
 const wordCountEl = document.getElementById('js-word-count');
 
-// NEW: State management for the AI text generation review process
 let isAiActionActive = false;
 let originalFragment = null;
 let aiActionRange = null;
@@ -79,7 +78,7 @@ export function updateToolbarState(view) {
 			}
 			
 			if (btn.closest('.js-dropdown-container') || btn.classList.contains('js-ai-action-btn')) {
-				btn.disabled = !isTextSelected || isAiActionActive; // MODIFIED: Disable AI buttons during an active session
+				btn.disabled = !isTextSelected || isAiActionActive;
 			}
 			
 			if (commandFn) {
@@ -251,7 +250,6 @@ async function handleRetry() {
 		floatingToolbar = null;
 	}
 	
-	// MODIFIED: Temporarily reset the active flag to allow the action to run again.
 	// This is the key fix for the retry functionality.
 	isAiActionActive = false;
 	
@@ -292,7 +290,6 @@ function createFloatingToolbar(view, from, to, model) {
 	}
 	floatingToolbar = toolbarEl;
 	
-	// MODIFIED: This entire positioning block is updated for boundary detection.
 	const toolbarWidth = toolbarEl.offsetWidth;
 	const toolbarHeight = toolbarEl.offsetHeight;
 	const viewportRect = viewport.getBoundingClientRect();
@@ -381,7 +378,6 @@ async function handleAiAction(button, params = null) {
 	
 	let isFirstChunk = true;
 	let currentInsertionPos = from;
-	// MODIFIED: A flag to prevent creating empty paragraphs from consecutive newlines (e.g., `\n\n`).
 	let justCreatedParagraph = false;
 	
 	const onData = (payload) => {
@@ -480,7 +476,7 @@ async function handleToolbarAction(button) {
 		applyHighlight(button.dataset.bg.replace('highlight-', ''));
 		closeAllDropdowns();
 	} else if (button.classList.contains('js-ai-apply-btn')) {
-		await handleAiAction(button); // MODIFIED: Call the new handler
+		await handleAiAction(button);
 		closeAllDropdowns();
 	} else if (button.classList.contains('js-heading-option')) {
 		const level = parseInt(button.dataset.level, 10);
@@ -488,7 +484,7 @@ async function handleToolbarAction(button) {
 		closeAllDropdowns();
 	}
 	
-	if (activeEditorView && !isAiActionActive) { // MODIFIED: Don't refocus if an AI action is active
+	if (activeEditorView && !isAiActionActive) {
 		activeEditorView.focus();
 	}
 }
@@ -545,7 +541,6 @@ async function populateModelDropdowns() {
 export function setupTopToolbar() {
 	if (!toolbar) return;
 	
-	// MODIFIED: The mousedown handler is updated to allow dropdowns and their contents to function.
 	toolbar.addEventListener('mousedown', event => {
 		const target = event.target;
 		const dropdownTrigger = target.closest('button[tabindex="0"]');
@@ -577,5 +572,5 @@ export function setupTopToolbar() {
 	});
 	
 	updateToolbarState(null);
-	populateModelDropdowns(); // NEW: Call the function to populate models.
+	populateModelDropdowns();
 }

@@ -10,8 +10,12 @@ contextBridge.exposeInMainWorld('api', {
 	createSeries: (data) => ipcRenderer.invoke('series:store', data),
 	generateTitle: () => ipcRenderer.invoke('novels:generateTitle'),
 	getAuthors: () => ipcRenderer.invoke('authors:getDistinct'),
-	// NEW: Expose the handler for updating prose settings.
 	updateProseSettings: (data) => ipcRenderer.invoke('novels:updateProseSettings', data),
+
+	updateNovelMeta: (data) => ipcRenderer.invoke('novels:updateMeta', data),
+	generateNovelCover: (novelId) => ipcRenderer.invoke('novels:generateCover', novelId),
+	uploadNovelCover: (novelId, filePath) => ipcRenderer.invoke('novels:uploadCover', novelId, filePath),
+	deleteNovel: (novelId) => ipcRenderer.invoke('novels:delete', novelId),
 	
 	getStructureFiles: () => ipcRenderer.invoke('files:getStructureFiles'),
 	generateStructure: (data) => ipcRenderer.invoke('novels:generateStructure', data),

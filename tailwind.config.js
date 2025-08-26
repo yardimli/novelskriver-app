@@ -19,16 +19,14 @@ module.exports = {
 		},
 	},
 	
-	// MODIFIED: Added daisyui and removed the forms plugin.
 	plugins: [
 		typography,
 		require('daisyui')
 	],
 	
-	// NEW: Added daisyUI configuration.
 	daisyui: {
-		themes: ["light", "dark"], // You can add more themes here
-		darkTheme: "dark", // name of one of the themes you listed above
+		themes: ["light", "dark"],
+		darkTheme: "dark",
 		base: true, // applies background color and foreground color for root element by default
 		styled: true, // include daisyUI colors and design decisions for all components
 		utils: true, // adds responsive and modifier utility classes

@@ -136,7 +136,7 @@ function setupIpcHandlers() {
 	// --- Novel Handlers ---
 	
 	ipcMain.handle('novels:getAllWithCovers', () => {
-		// MODIFIED: The `n.*` in the query now automatically includes the new prose setting columns.
+		// The `n.*` in the query now automatically includes the new prose setting columns.
 		const stmt = db.prepare(`
             SELECT
                 n.*,
@@ -237,7 +237,6 @@ function setupIpcHandlers() {
 		return { id: novelId, ...data };
 	});
 	
-	// NEW: IPC handler to update prose settings for a specific novel.
 	ipcMain.handle('novels:updateProseSettings', (event, { novelId, prose_tense, prose_language, prose_pov }) => {
 		try {
 			db.prepare(`
@@ -249,6 +248,98 @@ function setupIpcHandlers() {
 		} catch (error) {
 			console.error('Failed to update prose settings:', error);
 			throw new Error('Failed to update prose settings.');
+		}
+	});
+	
+	ipcMain.handle('novels:updateMeta', (event, { novelId, title, author, series_id, order_in_series }) => {
+		try {
+			db.prepare(`
+                UPDATE novels
+                SET title = ?, author = ?, series_id = ?, order_in_series = ?
+                WHERE id = ?
+            `).run(title, author, series_id, order_in_series, novelId);
+			return { success: true };
+		} catch (error) {
+			console.error('Failed to update novel meta:', error);
+			throw new Error('Failed to update novel metadata.');
+		}
+	});
+	
+	ipcMain.handle('novels:generateCover', async (event, novelId) => {
+		const novel = db.prepare('SELECT title FROM novels WHERE id = ?').get(novelId);
+		if (!novel) throw new Error('Novel not found.');
+		
+		const imagePrompt = await aiService.generateCoverPrompt(novel.title);
+		if (!imagePrompt) throw new Error('Failed to generate image prompt.');
+		
+		const imageUrl = await aiService.generateFalImage(imagePrompt);
+		if (!imageUrl) throw new Error('Failed to generate image from AI service.');
+		
+		const localPath = await imageHandler.storeImageFromUrl(imageUrl, novelId, 'cover');
+		
+		// Delete old cover image records for this novel before inserting new one.
+		db.prepare("DELETE FROM images WHERE novel_id = ? AND codex_entry_id IS NULL").run(novelId);
+		
+		db.prepare(`
+            INSERT INTO images (user_id, novel_id, image_local_path, remote_url, prompt, image_type)
+            VALUES (?, ?, ?, ?, ?, ?)
+        `).run(1, novelId, localPath, imageUrl, imagePrompt, 'generated');
+		
+		const absolutePath = path.join(imageHandler.IMAGES_DIR, localPath);
+		// Send update to all windows.
+		BrowserWindow.getAllWindows().forEach(win => {
+			win.webContents.send('novels:cover-updated', { novelId, imagePath: absolutePath });
+		});
+		
+		return { success: true };
+	});
+	
+	ipcMain.handle('novels:uploadCover', async (event, novelId, filePath) => {
+		const localPath = await imageHandler.storeImageFromPath(filePath, novelId, null, 'cover-upload');
+		
+		// Delete old cover image records for this novel.
+		db.prepare("DELETE FROM images WHERE novel_id = ? AND codex_entry_id IS NULL").run(novelId);
+		
+		db.prepare(`
+            INSERT INTO images (user_id, novel_id, image_local_path, image_type)
+            VALUES (?, ?, ?, ?)
+        `).run(1, novelId, localPath.original_path, 'upload');
+		
+		const absolutePath = path.join(imageHandler.IMAGES_DIR, localPath.original_path);
+		BrowserWindow.getAllWindows().forEach(win => {
+			win.webContents.send('novels:cover-updated', { novelId, imagePath: absolutePath });
+		});
+		
+		return { success: true };
+	});
+	
+	ipcMain.handle('novels:delete', (event, novelId) => {
+		const deleteTransaction = db.transaction(() => {
+			// 1. Find all image files associated with the novel to delete them from disk.
+			const imagesToDelete = db.prepare('SELECT image_local_path, thumbnail_local_path FROM images WHERE novel_id = ?').all(novelId);
+			
+			for (const image of imagesToDelete) {
+				if (image.image_local_path) {
+					const fullPath = path.join(imageHandler.IMAGES_DIR, image.image_local_path);
+					if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
+				}
+				if (image.thumbnail_local_path) {
+					const thumbPath = path.join(imageHandler.IMAGES_DIR, image.thumbnail_local_path);
+					if (fs.existsSync(thumbPath)) fs.unlinkSync(thumbPath);
+				}
+			}
+			
+			// 2. Delete the novel from the database.
+			// ON DELETE CASCADE in schema.sql will handle deleting related records in other tables.
+			db.prepare('DELETE FROM novels WHERE id = ?').run(novelId);
+		});
+		
+		try {
+			deleteTransaction();
+			return { success: true };
+		} catch (error) {
+			console.error(`Failed to delete novel ${novelId}:`, error);
+			throw new Error('Failed to delete the novel.');
 		}
 	});
 	

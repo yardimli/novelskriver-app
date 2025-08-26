@@ -16,14 +16,12 @@ async function populateOutlineTemplate(template, novelData) {
 		return '<p class="text-center text-base-content/70 p-4">No sections found for this novel.</p>';
 	}
 	
-	// NEW: Fetch templates for sections and chapters.
 	const sectionTemplateHtml = await window.api.getTemplate('outline-section');
 	const chapterTemplateHtml = await window.api.getTemplate('outline-chapter');
 	
 	const sectionsHtml = novelData.sections.map(section => {
 		const chaptersHtml = section.chapters && section.chapters.length > 0
 			? section.chapters.map(chapter => {
-				// NEW: Populate chapter template.
 				const summaryHtml = chapter.summary ? `<p class="text-xs text-base-content/70 mt-1 font-normal normal-case">${chapter.summary}</p>` : '';
 				return chapterTemplateHtml
 					.replace('{{CHAPTER_ID}}', chapter.id)
@@ -33,7 +31,6 @@ async function populateOutlineTemplate(template, novelData) {
 			}).join('')
 			: '<p class="text-sm text-base-content/70 px-2">No chapters in this section yet.</p>';
 		
-		// NEW: Populate section template.
 		const descriptionHtml = section.description ? `<p class="text-sm italic text-base-content/70 mt-1">${section.description}</p>` : '';
 		return sectionTemplateHtml
 			.replace('{{SECTION_ORDER}}', section.section_order)
@@ -56,14 +53,12 @@ async function populateCodexTemplate(template, novelData) {
 		return '<p class="text-center text-base-content/70 p-4">No codex categories found.</p>';
 	}
 	
-	// NEW: Fetch templates for categories and entries.
 	const categoryTemplateHtml = await window.api.getTemplate('codex-category-item');
 	const entryTemplateHtml = await window.api.getTemplate('codex-list-item');
 	
 	const categoriesHtml = novelData.codexCategories.map(category => {
 		const entriesHtml = category.entries && category.entries.length > 0
 			? category.entries.map(entry => {
-				// NEW: Populate entry template.
 				return entryTemplateHtml
 					.replace(/{{ENTRY_ID}}/g, entry.id)
 					.replace(/{{ENTRY_TITLE}}/g, entry.title)
@@ -75,7 +70,6 @@ async function populateCodexTemplate(template, novelData) {
 		const itemCount = category.entries_count || 0;
 		const itemText = itemCount === 1 ? 'item' : 'items';
 		
-		// NEW: Populate category template with string replacements.
 		let populatedCategory = categoryTemplateHtml
 			.replace('{{CATEGORY_ID}}', category.id)
 			.replace('{{CATEGORY_NAME}}', category.name);
@@ -124,7 +118,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 		const novelData = await window.api.getOneNovel(novelId);
 		if (!novelData) throw new Error('Novel not found.');
 		
-		// MODIFIED: Await the async template population functions.
 		document.body.dataset.outlineContent = await populateOutlineTemplate(outlineTemplateHtml, novelData);
 		document.body.dataset.codexContent = await populateCodexTemplate(codexTemplateHtml, novelData);
 		

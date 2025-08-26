@@ -13,7 +13,7 @@ import { baseKeymap, toggleMark } from 'prosemirror-commands';
 import { updateToolbarState } from './toolbar.js';
 
 const debounceTimers = new Map();
-const editorInstances = new Map(); // MODIFIED: Uses a prefixed key (e.g., 'codex-1', 'chapter-2')
+const editorInstances = new Map();
 let activeEditorView = null;
 
 const highlightMarkSpec = (colorClass) => ({
@@ -74,7 +74,6 @@ export const schema = new Schema({
 	},
 });
 
-// MODIFIED: This schema is no longer used for summaries, but is kept for potential future use.
 const descriptionSchema = new Schema({
 	nodes: {
 		doc: { content: 'paragraph' },
@@ -88,7 +87,6 @@ export function getActiveEditor() {
 	return activeEditorView;
 }
 
-// MODIFIED: Generalized function to trigger a debounced save for any window type.
 function triggerDebouncedSave(windowContent) {
 	const isChapter = windowContent.matches('.chapter-window-content');
 	const isCodex = windowContent.matches('.codex-entry-window-content');
@@ -119,12 +117,10 @@ function triggerDebouncedSave(windowContent) {
 	debounceTimers.set(key, timer);
 }
 
-// MODIFIED: Generalized function to save content for either a codex entry or a chapter.
 async function saveWindowContent(windowContent) {
 	const isChapter = windowContent.matches('.chapter-window-content');
 	const isCodex = windowContent.matches('.codex-entry-window-content');
 	
-	// NEW: Helper to serialize a ProseMirror document to an HTML string.
 	const serializeDocToHtml = (view) => {
 		const serializer = DOMSerializer.fromSchema(view.state.schema);
 		const fragment = serializer.serializeFragment(view.state.doc.content);
@@ -139,7 +135,6 @@ async function saveWindowContent(windowContent) {
 		if (!instances) return;
 		
 		const titleInput = windowContent.querySelector('.js-codex-title-input');
-		// MODIFIED: Serialize description to HTML instead of getting plain text.
 		const description = serializeDocToHtml(instances.descriptionView);
 		const content = serializeDocToHtml(instances.contentView);
 		
@@ -158,7 +153,6 @@ async function saveWindowContent(windowContent) {
 		if (!instances) return;
 		
 		const titleInput = windowContent.querySelector('.js-chapter-title-input');
-		// MODIFIED: Serialize summary to HTML instead of getting plain text.
 		const summary = serializeDocToHtml(instances.summaryView);
 		const content = serializeDocToHtml(instances.contentView);
 		
@@ -174,7 +168,6 @@ async function saveWindowContent(windowContent) {
 	}
 }
 
-// MODIFIED: Generalized function to initialize editors for a given window.
 function initEditorsForWindow(windowContent) {
 	const isChapter = windowContent.matches('.chapter-window-content');
 	const isCodex = windowContent.matches('.codex-entry-window-content');
@@ -266,7 +259,6 @@ function initEditorsForWindow(windowContent) {
 		
 		if (!descriptionMount || !contentMount) return;
 		
-		// MODIFIED: Use the full schema for the description field to allow rich text.
 		const descriptionView = createEditor(descriptionMount, false);
 		const contentView = createEditor(contentMount, false);
 		
@@ -280,7 +272,6 @@ function initEditorsForWindow(windowContent) {
 		
 		if (!summaryMount || !contentMount) return;
 		
-		// MODIFIED: Use the full schema for the summary field to allow rich text.
 		const summaryView = createEditor(summaryMount, false);
 		const contentView = createEditor(contentMount, false);
 		
@@ -288,7 +279,6 @@ function initEditorsForWindow(windowContent) {
 	}
 }
 
-// MODIFIED: Renamed function and updated observer to watch for both window types.
 export function setupContentEditor(desktop) {
 	const observer = new MutationObserver((mutationsList) => {
 		for (const mutation of mutationsList) {

@@ -44,12 +44,11 @@ export default class WindowManager {
 		win.style.left = `${x}px`;
 		win.style.top = `${y}px`;
 		
-		const isChapterWindow = windowId.startsWith('chapter-'); // NEW: Check if it's a chapter window.
+		const isChapterWindow = windowId.startsWith('chapter-');
 		
 		const titleBar = document.createElement('div');
 		titleBar.className = 'window-title-bar card-title flex items-center justify-between h-10 bg-base-200/70 px-3 cursor-move border-b border-base-300 flex-shrink-0';
 		
-		// MODIFIED: Only add double-click listener to chapter windows.
 		if (isChapterWindow) {
 			titleBar.addEventListener('dblclick', () => this.maximize(windowId));
 		} else
@@ -68,7 +67,6 @@ export default class WindowManager {
 			controlButtons.push(this.createControlButton('bg-red-500', () => this.close(windowId), 'close'));
 		}
 		controlButtons.push(this.createControlButton('bg-yellow-500', () => this.minimize(windowId), 'minimize'));
-		// MODIFIED: Only add maximize button to chapter windows.
 		if (isChapterWindow) {
 			controlButtons.push(this.createControlButton('bg-green-500', () => this.maximize(windowId), 'maximize'));
 		}
@@ -78,7 +76,6 @@ export default class WindowManager {
 		titleWrapper.className = 'flex items-center overflow-hidden';
 		
 		const iconEl = document.createElement('div');
-		// MODIFIED: Added flexbox classes to center the icon within its container.
 		iconEl.className = 'w-5 h-5 mr-2 text-base-content/70 flex-shrink-0 flex items-center justify-center';
 		iconEl.innerHTML = icon || '';
 		
@@ -194,7 +191,7 @@ export default class WindowManager {
 		let deltaX = 0;
 		let deltaY = 0;
 		
-		// MODIFIED: This logic is updated to prevent "jumping" when a window is already visible
+		// This logic is updated to prevent "jumping" when a window is already visible
 		// or is larger than the viewport's padded area, which caused oscillation.
 		
 		// Determine if the window is larger than the area defined by the padding.
@@ -237,7 +234,6 @@ export default class WindowManager {
 		
 		const isShiftPressed = event && event.shiftKey;
 		
-		// MODIFIED: If the window is already active and we are not shift-clicking, do nothing.
 		// This prevents unnecessary z-index changes and taskbar redraws.
 		if (this.activeWindow === windowId && !isShiftPressed) {
 			return;
@@ -536,7 +532,6 @@ export default class WindowManager {
 				let closable = true;
 				
 				try {
-					// MODIFIED: Get pre-rendered content from body data attributes.
 					if (state.id === 'outline-window') {
 						content = document.body.dataset.outlineContent;
 						closable = false;
@@ -596,7 +591,6 @@ export default class WindowManager {
 		}
 	}
 	
-	// MODIFIED: This function now intelligently updates the DOM instead of clearing and recreating it.
 	updateTaskbar() {
 		// 1. Determine the desired state: which items should be in the taskbar and in what order.
 		const taskbarItems = new Map();
@@ -698,7 +692,6 @@ export default class WindowManager {
 		const canvasCenterX = 2500;
 		const canvasCenterY = 2500;
 		
-		// MODIFIED: Get pre-rendered content from body data attributes.
 		const outlineContent = document.body.dataset.outlineContent;
 		if (outlineContent) {
 			this.createWindow({
@@ -714,7 +707,6 @@ export default class WindowManager {
 			});
 		}
 		
-		// MODIFIED: Get pre-rendered content from body data attributes.
 		const codexContent = document.body.dataset.codexContent;
 		if (codexContent) {
 			this.createWindow({
