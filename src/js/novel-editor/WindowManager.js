@@ -358,13 +358,30 @@ export default class WindowManager {
 		this.saveState();
 	}
 	
+	/**
+	 * MODIFIED: This method now includes logic to auto-pan the viewport when a window is dragged to the edge.
+	 * It uses requestAnimationFrame for smooth, continuous panning and a unified positioning logic
+	 * to keep the window attached to the cursor during both drag and pan operations.
+	 * @param {HTMLElement} win - The window element to make draggable.
+	 * @param {HTMLElement} handle - The element that acts as the drag handle (e.g., the title bar).
+	 */
 	makeDraggable(win, handle) {
-		const onMouseMove = (e) => {
+		let panRequest = null;
+		let panDirection = { x: 0, y: 0 };
+		let lastMouseEvent = null;
+		
+		// Unified function to calculate and apply window positions.
+		// This is used by both onMouseMove and the panLoop to prevent conflicting state updates.
+		const positionWindows = (e) => {
 			this.selectedWindows.forEach(id => {
 				const currentWinEl = this.windows.get(id).element;
-				let newLeft = currentWinEl.startLeft + (e.clientX - currentWinEl.startX) / this.scale;
-				let newTop = currentWinEl.startTop + (e.clientY - currentWinEl.startY) / this.scale;
+				// Calculate the new top-left corner of the window in desktop coordinates.
+				// It's based on the current mouse position, the current pan/scale of the canvas,
+				// and the initial offset from the cursor to the window's corner.
+				let newLeft = (e.clientX - this.panX) / this.scale - currentWinEl.dragOffsetX;
+				let newTop = (e.clientY - this.panY) / this.scale - currentWinEl.dragOffsetY;
 				
+				// Clamp the position to stay within the desktop boundaries.
 				const desktopWidth = this.desktop.offsetWidth;
 				const desktopHeight = this.desktop.offsetHeight;
 				const winWidth = currentWinEl.offsetWidth;
@@ -378,12 +395,76 @@ export default class WindowManager {
 			});
 		};
 		
+		// The main loop for auto-panning, driven by requestAnimationFrame.
+		const panLoop = () => {
+			if (panDirection.x === 0 && panDirection.y === 0) {
+				stopAutoPan();
+				return;
+			}
+			
+			const panSpeed = 10; // Pan speed in pixels per frame.
+			this.panX += panDirection.x * panSpeed;
+			this.panY += panDirection.y * panSpeed;
+			this.updateCanvasTransform();
+			
+			// Re-position windows using the last known mouse event and the new pan values.
+			// This is crucial to keep the window "stuck" to the cursor while the canvas moves underneath.
+			if (lastMouseEvent) {
+				positionWindows(lastMouseEvent);
+			}
+			
+			panRequest = requestAnimationFrame(panLoop);
+		};
+		
+		const startAutoPan = () => {
+			if (panRequest) return; // Already running.
+			panRequest = requestAnimationFrame(panLoop);
+		};
+		
+		const stopAutoPan = () => {
+			if (panRequest) {
+				cancelAnimationFrame(panRequest);
+				panRequest = null;
+			}
+		};
+		
+		const onMouseMove = (e) => {
+			lastMouseEvent = e; // Keep track of the latest mouse event.
+			positionWindows(e); // Update window positions based on mouse movement.
+			
+			// Check if the cursor is near the viewport edge to determine pan direction.
+			const edgeZone = 50; // 50px trigger zone from the edge.
+			const viewportRect = this.viewport.getBoundingClientRect();
+			panDirection = { x: 0, y: 0 };
+			
+			if (e.clientX < viewportRect.left + edgeZone) {
+				panDirection.x = 1; // Pan right (revealing content on the left).
+			} else if (e.clientX > viewportRect.right - edgeZone) {
+				panDirection.x = -1; // Pan left.
+			}
+			
+			if (e.clientY < viewportRect.top + edgeZone) {
+				panDirection.y = 1; // Pan down.
+			} else if (e.clientY > viewportRect.bottom - edgeZone) {
+				panDirection.y = -1; // Pan up.
+			}
+			
+			// Start or stop the panning loop based on cursor position.
+			if (panDirection.x !== 0 || panDirection.y !== 0) {
+				startAutoPan();
+			} else {
+				stopAutoPan();
+			}
+		};
+		
 		const onMouseUp = () => {
 			win.classList.remove('dragging');
 			document.removeEventListener('mousemove', onMouseMove);
 			document.removeEventListener('mouseup', onMouseUp);
-			// MODIFIED: Also remove the mouseleave listener to ensure a clean state.
 			document.removeEventListener('mouseleave', onMouseUp);
+			
+			stopAutoPan(); // Ensure the auto-pan stops when the drag ends.
+			lastMouseEvent = null; // Clean up stored event.
 			
 			this.selectedWindows.forEach(id => {
 				const winState = this.windows.get(id);
@@ -401,19 +482,18 @@ export default class WindowManager {
 			if (winState && winState.isMaximized) return;
 			
 			win.classList.add('dragging');
+			lastMouseEvent = e; // Store initial mouse event.
 			
+			// For each selected window, calculate and store the offset from its top-left corner
+			// to the mouse cursor, in unscaled desktop coordinates. This offset remains constant during the drag.
 			this.selectedWindows.forEach(id => {
 				const currentWinEl = this.windows.get(id).element;
-				currentWinEl.startX = e.clientX;
-				currentWinEl.startY = e.clientY;
-				currentWinEl.startLeft = currentWinEl.offsetLeft;
-				currentWinEl.startTop = currentWinEl.offsetTop;
+				currentWinEl.dragOffsetX = (e.clientX - this.panX) / this.scale - currentWinEl.offsetLeft;
+				currentWinEl.dragOffsetY = (e.clientY - this.panY) / this.scale - currentWinEl.offsetTop;
 			});
 			
 			document.addEventListener('mousemove', onMouseMove);
 			document.addEventListener('mouseup', onMouseUp);
-			// MODIFIED: Add a mouseleave listener to the document to catch cases where the mouse
-			// is released outside the application window, preventing the drag state from getting stuck.
 			document.addEventListener('mouseleave', onMouseUp);
 		});
 	}

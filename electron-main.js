@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, Menu, MenuItem, ipcMain, dialog } = require('electron');
 const path = require('path');
 const url = require('url');
 const fetch = require('node-fetch');
@@ -75,6 +75,41 @@ function createMainWindow() {
 		});
 	});
 	
+	mainWindow.webContents.on('context-menu', (event, params) => {
+		const menu = new Menu();
+		
+		for (const suggestion of params.dictionarySuggestions) {
+			menu.append(new MenuItem({
+				label: suggestion,
+				click: () => mainWindow.webContents.replaceMisspelling(suggestion)
+			}));
+		}
+		
+		if (params.misspelledWord) {
+			menu.append(
+				new MenuItem({
+					label: 'Add to dictionary',
+					click: () => mainWindow.webContents.session.addWordToSpellCheckerDictionary(params.misspelledWord)
+				})
+			);
+		}
+		
+		if (params.isEditable) {
+			if (menu.items.length > 0) {
+				menu.append(new MenuItem({type: 'separator'}));
+			}
+			
+			menu.append(new MenuItem({label: 'Cut', role: 'cut', enabled: params.selectionText}));
+			menu.append(new MenuItem({label: 'Copy', role: 'copy', enabled: params.selectionText}));
+			menu.append(new MenuItem({label: 'Paste', role: 'paste'}));
+			menu.append(new MenuItem({type: 'separator'}));
+			menu.append(new MenuItem({label: 'Select All', role: 'selectAll'}));
+		}
+		
+		menu.popup();
+	});
+	
+	
 	mainWindow.loadFile('public/index.html');
 	
 	mainWindow.on('closed', () => {
@@ -122,6 +157,41 @@ function createEditorWindow(novelId) {
 	
 	editorWindow.loadFile('public/novel-editor.html', { query: { novelId: novelId } });
 	editorWindows.set(novelId, editorWindow);
+	
+	editorWindow.webContents.on('context-menu', (event, params) => {
+		const menu = new Menu();
+		
+		for (const suggestion of params.dictionarySuggestions) {
+			menu.append(new MenuItem({
+				label: suggestion,
+				click: () => editorWindow.webContents.replaceMisspelling(suggestion)
+			}));
+		}
+		
+		if (params.misspelledWord) {
+			menu.append(
+				new MenuItem({
+					label: 'Add to dictionary',
+					click: () => editorWindow.webContents.session.addWordToSpellCheckerDictionary(params.misspelledWord)
+				})
+			);
+		}
+		
+		if (params.isEditable) {
+			if (menu.items.length > 0) {
+				menu.append(new MenuItem({type: 'separator'}));
+			}
+			
+			menu.append(new MenuItem({label: 'Cut', role: 'cut', enabled: params.selectionText}));
+			menu.append(new MenuItem({label: 'Copy', role: 'copy', enabled: params.selectionText}));
+			menu.append(new MenuItem({label: 'Paste', role: 'paste'}));
+			menu.append(new MenuItem({type: 'separator'}));
+			menu.append(new MenuItem({label: 'Select All', role: 'selectAll'}));
+		}
+		
+		menu.popup();
+	});
+	
 	
 	editorWindow.on('closed', () => {
 		editorWindows.delete(novelId);
