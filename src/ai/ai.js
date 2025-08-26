@@ -8,6 +8,37 @@ require('dotenv').config(); // Ensure .env variables are loaded
 const FAL_API_KEY = process.env.FAL_API_KEY;
 const OPEN_ROUTER_API_KEY = process.env.OPEN_ROUTER_API_KEY;
 
+// NEW: Function to log AI interactions to a file.
+/**
+ * Logs an AI interaction to a file in the user's data directory.
+ * @param {string} service - The name of the AI service being called.
+ * @param {object|string} prompt - The prompt or payload sent to the AI.
+ * @param {object|string} response - The response received from the AI.
+ */
+function logAiInteraction(service, prompt, response) {
+	try {
+		const logPath = path.join(app.getPath('userData'), 'ai_interactions.log');
+		const timestamp = new Date().toISOString();
+		
+		const formattedPrompt = typeof prompt === 'object' ? JSON.stringify(prompt, null, 2) : prompt;
+		const formattedResponse = typeof response === 'object' ? JSON.stringify(response, null, 2) : response;
+		
+		const logEntry = `
+==================================================
+Timestamp: ${timestamp}
+Service: ${service}
+------------------ Prompt ------------------
+${formattedPrompt}
+------------------ Response ------------------
+${formattedResponse}
+==================================================\n\n`;
+		
+		fs.appendFileSync(logPath, logEntry);
+	} catch (error) {
+		console.error('Failed to write to AI log file:', error);
+	}
+}
+
 /**
  * A generic function to call the OpenRouter API.
  * @param {object} payload - The request body for the OpenRouter API.
@@ -36,7 +67,11 @@ async function callOpenRouter(payload) {
 	
 	const data = await response.json();
 	// The actual content is a JSON string within the response, so we parse it.
-	return JSON.parse(data.choices[0].message.content);
+	const finalContent = JSON.parse(data.choices[0].message.content); // MODIFIED: Store in a variable to log and return it.
+	
+	logAiInteraction('OpenRouter (Non-streaming)', payload, finalContent); // NEW: Log the interaction.
+	
+	return finalContent; // MODIFIED: Return the stored variable.
 }
 
 /**
@@ -66,24 +101,33 @@ async function streamOpenRouter(payload, onChunk) {
 		throw new Error(`OpenRouter API Error: ${response.status} ${errorText}`);
 	}
 	
+	let fullResponse = ''; // NEW: To accumulate the full response for logging.
+	
 	// Process the streaming response body
 	for await (const chunk of response.body) {
 		const lines = chunk.toString('utf8').split('\n').filter(line => line.trim().startsWith('data: '));
 		for (const line of lines) {
 			const message = line.replace(/^data: /, '');
 			if (message === '[DONE]') {
+				logAiInteraction('OpenRouter (Streaming)', payload, fullResponse); // NEW: Log the complete interaction.
 				return; // Stream finished
 			}
 			try {
 				const parsed = JSON.parse(message);
 				const content = parsed.choices[0]?.delta?.content;
 				if (content) {
+					fullResponse += content; // MODIFIED: Append chunk to full response.
 					onChunk(content); // Send the text chunk to the callback
 				}
 			} catch (error) {
 				console.error('Error parsing stream chunk:', message, error);
 			}
 		}
+	}
+	
+	// NEW: Fallback log in case the stream ends without a [DONE] message.
+	if (fullResponse) {
+		logAiInteraction('OpenRouter (Streaming)', payload, fullResponse);
 	}
 }
 
@@ -123,16 +167,19 @@ async function generateFalImage(prompt, imageSize = 'portrait_16_9') {
 	}
 	
 	try {
+		// NEW: Create a payload object for consistent logging.
+		const payload = {
+			prompt: prompt,
+			image_size: imageSize,
+		};
+		
 		const response = await fetch('https://fal.run/fal-ai/qwen-image', {
 			method: 'POST',
 			headers: {
 				'Authorization': `Key ${FAL_API_KEY}`,
 				'Content-Type': 'application/json'
 			},
-			body: JSON.stringify({
-				prompt: prompt,
-				image_size: imageSize,
-			})
+			body: JSON.stringify(payload) // MODIFIED: Use the payload object.
 		});
 		
 		if (!response.ok) {
@@ -142,6 +189,7 @@ async function generateFalImage(prompt, imageSize = 'portrait_16_9') {
 		
 		const data = await response.json();
 		if (data.images && data.images[0] && data.images[0].url) {
+			logAiInteraction('Fal.ai Image Generation', payload, data); // NEW: Log the interaction.
 			return data.images[0].url;
 		}
 		console.warn('Fal.ai response did not contain an image URL.', { response: data });

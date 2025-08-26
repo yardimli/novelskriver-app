@@ -136,6 +136,7 @@ function setupIpcHandlers() {
 	// --- Novel Handlers ---
 	
 	ipcMain.handle('novels:getAllWithCovers', () => {
+		// MODIFIED: The `n.*` in the query now automatically includes the new prose setting columns.
 		const stmt = db.prepare(`
             SELECT
                 n.*,
@@ -234,6 +235,21 @@ function setupIpcHandlers() {
 		})();
 		
 		return { id: novelId, ...data };
+	});
+	
+	// NEW: IPC handler to update prose settings for a specific novel.
+	ipcMain.handle('novels:updateProseSettings', (event, { novelId, prose_tense, prose_language, prose_pov }) => {
+		try {
+			db.prepare(`
+                UPDATE novels
+                SET prose_tense = ?, prose_language = ?, prose_pov = ?
+                WHERE id = ?
+            `).run(prose_tense, prose_language, prose_pov, novelId);
+			return { success: true };
+		} catch (error) {
+			console.error('Failed to update prose settings:', error);
+			throw new Error('Failed to update prose settings.');
+		}
 	});
 	
 	ipcMain.on('novels:openEditor', (event, novelId) => {
@@ -455,7 +471,6 @@ function setupIpcHandlers() {
 		let template = getTemplate('chapter-window');
 		template = template.replace('{{CHAPTER_ID}}', chapter.id);
 		template = template.replace('{{SECTION_INFO_HTML}}', sectionInfoHtml);
-		// MODIFIED: Use new placeholders for the editable title input and summary div.
 		template = template.replace('{{CHAPTER_TITLE_ATTR}}', escapeAttr(chapter.title));
 		template = template.replace('{{CHAPTER_SUMMARY_HTML}}', chapter.summary || '');
 		template = template.replace('{{CONTENT_HTML}}', chapter.content || '');
@@ -467,7 +482,6 @@ function setupIpcHandlers() {
 	
 	ipcMain.handle('chapters:updateContent', (event, chapterId, data) => {
 		try {
-			// MODIFIED: Update title, summary, and content for a chapter.
 			db.prepare('UPDATE chapters SET title = ?, summary = ?, content = ? WHERE id = ?')
 				.run(data.title, data.summary, data.content, chapterId);
 			return { success: true, message: 'Chapter content updated.' };

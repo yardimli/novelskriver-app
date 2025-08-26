@@ -1,6 +1,11 @@
 -- This schema is a simplified version based on the Laravel models provided.
 -- It uses INTEGER for foreign keys and TEXT for JSON data.
 
+-- For existing databases, run the following ALTER TABLE statements:
+-- ALTER TABLE novels ADD COLUMN prose_tense TEXT DEFAULT 'past';
+-- ALTER TABLE novels ADD COLUMN prose_language TEXT DEFAULT 'English';
+-- ALTER TABLE novels ADD COLUMN prose_pov TEXT DEFAULT 'third_person_limited';
+
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
@@ -30,6 +35,10 @@ CREATE TABLE IF NOT EXISTS novels (
     status TEXT NOT NULL DEFAULT 'draft',
     order_in_series INTEGER,
     editor_state TEXT, -- Stored as JSON
+    -- MODIFIED: Added columns for prose settings with sensible defaults.
+    prose_tense TEXT DEFAULT 'past',
+    prose_language TEXT DEFAULT 'English',
+    prose_pov TEXT DEFAULT 'third_person_limited',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id),

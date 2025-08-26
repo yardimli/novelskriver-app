@@ -10,6 +10,8 @@ contextBridge.exposeInMainWorld('api', {
 	createSeries: (data) => ipcRenderer.invoke('series:store', data),
 	generateTitle: () => ipcRenderer.invoke('novels:generateTitle'),
 	getAuthors: () => ipcRenderer.invoke('authors:getDistinct'),
+	// NEW: Expose the handler for updating prose settings.
+	updateProseSettings: (data) => ipcRenderer.invoke('novels:updateProseSettings', data),
 	
 	getStructureFiles: () => ipcRenderer.invoke('files:getStructureFiles'),
 	generateStructure: (data) => ipcRenderer.invoke('novels:generateStructure', data),
@@ -31,7 +33,6 @@ contextBridge.exposeInMainWorld('api', {
 	attachCodexToChapter: (chapterId, codexEntryId) => ipcRenderer.invoke('chapters:codex:attach', chapterId, codexEntryId),
 	detachCodexFromChapter: (chapterId, codexEntryId) => ipcRenderer.invoke('chapters:codex:detach', chapterId, codexEntryId),
 	
-	// MODIFIED: Chapter Content Management now handles title, summary, and content.
 	updateChapterContent: (chapterId, data) => ipcRenderer.invoke('chapters:updateContent', chapterId, data),
 	
 	// Codex Entry Management
