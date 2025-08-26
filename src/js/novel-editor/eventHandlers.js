@@ -36,9 +36,21 @@ export function setupCodexEntryHandler(desktop, windowManager) {
 				throw new Error('Failed to load codex entry details.');
 			}
 			
-			const openWindows = document.querySelectorAll('[id^="codex-entry-"]').length;
-			const offsetX = 850 + (openWindows * 30);
-			const offsetY = 120 + (openWindows * 30);
+			// MODIFIED: Calculate position relative to the main codex window for better layout.
+			let offsetX = 850;
+			let offsetY = 120;
+			const codexWin = windowManager.windows.get('codex-window');
+			const openCodexWindows = Array.from(windowManager.windows.keys()).filter(k => k.startsWith('codex-entry-')).length;
+			
+			if (codexWin && !codexWin.isMinimized) {
+				const codexEl = codexWin.element;
+				offsetX = codexEl.offsetLeft + codexEl.offsetWidth + 20;
+				offsetY = codexEl.offsetTop + (openCodexWindows * 30);
+			} else {
+				// Fallback to original logic if codex window isn't available
+				offsetX += (openCodexWindows * 30);
+				offsetY += (openCodexWindows * 30);
+			}
 			
 			windowManager.createWindow({
 				id: windowId,
@@ -118,9 +130,21 @@ export function setupChapterHandler(desktop, windowManager) {
 				throw new Error('Failed to load chapter details.');
 			}
 			
-			const openWindows = document.querySelectorAll('[id^="chapter-"]').length;
-			const offsetX = 100 + (openWindows * 30);
-			const offsetY = 300 + (openWindows * 30);
+			// MODIFIED: Calculate position relative to the outline window for better layout.
+			let offsetX = 100;
+			let offsetY = 300;
+			const outlineWin = windowManager.windows.get('outline-window');
+			const openChapterWindows = Array.from(windowManager.windows.keys()).filter(k => k.startsWith('chapter-')).length;
+			
+			if (outlineWin && !outlineWin.isMinimized) {
+				const outlineEl = outlineWin.element;
+				offsetX = outlineEl.offsetLeft + outlineEl.offsetWidth + 20;
+				offsetY = outlineEl.offsetTop + (openChapterWindows * 30);
+			} else {
+				// Fallback to original logic if outline window isn't available
+				offsetX += (openChapterWindows * 30);
+				offsetY += (openChapterWindows * 30);
+			}
 			
 			windowManager.createWindow({
 				id: windowId,

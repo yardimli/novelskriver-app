@@ -127,7 +127,7 @@ function createEditorWindow(novelId) {
 		editorWindows.delete(novelId);
 	});
 	
-//	editorWindow.webContents.openDevTools();
+	editorWindow.webContents.openDevTools();
 
 }
 

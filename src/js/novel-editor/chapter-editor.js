@@ -112,5 +112,6 @@ async function createCodexTagElement(chapterId, codexEntry) {
 	
 	const div = document.createElement('div');
 	div.innerHTML = template.trim();
-	return div.firstChild;
+	// MODIFIED: Use firstElementChild to skip any comment nodes at the start of the template file.
+	return div.firstElementChild;
 }

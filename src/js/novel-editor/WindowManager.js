@@ -54,8 +54,8 @@ export default class WindowManager {
 		} else
 		{
 			titleBar.addEventListener('dblclick', () => {
-					this.zoomTo(1);
-					this.scrollIntoView(windowId);
+				this.zoomTo(1);
+				this.scrollIntoView(windowId);
 			});
 		}
 		
@@ -382,6 +382,8 @@ export default class WindowManager {
 			win.classList.remove('dragging');
 			document.removeEventListener('mousemove', onMouseMove);
 			document.removeEventListener('mouseup', onMouseUp);
+			// MODIFIED: Also remove the mouseleave listener to ensure a clean state.
+			document.removeEventListener('mouseleave', onMouseUp);
 			
 			this.selectedWindows.forEach(id => {
 				const winState = this.windows.get(id);
@@ -410,6 +412,9 @@ export default class WindowManager {
 			
 			document.addEventListener('mousemove', onMouseMove);
 			document.addEventListener('mouseup', onMouseUp);
+			// MODIFIED: Add a mouseleave listener to the document to catch cases where the mouse
+			// is released outside the application window, preventing the drag state from getting stuck.
+			document.addEventListener('mouseleave', onMouseUp);
 		});
 	}
 	
@@ -872,6 +877,8 @@ export default class WindowManager {
 			}
 		});
 		this.selectedWindows.clear();
+		this.activeWindow = null;
+		this.updateTaskbar();
 	}
 	
 	reposition(windowId, x, y, width, height) {

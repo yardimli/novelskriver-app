@@ -10,7 +10,8 @@
 function createElementFromHTML(htmlString) {
 	const div = document.createElement('div');
 	div.innerHTML = htmlString.trim();
-	return div.firstChild;
+	// MODIFIED: Use firstElementChild to correctly handle templates that may start with comment nodes.
+	return div.firstElementChild;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
