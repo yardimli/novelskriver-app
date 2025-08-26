@@ -9,17 +9,27 @@ document.addEventListener('DOMContentLoaded', () => {
 	const saveProseBtn = document.getElementById('save-prose-settings-btn');
 	const languageSelect = document.getElementById('prose_language');
 	
+	// Meta Modal Elements
 	const metaModal = document.getElementById('meta-settings-modal');
 	const metaForm = document.getElementById('meta-settings-form');
 	const metaNovelIdInput = document.getElementById('meta-novel-id');
 	const metaSeriesSelect = document.getElementById('meta-series-id');
+	const metaCoverPreview = document.getElementById('meta-cover-preview'); // NEW
 	const saveMetaBtn = document.getElementById('save-meta-settings-btn');
 	const generateCoverBtn = document.getElementById('generate-cover-btn');
 	const uploadCoverBtn = document.getElementById('upload-cover-btn');
 	const deleteNovelBtn = document.getElementById('delete-novel-btn');
 	
+	// NEW: AI Cover Generation Modal Elements
+	const genCoverModal = document.getElementById('generate-cover-modal');
+	const genCoverPrompt = document.getElementById('generate-cover-prompt');
+	const runGenCoverBtn = document.getElementById('run-generate-cover-btn');
+	const genCoverPreview = document.getElementById('generate-cover-preview');
+	const acceptGenCoverBtn = document.getElementById('accept-generated-cover-btn');
+	
 	let novelsData = [];
 	let seriesData = [];
+	let stagedCover = null; // NEW: To hold cover changes before saving
 	
 	const languages = [
 		"English", "Spanish", "French", "German", "Mandarin Chinese", "Hindi", "Arabic", "Bengali", "Russian", "Portuguese", "Indonesian", "Urdu", "Japanese", "Swahili", "Marathi", "Telugu", "Turkish", "Korean", "Tamil", "Vietnamese", "Italian", "Javanese", "Thai", "Gujarati", "Polish", "Ukrainian", "Malayalam", "Kannada", "Oriya", "Burmese"
@@ -46,18 +56,24 @@ document.addEventListener('DOMContentLoaded', () => {
 	}
 	
 	function openMetaSettingsModal(novel) {
+		stagedCover = null; // NEW: Reset staged cover on modal open
 		metaNovelIdInput.value = novel.id;
 		metaForm.querySelector('#meta-title').value = novel.title;
 		metaForm.querySelector('#meta-author').value = novel.author || '';
 		metaForm.querySelector('#meta-series-index').value = novel.order_in_series || '';
 		
-		// Populate series dropdown
+		// NEW: Set initial preview to the current cover or placeholder
+		const currentNovel = novelsData.find(n => n.id === novel.id);
+		if (currentNovel && currentNovel.cover_path) {
+			metaCoverPreview.innerHTML = `<img src="file://${currentNovel.cover_path}?t=${Date.now()}" alt="Current cover" class="w-full h-auto">`;
+		} else {
+			metaCoverPreview.innerHTML = `<span>No cover image</span>`;
+		}
+		
 		metaSeriesSelect.innerHTML = '<option value="">—</option>';
 		seriesData.forEach(series => {
 			const option = new Option(series.title, series.id);
-			if (series.id === novel.series_id) {
-				option.selected = true;
-			}
+			if (series.id === novel.series_id) option.selected = true;
 			metaSeriesSelect.add(option);
 		});
 		
@@ -101,7 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			novelCard.dataset.novelId = novel.id;
 			
 			const coverHtml = novel.cover_path
-				? `<img src="file://${novel.cover_path}" alt="Cover for ${novel.title}" class="w-full h-56 object-cover">`
+				? `<img src="file://${novel.cover_path}" alt="Cover for ${novel.title}" class="w-full">`
 				: `<div class="bg-base-300 h-56 flex items-center justify-center"><span class="text-base-content/50">No Cover</span></div>`;
 			
 			const actionButtonHtml = novel.chapter_count > 0
@@ -114,13 +130,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     <h2 class="card-title">${novel.title}</h2>
                     <p class="text-base-content/80">${novel.author || 'Unknown Author'}</p>
                     <div class="card-actions justify-end items-center mt-2">
-                        <div class="dropdown dropdown-top dropdown-end">
-                          <button tabindex="0" role="button" class="btn btn-ghost btn-sm"><i class="bi bi-gear-fill"></i></button>
-                          <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-32">
-                            <li><button class="js-meta-settings"><i class="bi bi-pencil-square w-4"></i> Meta</button></li>
-                            <li><button class="js-prose-settings"><i class="bi bi-sliders w-4"></i> Prose</button></li>
-                          </ul>
-                        </div>
+                        <button class="btn btn-ghost btn-sm js-meta-settings" title="Edit Meta">
+                            <i class="bi bi-pencil-square text-lg"></i>
+                        </button>
+                        <button class="btn btn-ghost btn-sm js-prose-settings" title="Edit Prose">
+                            <i class="bi bi-sliders text-lg"></i>
+                        </button>
+                        <div class="flex-grow"></div>
                         ${actionButtonHtml}
                     </div>
                 </div>
@@ -160,6 +176,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	saveMetaBtn.addEventListener('click', async (e) => {
 		e.preventDefault();
 		const novelId = parseInt(metaNovelIdInput.value, 10);
+		
+		// Save text fields
 		const formData = new FormData(metaForm);
 		const data = {
 			novelId,
@@ -174,39 +192,45 @@ document.addEventListener('DOMContentLoaded', () => {
 			const novelIndex = novelsData.findIndex(n => n.id === novelId);
 			if (novelIndex !== -1) Object.assign(novelsData[novelIndex], data);
 			updateNovelCardUI(novelId);
+			
+			// NEW: If a cover was staged, save it now.
+			if (stagedCover) {
+				await window.api.updateNovelCover({ novelId, coverInfo: stagedCover });
+			}
+			
 			metaModal.close();
 		} catch (error) {
 			console.error('Failed to save meta settings:', error);
+			alert('Error saving settings: ' + error.message);
 		}
 	});
 	
+	// MODIFIED: Generate cover button now opens the new AI modal.
 	generateCoverBtn.addEventListener('click', async () => {
 		const novelId = parseInt(metaNovelIdInput.value, 10);
+		genCoverPrompt.value = '';
+		genCoverPreview.innerHTML = `<p class="text-base-content/50">Image preview will appear here</p>`;
+		acceptGenCoverBtn.disabled = true;
+		genCoverModal.showModal();
+		
 		setButtonLoading(generateCoverBtn, true);
 		try {
-			await window.api.generateNovelCover(novelId);
-			// The onCoverUpdated listener will handle the UI update.
+			const prompt = await window.api.aiGenerateCoverPrompt(novelId);
+			if (prompt) genCoverPrompt.value = prompt;
 		} catch (error) {
-			console.error('Failed to generate cover:', error);
-			alert('Error generating cover. Check your API keys and connection.');
+			console.error('Failed to generate prompt:', error);
+			genCoverPrompt.placeholder = 'Could not generate a prompt automatically.';
 		} finally {
 			setButtonLoading(generateCoverBtn, false);
 		}
 	});
 	
 	uploadCoverBtn.addEventListener('click', async () => {
-		const novelId = parseInt(metaNovelIdInput.value, 10);
 		const filePath = await window.api.showOpenImageDialog();
 		if (filePath) {
-			setButtonLoading(uploadCoverBtn, true);
-			try {
-				await window.api.uploadNovelCover(novelId, filePath);
-			} catch (error) {
-				console.error('Failed to upload cover:', error);
-				alert('Error uploading cover.');
-			} finally {
-				setButtonLoading(uploadCoverBtn, false);
-			}
+			// NEW: Stage the file path instead of uploading immediately.
+			stagedCover = { type: 'local', data: filePath };
+			metaCoverPreview.innerHTML = `<img src="file://${filePath}" alt="Staged cover" class="w-full h-auto">`;
 		}
 	});
 	
@@ -221,7 +245,7 @@ document.addEventListener('DOMContentLoaded', () => {
 				await window.api.deleteNovel(novelId);
 				novelsData = novelsData.filter(n => n.id !== novelId);
 				metaModal.close();
-				renderNovels(); // Re-render the list to remove the card.
+				renderNovels();
 			} catch (error) {
 				console.error('Failed to delete novel:', error);
 				alert('Error deleting novel.');
@@ -229,13 +253,55 @@ document.addEventListener('DOMContentLoaded', () => {
 		}
 	});
 	
+	// --- NEW: Event Listeners for AI Cover Modal ---
+	
+	runGenCoverBtn.addEventListener('click', async () => {
+		const prompt = genCoverPrompt.value.trim();
+		if (!prompt) return;
+		
+		setButtonLoading(runGenCoverBtn, true);
+		genCoverPreview.innerHTML = `<span class="loading loading-spinner loading-lg"></span>`;
+		acceptGenCoverBtn.disabled = true;
+		
+		try {
+			const imageUrl = await window.api.aiGenerateImageFromPrompt(prompt);
+			if (imageUrl) {
+				genCoverPreview.innerHTML = `<img src="${imageUrl}" alt="AI generated preview" class="w-full h-auto">`;
+				acceptGenCoverBtn.disabled = false;
+			} else {
+				throw new Error('AI service did not return an image URL.');
+			}
+		} catch (error) {
+			console.error('Image generation failed:', error);
+			genCoverPreview.innerHTML = `<p class="text-error p-4">Error: ${error.message}</p>`;
+		} finally {
+			setButtonLoading(runGenCoverBtn, false);
+		}
+	});
+	
+	acceptGenCoverBtn.addEventListener('click', () => {
+		const img = genCoverPreview.querySelector('img');
+		if (img && img.src) {
+			// NEW: Stage the remote URL for saving later.
+			stagedCover = { type: 'remote', data: img.src };
+			metaCoverPreview.innerHTML = `<img src="${img.src}" alt="Staged cover" class="w-full h-auto">`;
+			genCoverModal.close();
+		}
+	});
+	
+	// --- IPC Listeners ---
+	
 	window.api.onCoverUpdated((event, { novelId, imagePath }) => {
+		const novelIndex = novelsData.findIndex(n => n.id === novelId);
+		if (novelIndex !== -1) {
+			novelsData[novelIndex].cover_path = imagePath;
+		}
+		
 		const card = novelList.querySelector(`[data-novel-id='${novelId}']`);
 		if (card) {
 			const figure = card.querySelector('figure');
 			if (figure) {
-				// Add a timestamp to bust the cache
-				figure.innerHTML = `<img src="file://${imagePath}?t=${Date.now()}" alt="Cover for novel ${novelId}" class="w-full h-56 object-cover">`;
+				figure.innerHTML = `<img src="file://${imagePath}?t=${Date.now()}" alt="Cover for novel ${novelId}" class="w-full">`;
 			}
 		}
 	});

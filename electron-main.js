@@ -70,7 +70,7 @@ function createMainWindow() {
 		callback({
 			responseHeaders: {
 				...details.responseHeaders,
-				'Content-Security-Policy': ["default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' file: data:;"]
+				'Content-Security-Policy': ["default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' file: data: https:;"]
 			}
 		});
 	});
@@ -136,7 +136,6 @@ function setupIpcHandlers() {
 	// --- Novel Handlers ---
 	
 	ipcMain.handle('novels:getAllWithCovers', () => {
-		// The `n.*` in the query now automatically includes the new prose setting columns.
 		const stmt = db.prepare(`
             SELECT
                 n.*,
@@ -146,6 +145,7 @@ function setupIpcHandlers() {
             LEFT JOIN (
                 SELECT novel_id, image_local_path, ROW_NUMBER() OVER(PARTITION BY novel_id ORDER BY created_at DESC) as rn
                 FROM images
+				WHERE codex_entry_id IS NULL -- NEW: Ensure we only get novel covers
             ) i ON n.id = i.novel_id AND i.rn = 1
             ORDER BY n.created_at DESC
         `);
@@ -265,47 +265,44 @@ function setupIpcHandlers() {
 		}
 	});
 	
-	ipcMain.handle('novels:generateCover', async (event, novelId) => {
-		const novel = db.prepare('SELECT title FROM novels WHERE id = ?').get(novelId);
-		if (!novel) throw new Error('Novel not found.');
+	// MODIFIED: This handler now takes staged cover data and saves it.
+	ipcMain.handle('novels:updateCover', async (event, { novelId, coverInfo }) => {
+		let localPath;
+		let imageType = 'unknown';
 		
-		const imagePrompt = await aiService.generateCoverPrompt(novel.title);
-		if (!imagePrompt) throw new Error('Failed to generate image prompt.');
+		if (coverInfo.type === 'remote') {
+			localPath = await imageHandler.storeImageFromUrl(coverInfo.data, novelId, 'cover');
+			imageType = 'generated';
+		} else if (coverInfo.type === 'local') {
+			const paths = await imageHandler.storeImageFromPath(coverInfo.data, novelId, null, 'cover-upload');
+			localPath = paths.original_path;
+			imageType = 'upload';
+		}
 		
-		const imageUrl = await aiService.generateFalImage(imagePrompt);
-		if (!imageUrl) throw new Error('Failed to generate image from AI service.');
+		if (!localPath) {
+			throw new Error('Failed to store the new cover image.');
+		}
 		
-		const localPath = await imageHandler.storeImageFromUrl(imageUrl, novelId, 'cover');
-		
-		// Delete old cover image records for this novel before inserting new one.
-		db.prepare("DELETE FROM images WHERE novel_id = ? AND codex_entry_id IS NULL").run(novelId);
-		
-		db.prepare(`
-            INSERT INTO images (user_id, novel_id, image_local_path, remote_url, prompt, image_type)
-            VALUES (?, ?, ?, ?, ?, ?)
-        `).run(1, novelId, localPath, imageUrl, imagePrompt, 'generated');
-		
-		const absolutePath = path.join(imageHandler.IMAGES_DIR, localPath);
-		// Send update to all windows.
-		BrowserWindow.getAllWindows().forEach(win => {
-			win.webContents.send('novels:cover-updated', { novelId, imagePath: absolutePath });
+		// This transaction ensures we delete the old file and DB record before adding the new one.
+		const transaction = db.transaction(() => {
+			const oldImage = db.prepare("SELECT * FROM images WHERE novel_id = ? AND codex_entry_id IS NULL").get(novelId);
+			if (oldImage && oldImage.image_local_path) {
+				const oldFullPath = path.join(imageHandler.IMAGES_DIR, oldImage.image_local_path);
+				if (fs.existsSync(oldFullPath)) {
+					fs.unlinkSync(oldFullPath);
+				}
+			}
+			db.prepare("DELETE FROM images WHERE novel_id = ? AND codex_entry_id IS NULL").run(novelId);
+			
+			db.prepare(`
+                INSERT INTO images (user_id, novel_id, image_local_path, thumbnail_local_path, image_type)
+                VALUES (?, ?, ?, ?, ?)
+            `).run(1, novelId, localPath, localPath, imageType);
 		});
 		
-		return { success: true };
-	});
-	
-	ipcMain.handle('novels:uploadCover', async (event, novelId, filePath) => {
-		const localPath = await imageHandler.storeImageFromPath(filePath, novelId, null, 'cover-upload');
+		transaction();
 		
-		// Delete old cover image records for this novel.
-		db.prepare("DELETE FROM images WHERE novel_id = ? AND codex_entry_id IS NULL").run(novelId);
-		
-		db.prepare(`
-            INSERT INTO images (user_id, novel_id, image_local_path, image_type)
-            VALUES (?, ?, ?, ?)
-        `).run(1, novelId, localPath.original_path, 'upload');
-		
-		const absolutePath = path.join(imageHandler.IMAGES_DIR, localPath.original_path);
+		const absolutePath = path.join(imageHandler.IMAGES_DIR, localPath);
 		BrowserWindow.getAllWindows().forEach(win => {
 			win.webContents.send('novels:cover-updated', { novelId, imagePath: absolutePath });
 		});
@@ -756,6 +753,19 @@ function setupIpcHandlers() {
 		aiService.streamProcessCodexText(data, onChunk)
 			.then(onComplete)
 			.catch(onError);
+	});
+	
+	// NEW: IPC handler to generate a cover prompt without saving.
+	ipcMain.handle('ai:generateCoverPrompt', async (event, novelId) => {
+		const novel = db.prepare('SELECT title FROM novels WHERE id = ?').get(novelId);
+		if (!novel) throw new Error('Novel not found.');
+		return await aiService.generateCoverPrompt(novel.title);
+	});
+	
+	// NEW: IPC handler to generate an image from a prompt without saving.
+	ipcMain.handle('ai:generateImageFromPrompt', async (event, prompt) => {
+		if (!prompt) throw new Error('A prompt is required to generate an image.');
+		return await aiService.generateFalImage(prompt);
 	});
 	
 	ipcMain.handle('ai:getModels', async () => {

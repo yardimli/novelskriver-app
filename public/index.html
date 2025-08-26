@@ -3,7 +3,7 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' file:;">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' file: data: https:;">
 	<title>Novel Writer - Dashboard</title>
 	<link rel="stylesheet" href="../node_modules/bootstrap-icons/font/bootstrap-icons.css">
 	<link rel="stylesheet" href="../dist/styles.css">
@@ -32,7 +32,7 @@
 
 <!-- Prose Settings Modal -->
 <dialog id="prose-settings-modal" class="modal">
-	<div class="modal-box">
+	<div class="modal-box w-11/12 max-w-2xl">
 		<h3 class="font-bold text-lg">Prose Settings</h3>
 		<p class="py-4 text-sm text-base-content/70">These settings help guide AI prose generation and other writing tools.</p>
 		<form id="prose-settings-form" class="space-y-4">
@@ -83,12 +83,12 @@
 			</form>
 		</div>
 	</div>
-	<form method="dialog" class="modal-backdrop"><button>close</button></form>
+	<!-- MODIFIED: Removed modal-backdrop form to prevent closing on outside click -->
 </dialog>
 
-<!-- NEW: Meta Settings Modal -->
+<!-- Meta Settings Modal -->
 <dialog id="meta-settings-modal" class="modal">
-	<div class="modal-box">
+	<div class="modal-box w-11/12 max-w-2xl">
 		<h3 class="font-bold text-lg">Edit Novel Details</h3>
 		<form id="meta-settings-form" class="py-4 space-y-4">
 			<input type="hidden" id="meta-novel-id" name="novelId">
@@ -123,6 +123,11 @@
 		
 		<!-- Cover Actions -->
 		<div class="divider">Cover Art</div>
+		<!-- NEW: Added a preview area for the staged cover image. -->
+		<div id="meta-cover-preview" class="my-4 rounded-lg overflow-hidden max-w-xs mx-auto bg-base-300 flex items-center justify-center min-h-48 text-base-content/50">
+			<!-- Preview image will be inserted here by JS -->
+			<span>No new cover selected</span>
+		</div>
 		<div class="flex gap-2 justify-center">
 			<button id="generate-cover-btn" class="btn btn-neutral w-40">
 				<span class="js-btn-content flex items-center gap-2"><i class="bi bi-magic"></i> Generate AI Cover</span>
@@ -148,7 +153,39 @@
 			</form>
 		</div>
 	</div>
-	<form method="dialog" class="modal-backdrop"><button>close</button></form>
+	<!-- MODIFIED: Removed modal-backdrop form to prevent closing on outside click -->
+</dialog>
+
+<!-- NEW: Added a new modal for the AI cover generation flow -->
+<dialog id="generate-cover-modal" class="modal">
+	<div class="modal-box w-11/12 max-w-2xl">
+		<h3 class="font-bold text-lg">Generate AI Cover Art</h3>
+		<form id="generate-cover-form" class="py-4 space-y-4">
+			<div class="form-control">
+				<label for="generate-cover-prompt" class="label"><span class="label-text">Image Prompt</span></label>
+				<textarea id="generate-cover-prompt" class="textarea textarea-bordered h-24" placeholder="A lone astronaut on a red planet..."></textarea>
+			</div>
+			
+			<div class="text-center">
+				<button type="button" id="run-generate-cover-btn" class="btn btn-accent w-40">
+					<span class="js-btn-content flex items-center gap-2"><i class="bi bi-stars"></i> Generate</span>
+					<span class="js-btn-spinner animate-spin hidden"><i class="bi bi-arrow-repeat"></i></span>
+				</button>
+			</div>
+			
+			<div class="divider">Preview</div>
+			
+			<div id="generate-cover-preview" class="min-h-64 bg-base-200 rounded-lg flex items-center justify-center">
+				<p class="text-base-content/50">Image preview will appear here</p>
+			</div>
+		</form>
+		<div class="modal-action">
+			<form method="dialog" class="flex gap-3">
+				<button id="cancel-generate-cover-btn" class="btn">Cancel</button>
+				<button type="button" id="accept-generated-cover-btn" class="btn btn-primary" disabled>Accept Cover</button>
+			</form>
+		</div>
+	</div>
 </dialog>
 
 <script src="../src/js/theme.js"></script>

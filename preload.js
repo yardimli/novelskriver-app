@@ -11,11 +11,15 @@ contextBridge.exposeInMainWorld('api', {
 	generateTitle: () => ipcRenderer.invoke('novels:generateTitle'),
 	getAuthors: () => ipcRenderer.invoke('authors:getDistinct'),
 	updateProseSettings: (data) => ipcRenderer.invoke('novels:updateProseSettings', data),
-
+	
 	updateNovelMeta: (data) => ipcRenderer.invoke('novels:updateMeta', data),
-	generateNovelCover: (novelId) => ipcRenderer.invoke('novels:generateCover', novelId),
-	uploadNovelCover: (novelId, filePath) => ipcRenderer.invoke('novels:uploadCover', novelId, filePath),
+	// MODIFIED: Replaced specific cover actions with a generic update handler and new AI helpers.
+	updateNovelCover: (data) => ipcRenderer.invoke('novels:updateCover', data),
 	deleteNovel: (novelId) => ipcRenderer.invoke('novels:delete', novelId),
+	
+	// NEW: Added API points for the new AI cover generation flow.
+	aiGenerateCoverPrompt: (novelId) => ipcRenderer.invoke('ai:generateCoverPrompt', novelId),
+	aiGenerateImageFromPrompt: (prompt) => ipcRenderer.invoke('ai:generateImageFromPrompt', prompt),
 	
 	getStructureFiles: () => ipcRenderer.invoke('files:getStructureFiles'),
 	generateStructure: (data) => ipcRenderer.invoke('novels:generateStructure', data),

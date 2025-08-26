@@ -45,11 +45,11 @@ async function storeImageFromUrl(url, novelId, filenameBase) {
 }
 
 /**
- * NEW: Copies an image from a local file path to the application's storage.
- * This is used for user uploads.
+ * MODIFIED: Copies an image from a local file path to the application's storage.
+ * This is used for user uploads. Now handles null codexEntryId for novel covers.
  * @param {string} sourcePath - The absolute path of the file to copy.
  * @param {string} novelId - The ID of the novel.
- * @param {string} codexEntryId - The ID of the codex entry.
+ * @param {string|null} codexEntryId - The ID of the codex entry, or null.
  * @param {string} filenameBase - The base name for the new file.
  * @returns {Promise<{original_path: string, thumbnail_path: string|null}>} The relative paths for DB storage.
  */
@@ -60,7 +60,12 @@ async function storeImageFromPath(sourcePath, novelId, codexEntryId, filenameBas
 		}
 		
 		const buffer = fs.readFileSync(sourcePath);
-		const targetDir = path.join(IMAGES_DIR, 'novels', String(novelId), String(codexEntryId));
+		
+		// MODIFIED: Build target directory path conditionally.
+		let targetDir = path.join(IMAGES_DIR, 'novels', String(novelId));
+		if (codexEntryId) {
+			targetDir = path.join(targetDir, String(codexEntryId));
+		}
 		
 		// Ensure the directory exists.
 		fs.mkdirSync(targetDir, { recursive: true });
@@ -71,9 +76,12 @@ async function storeImageFromPath(sourcePath, novelId, codexEntryId, filenameBas
 		
 		fs.writeFileSync(localPath, buffer);
 		
-		// For simplicity, this example doesn't generate a separate thumbnail.
-		// In a real app, you'd use a library like 'sharp' here to create one.
-		const relativePath = path.join('novels', String(novelId), String(codexEntryId), filename);
+		// MODIFIED: Build relative path for DB storage conditionally.
+		let relativePath = path.join('novels', String(novelId));
+		if (codexEntryId) {
+			relativePath = path.join(relativePath, String(codexEntryId));
+		}
+		relativePath = path.join(relativePath, filename);
 		
 		return {
 			original_path: relativePath,
