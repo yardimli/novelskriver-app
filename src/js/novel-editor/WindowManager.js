@@ -753,7 +753,7 @@ export default class WindowManager {
 			if (!win.isMinimized && windowId === this.activeWindow) {
 				taskbarItem.classList.add('btn-active', 'btn-primary');
 			} else if (!win.isMinimized) {
-				taskbarItem.classList.add('btn-neutral');
+				taskbarItem.classList.add('bg-base-400', 'hover:bg-base-500');
 			} else {
 				taskbarItem.classList.add('btn-ghost');
 			}
