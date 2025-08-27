@@ -223,7 +223,7 @@ function createEditorWindow(novelId) {
 		editorWindows.delete(novelId);
 	});
 	
-	//editorWindow.webContents.openDevTools();
+	// editorWindow.webContents.openDevTools();
 	
 }
 
@@ -531,8 +531,9 @@ function setupIpcHandlers() {
 						charCategory = {id: result.lastInsertRowid};
 					}
 					for (const charData of codexResponse.characters) {
-						db.prepare('INSERT INTO codex_entries (novel_id, codex_category_id, title, description, content) VALUES (?, ?, ?, ?, ?)')
-							.run(novelId, charCategory.id, charData.name, charData.description || null, charData.content || null);
+						// MODIFIED: Removed 'description' from the INSERT query.
+						db.prepare('INSERT INTO codex_entries (novel_id, codex_category_id, title, content) VALUES (?, ?, ?, ?)')
+							.run(novelId, charCategory.id, charData.name, charData.content || null);
 					}
 				}
 				if (codexResponse.locations && codexResponse.locations.length > 0) {
@@ -543,8 +544,9 @@ function setupIpcHandlers() {
 						locCategory = {id: result.lastInsertRowid};
 					}
 					for (const locData of codexResponse.locations) {
-						db.prepare('INSERT INTO codex_entries (novel_id, codex_category_id, title, description, content) VALUES (?, ?, ?, ?, ?)')
-							.run(novelId, locCategory.id, locData.name, locData.description || null, locData.content || null);
+						// MODIFIED: Removed 'description' from the INSERT query.
+						db.prepare('INSERT INTO codex_entries (novel_id, codex_category_id, title, content) VALUES (?, ?, ?, ?)')
+							.run(novelId, locCategory.id, locData.name, locData.content || null);
 					}
 				}
 			}
@@ -716,7 +718,7 @@ function setupIpcHandlers() {
 		template = template.replace(/{{ENTRY_ID}}/g, codexEntry.id);
 		template = template.replace(/{{ENTRY_TITLE_ATTR}}/g, escapeAttr(codexEntry.title));
 		template = template.replace('{{IMAGE_URL}}', escapeAttr(codexEntry.image_url));
-		template = template.replace('{{DESCRIPTION_HTML}}', codexEntry.description || '');
+		// MODIFIED: Removed description replacement.
 		template = template.replace('{{CONTENT_HTML}}', codexEntry.content || '');
 		template = template.replace('{{LINKED_TAGS_WRAPPER_HIDDEN}}', codexEntry.linkedEntries.length === 0 ? 'hidden' : '');
 		template = template.replace('{{LINKED_TAGS_HTML}}', linkedTagsHtml);
@@ -753,7 +755,8 @@ function setupIpcHandlers() {
 	});
 	
 	ipcMain.handle('codex-entries:store', async (event, novelId, formData) => {
-		const {title, description, content, codex_category_id, new_category_name, imagePath} = formData;
+		// MODIFIED: 'description' is no longer part of the form data.
+		const {title, content, codex_category_id, new_category_name, imagePath} = formData;
 		const userId = 1;
 		let categoryId = codex_category_id;
 		let newCategoryData = null;
@@ -766,8 +769,9 @@ function setupIpcHandlers() {
 				newCategoryData = {id: categoryId, name: new_category_name};
 			}
 			
-			const entryResult = db.prepare('INSERT INTO codex_entries (novel_id, codex_category_id, title, description, content) VALUES (?, ?, ?, ?, ?)')
-				.run(novelId, categoryId, title, description, content);
+			// MODIFIED: INSERT statement no longer includes 'description'.
+			const entryResult = db.prepare('INSERT INTO codex_entries (novel_id, codex_category_id, title, content) VALUES (?, ?, ?, ?)')
+				.run(novelId, categoryId, title, content);
 			const entryId = entryResult.lastInsertRowid;
 			
 			if (imagePath) {
@@ -785,7 +789,6 @@ function setupIpcHandlers() {
 				codexEntry: {
 					id: newEntry.id,
 					title: newEntry.title,
-					description: newEntry.description,
 					thumbnail_url: newEntry.thumbnail_local_path
 						? `file://${path.join(imageHandler.IMAGES_DIR, newEntry.thumbnail_local_path)}`
 						: './assets/codex-placeholder.png',
@@ -799,8 +802,9 @@ function setupIpcHandlers() {
 	});
 	
 	ipcMain.handle('codex-entries:update', (event, entryId, data) => {
-		db.prepare('UPDATE codex_entries SET title = ?, description = ?, content = ? WHERE id = ?')
-			.run(data.title, data.description, data.content, entryId);
+		// MODIFIED: UPDATE statement no longer includes 'description'.
+		db.prepare('UPDATE codex_entries SET title = ?, content = ? WHERE id = ?')
+			.run(data.title, data.content, entryId);
 		return {success: true, message: 'Codex entry updated successfully.'};
 	});
 	

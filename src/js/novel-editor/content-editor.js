@@ -1,7 +1,3 @@
-/**
- * MODIFIED: Manages ProseMirror editor instances for codex and chapter windows.
- */
-
 import { EditorState, Plugin } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { Schema, DOMParser, DOMSerializer } from 'prosemirror-model';
@@ -135,10 +131,11 @@ async function saveWindowContent(windowContent) {
 		if (!instances) return;
 		
 		const titleInput = windowContent.querySelector('.js-codex-title-input');
-		const description = serializeDocToHtml(instances.descriptionView);
+		// MODIFIED: Removed description serialization.
 		const content = serializeDocToHtml(instances.contentView);
 		
-		const data = { title: titleInput.value, description, content };
+		// MODIFIED: Removed description from the saved data object.
+		const data = { title: titleInput.value, content };
 		
 		try {
 			const response = await window.api.updateCodexEntry(entryId, data);
@@ -254,15 +251,15 @@ function initEditorsForWindow(windowContent) {
 		const titleInput = windowContent.querySelector('.js-codex-title-input');
 		titleInput.addEventListener('input', () => triggerDebouncedSave(windowContent));
 		
-		const descriptionMount = windowContent.querySelector('.js-codex-editable[data-name="description"]');
+		// MODIFIED: Removed description editor initialization.
 		const contentMount = windowContent.querySelector('.js-codex-editable[data-name="content"]');
 		
-		if (!descriptionMount || !contentMount) return;
+		if (!contentMount) return;
 		
-		const descriptionView = createEditor(descriptionMount, false);
 		const contentView = createEditor(contentMount, false);
 		
-		editorInstances.set(key, { descriptionView, contentView });
+		// MODIFIED: Storing only the content view for codex entries.
+		editorInstances.set(key, { contentView });
 	} else if (isChapter) {
 		const titleInput = windowContent.querySelector('.js-chapter-title-input');
 		titleInput.addEventListener('input', () => triggerDebouncedSave(windowContent));

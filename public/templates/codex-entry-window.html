@@ -10,16 +10,16 @@
 				<button type="button" class="js-codex-generate-ai btn btn-sm btn-accent btn-block">Generate with AI</button>
 			</div>
 		</div>
+		<!-- MODIFIED: Text content is now in a single flex column, description removed -->
 		<div class="w-2/3 flex flex-col min-w-0">
 			<div class="flex-shrink-0 prose-sm dark:prose-invert max-w-none">
 				<input type="text" name="title" value="{{ENTRY_TITLE_ATTR}}" class="js-codex-title-input text-2xl font-bold w-full bg-transparent border-0 p-0 focus:ring-0 focus:border-b-2 focus:border-teal-500" placeholder="Codex Entry Title">
-				<div class="js-codex-editable lead mt-2 relative" data-name="description" data-placeholder="Enter a short summary..."></div>
 			</div>
 			<div class="mt-4 flex-grow overflow-y-auto prose prose-sm dark:prose-invert max-w-none js-codex-editable relative" data-name="content" data-placeholder="Enter detailed content here..."></div>
 		</div>
 	</div>
+	<!-- MODIFIED: Hidden container for initial ProseMirror content no longer includes the description -->
 	<div class="js-pm-content hidden">
-		<div data-name="description">{{DESCRIPTION_HTML}}</div>
 		<div data-name="content">{{CONTENT_HTML}}</div>
 	</div>
 	<div class="js-codex-tags-wrapper mt-4 flex-shrink-0 border-t border-gray-200 dark:border-gray-700 pt-3 {{LINKED_TAGS_WRAPPER_HIDDEN}}">

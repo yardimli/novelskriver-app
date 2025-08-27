@@ -110,6 +110,14 @@
 	</div>
 	<div class="divider divider-horizontal mx-0"></div>
 	
+	<!-- NEW: Button to create a codex entry from selection -->
+	<div class="flex items-center gap-1">
+		<button type="button" class="js-toolbar-btn btn btn-ghost btn-sm btn-square" data-command="create_codex" title="Create Codex Entry" disabled>
+			<i class="bi bi-journal-plus text-lg"></i>
+		</button>
+	</div>
+	<div class="divider divider-horizontal mx-0"></div>
+	
 	<!-- AI Tools Section -->
 	<div class="flex items-center gap-1">
 		<div class="dropdown js-dropdown-container">
@@ -235,13 +243,7 @@
 					<input type="text" id="new-category-name" name="new_category_name" class="input input-bordered">
 					<p class="js-error-message mt-1 text-xs text-error hidden"></p>
 				</div>
-				<div class="form-control">
-					<label for="new-codex-description" class="label"><span
-						class="label-text">Description (Short Summary)</span></label>
-					<textarea id="new-codex-description" name="description" rows="2"
-					          class="textarea textarea-bordered"></textarea>
-					<p class="js-error-message mt-1 text-xs text-error hidden"></p>
-				</div>
+				<!-- REMOVED: Description textarea has been removed from the modal -->
 				<div class="form-control">
 					<label for="new-codex-content" class="label"><span
 						class="label-text">Content (Detailed Information)</span></label>

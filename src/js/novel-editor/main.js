@@ -66,11 +66,11 @@ async function populateCodexTemplate(template, novelData) {
 	const categoriesHtml = novelData.codexCategories.map(category => {
 		const entriesHtml = category.entries && category.entries.length > 0
 			? category.entries.map(entry => {
+				// MODIFIED: Removed replacement for {{DESCRIPTION}} as it's no longer in the template.
 				return entryTemplateHtml
 					.replace(/{{ENTRY_ID}}/g, entry.id)
 					.replace(/{{ENTRY_TITLE}}/g, entry.title)
-					.replace(/{{THUMBNAIL_URL}}/g, entry.thumbnail_url)
-					.replace('{{DESCRIPTION}}', entry.description || '');
+					.replace(/{{THUMBNAIL_URL}}/g, entry.thumbnail_url);
 			}).join('')
 			: '<p class="text-sm text-base-content/70 px-2">No entries in this category yet.</p>';
 		

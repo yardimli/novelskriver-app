@@ -1,7 +1,3 @@
-/**
- * Manages the top toolbar for text editing within ProseMirror editors.
- */
-
 import { toggleMark, setBlockType, wrapIn, lift } from 'prosemirror-commands';
 import { history, undo, redo } from 'prosemirror-history';
 import { wrapInList, liftListItem } from 'prosemirror-schema-list';
@@ -25,6 +21,43 @@ function isNodeActive(state, type) {
 	}
 	return false;
 }
+
+// NEW: Opens and populates the "New Codex Entry" modal with selected text.
+function handleCreateCodexFromSelection() {
+	if (!activeEditorView) return;
+	const { state } = activeEditorView;
+	if (state.selection.empty) return;
+	
+	const selectedText = state.doc.textBetween(state.selection.from, state.selection.to, ' ');
+	
+	const modal = document.getElementById('new-codex-entry-modal');
+	const form = document.getElementById('new-codex-entry-form');
+	if (!modal || !form) return;
+	
+	// Reset form in case it was used before
+	form.reset();
+	form.querySelector('#new-category-wrapper').classList.add('hidden');
+	// Clear any previous errors
+	form.querySelectorAll('.js-error-message').forEach(el => {
+		el.textContent = '';
+		el.classList.add('hidden');
+	});
+	const genericErrorContainer = form.querySelector('#new-codex-error-container');
+	if (genericErrorContainer) {
+		genericErrorContainer.classList.add('hidden');
+		genericErrorContainer.textContent = '';
+	}
+	
+	// Populate fields
+	const titleInput = form.querySelector('#new-codex-title');
+	const contentTextarea = form.querySelector('#new-codex-content');
+	
+	if (titleInput) titleInput.value = selectedText.trim();
+	if (contentTextarea) contentTextarea.value = selectedText;
+	
+	modal.showModal();
+}
+
 
 export function updateToolbarState(view) {
 	activeEditorView = view;
@@ -53,6 +86,10 @@ export function updateToolbarState(view) {
 			switch (cmd) {
 				case 'undo': btn.disabled = !undo(state); return;
 				case 'redo': btn.disabled = !redo(state); return;
+				// NEW: Enable/disable the "Create Codex" button based on text selection.
+				case 'create_codex':
+					btn.disabled = empty;
+					return;
 				case 'bold': markType = schema.marks.strong; commandFn = toggleMark(markType); break;
 				case 'italic': markType = schema.marks.em; commandFn = toggleMark(markType); break;
 				case 'underline': markType = schema.marks.underline; commandFn = toggleMark(markType); break;
@@ -469,6 +506,9 @@ async function handleToolbarAction(button) {
 			undo(activeEditorView.state, activeEditorView.dispatch);
 		} else if (command === 'redo') {
 			redo(activeEditorView.state, activeEditorView.dispatch);
+			// NEW: Handle the "Create Codex" button click.
+		} else if (command === 'create_codex') {
+			handleCreateCodexFromSelection();
 		} else {
 			applyCommand(command);
 		}

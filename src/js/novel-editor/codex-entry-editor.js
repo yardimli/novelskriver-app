@@ -412,7 +412,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		template = template.replace(/{{ENTRY_ID}}/g, entryData.id);
 		template = template.replace(/{{ENTRY_TITLE}}/g, entryData.title);
 		template = template.replace(/{{THUMBNAIL_URL}}/g, entryData.thumbnail_url);
-		template = template.replace(/{{DESCRIPTION}}/g, entryData.description || '');
+		// MODIFIED: Removed the description replacement as the field is gone.
 		
 		const button = createElementFromHTML(template);
 		if (!button) return null;

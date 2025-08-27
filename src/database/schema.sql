@@ -80,12 +80,12 @@ CREATE TABLE IF NOT EXISTS codex_categories (
     FOREIGN KEY (novel_id) REFERENCES novels(id) ON DELETE CASCADE -- MODIFIED
 );
 
+-- MODIFIED: Removed the 'description' column from codex_entries.
 CREATE TABLE IF NOT EXISTS codex_entries (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     novel_id INTEGER NOT NULL,
     codex_category_id INTEGER NOT NULL,
     title TEXT NOT NULL,
-    description TEXT,
     content TEXT,
     image_path TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

@@ -247,6 +247,7 @@ Ensure the entire output is a single, valid JSON object. Do not include any text
  * @returns {Promise<object>} The parsed JSON codex data.
  */
 async function generateNovelCodex({ outlineJson, language, model }) {
+	// MODIFIED: Prompt no longer asks for a 'description' field, only 'name' and 'content'.
 	const prompt = `
 You are a world-building assistant. Based on the provided novel outline, your task is to identify and create encyclopedia-style entries (a codex) for the key characters and locations.
 
@@ -258,11 +259,9 @@ ${outlineJson}
 From the outline, extract the most important characters and locations. Generate a JSON object with the following structure:
 - \`characters\`: An array of objects for the main characters. Each object must have:
   - \`name\`: The full name of the character.
-  - \`description\`: A one-sentence summary of their role in the story.
   - \`content\`: A detailed paragraph describing their personality, motivations, and background.
 - \`locations\`: An array of objects for the key settings. Each object must have:
   - \`name\`: The name of the location.
-  - \`description\`: A one-sentence summary of its significance.
   - \`content\`: A detailed paragraph describing the location's atmosphere, appearance, and history.
 
 Focus on the most prominent elements mentioned in the synopsis and chapter summaries. Provide at least 3 characters and 2 locations if possible. Ensure the entire output is a single, valid JSON object. Do not include any text or markdown formatting before or after the JSON.`;
