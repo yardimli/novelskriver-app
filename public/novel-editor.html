@@ -220,7 +220,14 @@
 <dialog id="new-codex-entry-modal" class="js-new-codex-modal modal">
 	<div class="modal-box w-11/12 max-w-2xl">
 		<h3 id="new-codex-modal-title" class="font-bold text-lg">Create New Codex Entry</h3>
-		<form id="new-codex-entry-form" novalidate>
+		<form id="new-codex-entry-form" novalidate class="relative"> <!-- MODIFIED: Added relative positioning for spinner overlay -->
+			<!-- NEW: Spinner overlay for AI processing -->
+			<div id="new-codex-ai-spinner" class="absolute inset-0 bg-base-100/80 backdrop-blur-sm flex items-center justify-center z-10 hidden">
+				<div class="text-center">
+					<span class="loading loading-spinner loading-lg"></span>
+					<p class="mt-2 text-sm">AI is analyzing text...</p>
+				</div>
+			</div>
 			<div class="py-4 max-h-[70vh] overflow-y-auto space-y-4">
 				<div id="new-codex-error-container" class="hidden alert alert-error"></div>
 				<div class="form-control">

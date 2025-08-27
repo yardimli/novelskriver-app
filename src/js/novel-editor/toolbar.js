@@ -22,8 +22,8 @@ function isNodeActive(state, type) {
 	return false;
 }
 
-// NEW: Opens and populates the "New Codex Entry" modal with selected text.
-function handleCreateCodexFromSelection() {
+// MODIFIED: Opens and populates the "New Codex Entry" modal, now with AI suggestions.
+async function handleCreateCodexFromSelection() { // MODIFIED: Make function async
 	if (!activeEditorView) return;
 	const { state } = activeEditorView;
 	if (state.selection.empty) return;
@@ -48,14 +48,38 @@ function handleCreateCodexFromSelection() {
 		genericErrorContainer.textContent = '';
 	}
 	
-	// Populate fields
+	// Populate fields with selection as a fallback
 	const titleInput = form.querySelector('#new-codex-title');
 	const contentTextarea = form.querySelector('#new-codex-content');
+	const categorySelect = form.querySelector('#new-codex-category'); // NEW
+	const spinner = document.getElementById('new-codex-ai-spinner'); // NEW
 	
 	if (titleInput) titleInput.value = selectedText.trim();
 	if (contentTextarea) contentTextarea.value = selectedText;
 	
 	modal.showModal();
+	
+	// NEW: AI-powered suggestion logic
+	if (spinner) spinner.classList.remove('hidden');
+	try {
+		const novelId = document.body.dataset.novelId;
+		const result = await window.api.suggestCodexDetails(novelId, selectedText);
+		
+		if (result.success) {
+			if (result.title && titleInput) {
+				titleInput.value = result.title;
+			}
+			if (result.categoryId && categorySelect) {
+				categorySelect.value = result.categoryId;
+			}
+		} else {
+			console.warn('AI suggestion for codex entry failed:', result.message);
+		}
+	} catch (error) {
+		console.error('Error getting AI suggestion for codex entry:', error);
+	} finally {
+		if (spinner) spinner.classList.add('hidden');
+	}
 }
 
 
@@ -508,7 +532,7 @@ async function handleToolbarAction(button) {
 			redo(activeEditorView.state, activeEditorView.dispatch);
 			// NEW: Handle the "Create Codex" button click.
 		} else if (command === 'create_codex') {
-			handleCreateCodexFromSelection();
+			await handleCreateCodexFromSelection();
 		} else {
 			applyCommand(command);
 		}

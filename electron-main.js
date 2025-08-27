@@ -754,32 +754,78 @@ function setupIpcHandlers() {
 		return {success: true, message: 'Codex entry unlinked.'};
 	});
 	
+	// NEW: IPC handler to suggest title and category for a new codex entry from selected text.
+	ipcMain.handle('codex-entries:suggest-details', async (event, { novelId, text }) => {
+		try {
+			const categories = db.prepare('SELECT id, name FROM codex_categories WHERE novel_id = ? ORDER BY name').all(novelId);
+			const categoryNames = categories.map(c => c.name);
+			
+			// If no categories exist, provide some sensible defaults for the AI to choose from.
+			if (categoryNames.length === 0) {
+				categoryNames.push('Characters', 'Locations', 'Items', 'Lore');
+			}
+			
+			const model = process.env.OPEN_ROUTER_MODEL || 'openai/gpt-4o-mini';
+			
+			const suggestion = await aiService.suggestCodexDetails({
+				text,
+				categories: categoryNames,
+				model,
+			});
+			
+			let categoryId = null;
+			if (suggestion.category_name) {
+				// Find the category ID, case-insensitively.
+				const matchedCategory = categories.find(c => c.name.toLowerCase() === suggestion.category_name.toLowerCase());
+				if (matchedCategory) {
+					categoryId = matchedCategory.id;
+				}
+			}
+			
+			return {
+				success: true,
+				title: suggestion.title || '',
+				categoryId: categoryId,
+			};
+		} catch (error) {
+			console.error('Failed to suggest codex details:', error);
+			return { success: false, message: error.message };
+		}
+	});
+	
+	// MODIFIED: Refactored to correctly handle async image operations outside the sync transaction.
 	ipcMain.handle('codex-entries:store', async (event, novelId, formData) => {
-		// MODIFIED: 'description' is no longer part of the form data.
-		const {title, content, codex_category_id, new_category_name, imagePath} = formData;
+		const { title, content, codex_category_id, new_category_name, imagePath } = formData;
 		const userId = 1;
 		let categoryId = codex_category_id;
 		let newCategoryData = null;
+		let entryId;
 		
-		const runTransaction = db.transaction(() => {
-			if (new_category_name) {
-				const result = db.prepare('INSERT INTO codex_categories (novel_id, name) VALUES (?, ?)')
-					.run(novelId, new_category_name);
-				categoryId = result.lastInsertRowid;
-				newCategoryData = {id: categoryId, name: new_category_name};
-			}
+		try {
+			// Start a synchronous transaction for database writes that must happen together.
+			const runSyncTransaction = db.transaction(() => {
+				if (new_category_name) {
+					const result = db.prepare('INSERT INTO codex_categories (novel_id, name) VALUES (?, ?)')
+						.run(novelId, new_category_name);
+					categoryId = result.lastInsertRowid;
+					newCategoryData = { id: categoryId, name: new_category_name };
+				}
+				
+				const entryResult = db.prepare('INSERT INTO codex_entries (novel_id, codex_category_id, title, content) VALUES (?, ?, ?, ?)')
+					.run(novelId, categoryId, title, content);
+				entryId = entryResult.lastInsertRowid;
+			});
 			
-			// MODIFIED: INSERT statement no longer includes 'description'.
-			const entryResult = db.prepare('INSERT INTO codex_entries (novel_id, codex_category_id, title, content) VALUES (?, ?, ?, ?)')
-				.run(novelId, categoryId, title, content);
-			const entryId = entryResult.lastInsertRowid;
+			runSyncTransaction();
 			
+			// After the transaction, handle the asynchronous file operation.
 			if (imagePath) {
-				const paths = imageHandler.storeImageFromPath(imagePath, novelId, entryId, 'codex-image-upload')._settledValue;
+				const paths = await imageHandler.storeImageFromPath(imagePath, novelId, entryId, 'codex-image-upload');
 				db.prepare('INSERT INTO images (user_id, novel_id, codex_entry_id, image_local_path, thumbnail_local_path, image_type) VALUES (?, ?, ?, ?, ?, ?)')
 					.run(userId, novelId, entryId, paths.original_path, paths.thumbnail_path, 'upload');
 			}
 			
+			// Fetch the complete new entry to return to the renderer.
 			const newEntry = db.prepare('SELECT ce.*, i.thumbnail_local_path FROM codex_entries ce LEFT JOIN images i ON ce.id = i.codex_entry_id WHERE ce.id = ?')
 				.get(entryId);
 			
@@ -796,9 +842,10 @@ function setupIpcHandlers() {
 				},
 				newCategory: newCategoryData,
 			};
-		});
-		
-		return runTransaction();
+		} catch (error) {
+			console.error("Error in 'codex-entries:store':", error);
+			throw error; // Propagate the error back to the renderer process.
+		}
 	});
 	
 	ipcMain.handle('codex-entries:update', (event, entryId, data) => {

@@ -289,7 +289,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	
 	const newCodexModal = document.getElementById('new-codex-entry-modal');
 	const newCodexForm = document.getElementById('new-codex-entry-form');
-	const novelId = document.body.dataset.novelId;
+	// MODIFIED: Removed novelId from this scope to prevent race condition.
 	
 	document.body.addEventListener('click', (event) => {
 		if (event.target.closest('.js-open-new-codex-modal')) {
@@ -338,6 +338,12 @@ document.addEventListener('DOMContentLoaded', () => {
 			delete data.image; // Remove the file object itself
 			
 			try {
+				// MODIFIED: Get novelId just-in-time from the body dataset to avoid race conditions.
+				const novelId = document.body.dataset.novelId;
+				if (!novelId) {
+					throw new Error('Could not determine the Novel ID for this operation.');
+				}
+				
 				const result = await window.api.createCodexEntry(novelId, data);
 				
 				if (!result.success) {

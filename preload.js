@@ -45,6 +45,7 @@ contextBridge.exposeInMainWorld('api', {
 	
 	// Codex Entry Management
 	createCodexEntry: (novelId, formData) => ipcRenderer.invoke('codex-entries:store', novelId, formData),
+	suggestCodexDetails: (novelId, text) => ipcRenderer.invoke('codex-entries:suggest-details', { novelId, text }), // NEW
 	updateCodexEntry: (entryId, data) => ipcRenderer.invoke('codex-entries:update', entryId, data),
 	
 	// Codex <-> Codex Linking

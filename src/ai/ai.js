@@ -435,6 +435,45 @@ function processModelsForView(modelsData) {
 	return processedModels.sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/**
+ * NEW: Suggests a title and category for a new codex entry based on selected text.
+ * @param {object} params - The parameters for generation.
+ * @param {string} params.text - The selected text to analyze.
+ * @param {Array<string>} params.categories - A list of existing category names to choose from.
+ * @param {string} params.model - The LLM model to use.
+ * @returns {Promise<object>} The parsed JSON response with 'title' and 'category_name'.
+ */
+async function suggestCodexDetails({ text, categories, model }) {
+	const categoryList = categories.join(', ');
+	const prompt = `
+You are an intelligent assistant helping a writer organize their world-building codex.
+Analyze the following text selection from their novel.
+
+**Text Selection:**
+"${text}"
+
+**Task:**
+1.  Based on the text, create a concise and appropriate title for a new codex entry. The title should be the name of the person, place, or thing being described.
+2.  From the following list of existing categories, choose the one that best fits this new entry.
+
+**Existing Categories:**
+[${categoryList}]
+
+Provide your response as a single, valid JSON object with two keys:
+- \`title\`: The suggested title for the codex entry.
+- \`category_name\`: The name of the best-fitting category from the provided list.
+
+Example Response: {"title": "Captain Eva Rostova", "category_name": "Characters"}
+`;
+	
+	return callOpenRouter({
+		model: model,
+		messages: [{ role: 'user', content: prompt }],
+		response_format: { type: 'json_object' },
+		temperature: 0.5,
+	});
+}
+
 
 module.exports = {
 	generateCoverPrompt,
@@ -445,4 +484,5 @@ module.exports = {
 	streamProcessCodexText,
 	getOpenRouterModels,
 	processModelsForView,
+	suggestCodexDetails, // NEW
 };
