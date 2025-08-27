@@ -270,14 +270,16 @@
 
 <!-- NEW: AI Prompt Editor is now a modal dialog instead of a draggable window. -->
 <dialog id="prompt-editor-modal" class="modal">
-	<div class="modal-box w-11/12 max-w-5xl">
-		<form method="dialog">
-			<button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
-		</form>
-		<h3 class="font-bold text-lg">AI Prompt Editor</h3>
-		<div class="js-prompt-editor-content flex h-[70vh] py-4">
+	<!-- MODIFIED: Reduced padding for more content space -->
+	<div class="modal-box w-11/12 max-w-5xl p-4">
+		<!-- REMOVED: The 'x' close button form is no longer needed. -->
+		<!-- MODIFIED: Reduced bottom margin -->
+		<h3 class="font-bold text-lg mb-2">AI Prompt Editor</h3>
+		<!-- MODIFIED: Removed vertical padding -->
+		<div class="js-prompt-editor-content flex h-[70vh]">
 			<!-- Left Column: Prompt List -->
-			<div class="w-1/3 border-r border-base-300 p-2 space-y-1 overflow-y-auto">
+			<!-- MODIFIED: Adjusted padding -->
+			<div class="w-1/3 border-r border-base-300 pr-2 space-y-1 overflow-y-auto">
 				<div class="js-prompt-list-container">
 					<!-- Prompt list items will be inserted here by JS -->
 					<div class="text-center p-4">
@@ -287,26 +289,27 @@
 			</div>
 			
 			<!-- Right Column: Editor -->
-			<div class="js-prompt-editor-pane w-2/3 flex flex-col p-4 hidden">
-				<h2 class="text-xl font-bold mb-4 js-prompt-title"></h2>
-				<form class="js-prompt-form flex-grow flex flex-col gap-4">
-					<div class="form-control flex-grow flex flex-col">
-						<label class="label"><span class="label-text">System Message</span></label>
-						<textarea name="system" class="textarea textarea-bordered flex-grow font-mono text-xs"
-						          placeholder="System message..."></textarea>
+			<!-- MODIFIED: Adjusted padding -->
+			<div class="js-prompt-editor-pane w-2/3 flex flex-col pl-4 hidden">
+				<!-- REMOVED: Prompt title h2 is no longer needed. -->
+				<!-- MODIFIED: Reduced gap, added padding for scrollbar -->
+				<form class="js-prompt-form flex-grow flex flex-col gap-2 overflow-y-auto pr-2">
+					<div class="form-control flex flex-col">
+						<label class="label py-1"><span class="label-text">System Message</span></label>
+						<textarea name="system" class="js-autosize textarea textarea-bordered font-mono text-xs" placeholder="System message..." rows="3"></textarea>
 					</div>
-					<div class="form-control flex-grow flex flex-col">
-						<label class="label"><span class="label-text">User Message</span></label>
-						<textarea name="user" class="textarea textarea-bordered flex-grow font-mono text-xs"
-						          placeholder="User message..."></textarea>
+					<div class="form-control flex flex-col">
+						<label class="label py-1"><span class="label-text">User Message</span></label>
+						<textarea name="user" class="js-autosize textarea textarea-bordered font-mono text-xs" placeholder="User message..." rows="3"></textarea>
 					</div>
-					<div class="form-control flex-grow flex flex-col">
-						<label class="label"><span class="label-text">AI Message</span></label>
-						<textarea name="ai" class="textarea textarea-bordered flex-grow font-mono text-xs"
-						          placeholder="AI message..."></textarea>
+					<div class="form-control flex flex-col">
+						<label class="label py-1"><span class="label-text">AI Message</span></label>
+						<textarea name="ai" class="js-autosize textarea textarea-bordered font-mono text-xs" placeholder="AI message..." rows="3"></textarea>
 					</div>
 				</form>
-				<div class="mt-4 flex justify-end gap-2">
+				<!-- MODIFIED: Reduced top margin and added a close button -->
+				<div class="mt-2 flex justify-end gap-2">
+					<button type="button" class="js-close-prompt-modal btn">Close</button>
 					<button type="button" class="js-reset-prompt-btn btn btn-ghost">Reset to Default</button>
 					<button type="button" class="js-save-prompt-btn btn btn-primary w-28">
 						<span class="js-btn-text">Save</span>

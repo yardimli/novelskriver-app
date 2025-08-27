@@ -8,11 +8,14 @@ export function setupPromptEditor(windowEl) {
 	const editorPane = contentEl.querySelector('.js-prompt-editor-pane');
 	const placeholder = contentEl.querySelector('.js-prompt-placeholder');
 	const form = contentEl.querySelector('.js-prompt-form');
-	const titleEl = contentEl.querySelector('.js-prompt-title');
 	const saveBtn = contentEl.querySelector('.js-save-prompt-btn');
 	const resetBtn = contentEl.querySelector('.js-reset-prompt-btn');
+	// NEW: Get the modal and the new close button
+	const modal = document.getElementById('prompt-editor-modal');
+	const closeBtn = windowEl.querySelector('.js-close-prompt-modal');
 	
-	let currentPromptId = null;
+	// MODIFIED: Store the entire prompt object instead of just the ID.
+	let currentPrompt = null;
 	
 	const setButtonLoadingState = (button, isLoading) => {
 		const text = button.querySelector('.js-btn-text');
@@ -27,6 +30,17 @@ export function setupPromptEditor(windowEl) {
 			if (spinner) spinner.classList.add('hidden');
 		}
 	};
+	
+	const autosizeTextarea = (textarea) => {
+		setTimeout(() => {
+			textarea.style.height = 'auto';
+			textarea.style.height = `${textarea.scrollHeight + 50}px`;
+		}, 0);
+	};
+	
+	form.querySelectorAll('.js-autosize').forEach(textarea => {
+		textarea.addEventListener('input', () => autosizeTextarea(textarea));
+	});
 	
 	const loadPromptList = async () => {
 		try {
@@ -51,8 +65,6 @@ export function setupPromptEditor(windowEl) {
 	};
 	
 	const loadPrompt = async (promptId) => {
-		currentPromptId = promptId;
-		
 		// Update active item in the list
 		listContainer.querySelectorAll('.js-prompt-item').forEach(btn => {
 			btn.classList.toggle('btn-active', btn.dataset.promptId === promptId);
@@ -64,11 +76,13 @@ export function setupPromptEditor(windowEl) {
 		
 		try {
 			const promptData = await window.api.getPrompt(promptId);
+			currentPrompt = promptData; // Store the full prompt data.
 			
-			titleEl.textContent = promptData.name;
 			form.elements.system.value = promptData.system || '';
 			form.elements.user.value = promptData.user || '';
 			form.elements.ai.value = promptData.ai || '';
+			
+			form.querySelectorAll('.js-autosize').forEach(autosizeTextarea);
 			
 		} catch (error) {
 			console.error(`Failed to load prompt ${promptId}:`, error);
@@ -84,22 +98,21 @@ export function setupPromptEditor(windowEl) {
 	});
 	
 	saveBtn.addEventListener('click', async () => {
-		if (!currentPromptId) return;
+		if (!currentPrompt) return;
 		
 		setButtonLoadingState(saveBtn, true);
 		
 		const dataToSave = {
-			name: titleEl.textContent,
+			name: currentPrompt.name, // Get name from the stored prompt object
 			system: form.elements.system.value,
 			user: form.elements.user.value,
 			ai: form.elements.ai.value,
 		};
 		
 		try {
-			await window.api.savePrompt(currentPromptId, dataToSave);
-			// Optionally show a success message
+			await window.api.savePrompt(currentPrompt.id, dataToSave);
 		} catch (error) {
-			console.error(`Failed to save prompt ${currentPromptId}:`, error);
+			console.error(`Failed to save prompt ${currentPrompt.id}:`, error);
 			alert(error.message);
 		} finally {
 			setButtonLoadingState(saveBtn, false);
@@ -107,24 +120,35 @@ export function setupPromptEditor(windowEl) {
 	});
 	
 	resetBtn.addEventListener('click', async () => {
-		if (!currentPromptId) return;
+		if (!currentPrompt) return;
 		
-		if (confirm(`Are you sure you want to reset the "${titleEl.textContent}" prompt to its default state? Any customizations will be lost.`)) {
+		if (confirm(`Are you sure you want to reset the "${currentPrompt.name}" prompt to its default state? Any customizations will be lost.`)) {
 			try {
-				const result = await window.api.resetPrompt(currentPromptId);
+				const result = await window.api.resetPrompt(currentPrompt.id);
 				if (result.success) {
+					currentPrompt = result.data; // Update stored data with reset version
 					// Repopulate the form with the reset data
 					form.elements.system.value = result.data.system || '';
 					form.elements.user.value = result.data.user || '';
 					form.elements.ai.value = result.data.ai || '';
+					
+					form.querySelectorAll('.js-autosize').forEach(autosizeTextarea);
+					
 					alert('Prompt has been reset to default.');
 				}
 			} catch (error) {
-				console.error(`Failed to reset prompt ${currentPromptId}:`, error);
+				console.error(`Failed to reset prompt ${currentPrompt.id}:`, error);
 				alert(error.message);
 			}
 		}
 	});
+	
+	// NEW: Add event listener for the new close button.
+	if (closeBtn && modal) {
+		closeBtn.addEventListener('click', () => {
+			modal.close();
+		});
+	}
 	
 	// Initial load
 	loadPromptList();
