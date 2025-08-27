@@ -83,7 +83,7 @@ export function setupCodexEntryHandler(desktop, windowManager) {
 		openCodexEntry(entryId, entryTitle);
 	});
 	
-	desktop.addEventListener('dblclick', (event) => {
+	desktop.addEventListener('click', (event) => {
 		const entryButton = event.target.closest('.js-open-codex-entry');
 		// This should ONLY trigger for items in the main codex list.
 		if (!entryButton || !entryButton.closest('#codex-window')) {
@@ -105,7 +105,7 @@ export function setupCodexEntryHandler(desktop, windowManager) {
 export function setupChapterHandler(desktop, windowManager) {
 	const chapterIcon = `<i class="bi bi-card-text text-lg"></i>`;
 	
-	desktop.addEventListener('dblclick', async (event) => {
+	desktop.addEventListener('click', async (event) => {
 		const chapterButton = event.target.closest('.js-open-chapter');
 		if (!chapterButton) return;
 		
