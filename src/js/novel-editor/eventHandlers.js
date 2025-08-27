@@ -166,13 +166,6 @@ export function setupChapterHandler(desktop, windowManager) {
 	});
 }
 
-/**
- * Sets up the theme toggling functionality.
- * NOTE: This is now handled by the universal theme.js script, but kept for reference.
- */
-export function setupThemeToggle() {
-	// This function is now empty as theme.js handles this globally.
-}
 
 /**
  * Sets up the "Open Windows" menu functionality in the taskbar.
@@ -256,4 +249,18 @@ export function setupCanvasControls(windowManager) {
 	if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => windowManager.zoomOut());
 	if (zoom100Btn) zoom100Btn.addEventListener('click', () => windowManager.zoomTo(1));
 	if (zoomFitBtn) zoomFitBtn.addEventListener('click', () => windowManager.fitToView());
+}
+
+export function setupPromptEditorHandler(desktop, windowManager) {
+	const taskbarBtn = document.getElementById('open-prompts-btn');
+	const promptModal = document.getElementById('prompt-editor-modal');
+	
+	if (!taskbarBtn || !promptModal) return;
+	
+	taskbarBtn.addEventListener('click', () => {
+		promptModal.showModal();
+	});
+	
+	// The modal can be closed via the 'dialog' form method or ESC key, so no explicit close handler is needed.
+	// DaisyUI's <form method="dialog"> handles this automatically.
 }

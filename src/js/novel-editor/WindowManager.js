@@ -25,7 +25,7 @@ export default class WindowManager {
 		this.isShiftPressed = false;
 	}
 	
-	createWindow({ id, title, content, x, y, width, height, icon, closable = true }) {
+	createWindow({id, title, content, x, y, width, height, icon, closable = true}) {
 		this.windowCounter++;
 		const windowId = id || `window-${this.windowCounter}`;
 		
@@ -51,8 +51,7 @@ export default class WindowManager {
 		
 		if (isChapterWindow) {
 			titleBar.addEventListener('dblclick', () => this.maximize(windowId));
-		} else
-		{
+		} else {
 			titleBar.addEventListener('dblclick', () => {
 				this.zoomTo(1);
 				this.scrollIntoView(windowId);
@@ -121,7 +120,7 @@ export default class WindowManager {
 			icon,
 			isMinimized: false,
 			isMaximized: false,
-			originalRect: { x, y, width, height },
+			originalRect: {x, y, width, height},
 		};
 		this.windows.set(windowId, windowState);
 		
@@ -367,7 +366,7 @@ export default class WindowManager {
 	 */
 	makeDraggable(win, handle) {
 		let panRequest = null;
-		let panDirection = { x: 0, y: 0 };
+		let panDirection = {x: 0, y: 0};
 		let lastMouseEvent = null;
 		
 		// Unified function to calculate and apply window positions.
@@ -435,7 +434,7 @@ export default class WindowManager {
 			// Check if the cursor is near the viewport edge to determine pan direction.
 			const edgeZone = 50; // 50px trigger zone from the edge.
 			const viewportRect = this.viewport.getBoundingClientRect();
-			panDirection = { x: 0, y: 0 };
+			panDirection = {x: 0, y: 0};
 			
 			if (e.clientX < viewportRect.left + edgeZone) {
 				panDirection.x = 1; // Pan right (revealing content on the left).
@@ -629,6 +628,7 @@ export default class WindowManager {
 					} else if (state.id.startsWith('chapter-')) {
 						const chapterId = state.id.replace('chapter-', '');
 						content = await window.api.getChapterHtml(chapterId);
+						// MODIFIED: Removed logic for loading 'prompt-editor-window' as it is now a modal dialog.
 					}
 				} catch (e) {
 					console.error(`Error loading content for window ${state.id}:`, e);
@@ -651,7 +651,7 @@ export default class WindowManager {
 					const win = this.windows.get(state.id);
 					if (win) {
 						win.element.style.zIndex = state.zIndex;
-						win.originalRect = { x: state.x, y: state.y, width: state.width, height: state.height };
+						win.originalRect = {x: state.x, y: state.y, width: state.width, height: state.height};
 						if (state.isMaximized) this.maximize(state.id);
 						if (state.isMinimized) this.minimize(state.id);
 					}
@@ -683,7 +683,7 @@ export default class WindowManager {
 		// Add minimized windows.
 		this.windows.forEach((win, id) => {
 			if (win.isMinimized) {
-				taskbarItems.set(id, { id, title: win.title, icon: win.icon });
+				taskbarItems.set(id, {id, title: win.title, icon: win.icon});
 			}
 		});
 		
@@ -692,7 +692,7 @@ export default class WindowManager {
 		['outline-window', 'codex-window'].forEach(id => {
 			if (this.windows.has(id)) {
 				const win = this.windows.get(id);
-				taskbarItems.set(id, { id, title: win.title, icon: win.icon });
+				taskbarItems.set(id, {id, title: win.title, icon: win.icon});
 			}
 		});
 		
@@ -811,7 +811,7 @@ export default class WindowManager {
 	// --- CANVAS PAN AND ZOOM METHODS ---
 	
 	initCanvas() {
-		this.viewport.addEventListener('wheel', this.handleZoom.bind(this), { passive: false });
+		this.viewport.addEventListener('wheel', this.handleZoom.bind(this), {passive: false});
 		this.viewport.addEventListener('mousedown', this.handlePanStart.bind(this));
 		this.viewport.addEventListener('mousemove', this.handlePanMove.bind(this));
 		this.viewport.addEventListener('mouseup', this.handlePanEnd.bind(this));
@@ -975,7 +975,7 @@ export default class WindowManager {
 		win.element.style.height = `${height}px`;
 		
 		win.isMaximized = false;
-		win.originalRect = { x, y, width, height };
+		win.originalRect = {x, y, width, height};
 		
 		this.focus(windowId);
 	}

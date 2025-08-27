@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, MenuItem, ipcMain, dialog } = require('electron');
+const {app, BrowserWindow, Menu, MenuItem, ipcMain, dialog} = require('electron');
 const path = require('path');
 const url = require('url');
 const fetch = require('node-fetch');
@@ -6,13 +6,16 @@ const fs = require('fs');
 
 require('dotenv').config();
 
-const { initializeDatabase } = require('./src/database/database.js');
+const {initializeDatabase} = require('./src/database/database.js');
 const aiService = require('./src/ai/ai.js');
 const imageHandler = require('./src/utils/image-handler.js');
 
 let db;
 let mainWindow;
 let editorWindows = new Map();
+
+// NEW: Directory for user-customizable prompts
+const PROMPTS_DIR = path.join(app.getPath('userData'), 'prompts');
 
 // --- NEW: Template and HTML Helper Functions ---
 
@@ -46,6 +49,29 @@ function escapeAttr(text) {
 		.replace(/'/g, '&#039;');
 }
 
+/**
+ * NEW: Ensures prompt templates exist in the user's data directory, copying defaults if necessary.
+ */
+function initializePromptTemplates() {
+	const defaultsDir = path.join(__dirname, 'src', 'prompts', 'defaults');
+	
+	if (!fs.existsSync(PROMPTS_DIR)) {
+		fs.mkdirSync(PROMPTS_DIR, {recursive: true});
+	}
+	
+	try {
+		const defaultFiles = fs.readdirSync(defaultsDir);
+		for (const file of defaultFiles) {
+			const sourcePath = path.join(defaultsDir, file);
+			const destPath = path.join(PROMPTS_DIR, file);
+			if (!fs.existsSync(destPath)) {
+				fs.copyFileSync(sourcePath, destPath);
+			}
+		}
+	} catch (error) {
+		console.error('Failed to initialize prompt templates:', error);
+	}
+}
 
 // --- Window Creation Functions ---
 
@@ -155,7 +181,7 @@ function createEditorWindow(novelId) {
 		});
 	});
 	
-	editorWindow.loadFile('public/novel-editor.html', { query: { novelId: novelId } });
+	editorWindow.loadFile('public/novel-editor.html', {query: {novelId: novelId}});
 	editorWindows.set(novelId, editorWindow);
 	
 	editorWindow.webContents.on('context-menu', (event, params) => {
@@ -198,7 +224,7 @@ function createEditorWindow(novelId) {
 	});
 	
 	editorWindow.webContents.openDevTools();
-
+	
 }
 
 
@@ -297,7 +323,7 @@ function setupIpcHandlers() {
 							
 							const absolutePath = path.join(imageHandler.IMAGES_DIR, localPath);
 							if (mainWindow) {
-								mainWindow.webContents.send('novels:cover-updated', { novelId, imagePath: absolutePath });
+								mainWindow.webContents.send('novels:cover-updated', {novelId, imagePath: absolutePath});
 							}
 						}
 					}
@@ -307,31 +333,31 @@ function setupIpcHandlers() {
 			}
 		})();
 		
-		return { id: novelId, ...data };
+		return {id: novelId, ...data};
 	});
 	
-	ipcMain.handle('novels:updateProseSettings', (event, { novelId, prose_tense, prose_language, prose_pov }) => {
+	ipcMain.handle('novels:updateProseSettings', (event, {novelId, prose_tense, prose_language, prose_pov}) => {
 		try {
 			db.prepare(`
                 UPDATE novels
                 SET prose_tense = ?, prose_language = ?, prose_pov = ?
                 WHERE id = ?
             `).run(prose_tense, prose_language, prose_pov, novelId);
-			return { success: true };
+			return {success: true};
 		} catch (error) {
 			console.error('Failed to update prose settings:', error);
 			throw new Error('Failed to update prose settings.');
 		}
 	});
 	
-	ipcMain.handle('novels:updateMeta', (event, { novelId, title, author, series_id, order_in_series }) => {
+	ipcMain.handle('novels:updateMeta', (event, {novelId, title, author, series_id, order_in_series}) => {
 		try {
 			db.prepare(`
                 UPDATE novels
                 SET title = ?, author = ?, series_id = ?, order_in_series = ?
                 WHERE id = ?
             `).run(title, author, series_id, order_in_series, novelId);
-			return { success: true };
+			return {success: true};
 		} catch (error) {
 			console.error('Failed to update novel meta:', error);
 			throw new Error('Failed to update novel metadata.');
@@ -339,7 +365,7 @@ function setupIpcHandlers() {
 	});
 	
 	// MODIFIED: This handler now takes staged cover data and saves it.
-	ipcMain.handle('novels:updateCover', async (event, { novelId, coverInfo }) => {
+	ipcMain.handle('novels:updateCover', async (event, {novelId, coverInfo}) => {
 		let localPath;
 		let imageType = 'unknown';
 		
@@ -377,10 +403,10 @@ function setupIpcHandlers() {
 		
 		const absolutePath = path.join(imageHandler.IMAGES_DIR, localPath);
 		BrowserWindow.getAllWindows().forEach(win => {
-			win.webContents.send('novels:cover-updated', { novelId, imagePath: absolutePath });
+			win.webContents.send('novels:cover-updated', {novelId, imagePath: absolutePath});
 		});
 		
-		return { success: true };
+		return {success: true};
 	});
 	
 	ipcMain.handle('novels:delete', (event, novelId) => {
@@ -406,7 +432,7 @@ function setupIpcHandlers() {
 		
 		try {
 			deleteTransaction();
-			return { success: true };
+			return {success: true};
 		} catch (error) {
 			console.error(`Failed to delete novel ${novelId}:`, error);
 			throw new Error('Failed to delete the novel.');
@@ -425,18 +451,18 @@ function setupIpcHandlers() {
 		try {
 			const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
 				method: 'POST',
-				headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+				headers: {'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json'},
 				body: JSON.stringify({
 					model: modelId,
-					messages: [{ role: 'user', content: prompt }],
-					response_format: { type: 'json_object' },
+					messages: [{role: 'user', content: prompt}],
+					response_format: {type: 'json_object'},
 					temperature: 0.9,
 				})
 			});
 			if (!response.ok) throw new Error(`API request failed with status ${response.status}`);
 			const data = await response.json();
 			const parsed = JSON.parse(data.choices[0].message.content);
-			if (parsed.title) return { title: parsed.title.trim().replace(/"/g, '') };
+			if (parsed.title) return {title: parsed.title.trim().replace(/"/g, '')};
 			throw new Error('Invalid response format from AI.');
 		} catch (error) {
 			console.error('Failed to generate novel title:', error);
@@ -445,7 +471,7 @@ function setupIpcHandlers() {
 	});
 	
 	ipcMain.handle('novels:generateStructure', async (event, data) => {
-		const { novelId, book_about, book_structure, language, llm_model } = data;
+		const {novelId, book_about, book_structure, language, llm_model} = data;
 		
 		const novel = db.prepare('SELECT id, title FROM novels WHERE id = ?').get(novelId);
 		if (!novel) {
@@ -502,7 +528,7 @@ function setupIpcHandlers() {
 					if (!charCategory) {
 						const result = db.prepare('INSERT INTO codex_categories (novel_id, name, description) VALUES (?, ?, ?)')
 							.run(novelId, 'Characters', 'All major and minor characters in the story.');
-						charCategory = { id: result.lastInsertRowid };
+						charCategory = {id: result.lastInsertRowid};
 					}
 					for (const charData of codexResponse.characters) {
 						db.prepare('INSERT INTO codex_entries (novel_id, codex_category_id, title, description, content) VALUES (?, ?, ?, ?, ?)')
@@ -514,7 +540,7 @@ function setupIpcHandlers() {
 					if (!locCategory) {
 						const result = db.prepare('INSERT INTO codex_categories (novel_id, name, description) VALUES (?, ?, ?)')
 							.run(novelId, 'Locations', 'Key settings and places in the story.');
-						locCategory = { id: result.lastInsertRowid };
+						locCategory = {id: result.lastInsertRowid};
 					}
 					for (const locData of codexResponse.locations) {
 						db.prepare('INSERT INTO codex_entries (novel_id, codex_category_id, title, description, content) VALUES (?, ?, ?, ?, ?)')
@@ -525,7 +551,7 @@ function setupIpcHandlers() {
 		});
 		
 		runTransaction();
-		return { success: true };
+		return {success: true};
 	});
 	
 	// --- File System Handlers ---
@@ -539,7 +565,7 @@ function setupIpcHandlers() {
 					const name = path.basename(file, '.txt')
 						.replace(/-/g, ' ')
 						.replace(/\b\w/g, l => l.toUpperCase());
-					return { name: name, value: file };
+					return {name: name, value: file};
 				});
 		} catch (error) {
 			console.error('Could not read structure files:', error);
@@ -566,7 +592,7 @@ function setupIpcHandlers() {
 		}
 		const stmt = db.prepare('INSERT INTO series (user_id, title) VALUES (?, ?)');
 		const result = stmt.run(userId, data.title);
-		return { id: result.lastInsertRowid, title: data.title };
+		return {id: result.lastInsertRowid, title: data.title};
 	});
 	
 	// --- Editor IPC Handlers ---
@@ -579,7 +605,7 @@ function setupIpcHandlers() {
 		try {
 			const jsonState = JSON.stringify(state);
 			db.prepare('UPDATE novels SET editor_state = ? WHERE id = ?').run(jsonState, novelId);
-			return { success: true };
+			return {success: true};
 		} catch (error) {
 			console.error('Failed to save editor state:', error);
 			throw error;
@@ -645,10 +671,10 @@ function setupIpcHandlers() {
 		try {
 			db.prepare('UPDATE chapters SET title = ?, summary = ?, content = ? WHERE id = ?')
 				.run(data.title, data.summary, data.content, chapterId);
-			return { success: true, message: 'Chapter content updated.' };
+			return {success: true, message: 'Chapter content updated.'};
 		} catch (error) {
 			console.error(`Failed to update chapter ${chapterId}:`, error);
-			return { success: false, message: 'Failed to save chapter content.' };
+			return {success: false, message: 'Failed to save chapter content.'};
 		}
 	});
 	
@@ -723,11 +749,11 @@ function setupIpcHandlers() {
 	ipcMain.handle('chapters:codex:detach', (event, chapterId, codexEntryId) => {
 		db.prepare('DELETE FROM chapter_codex_entry WHERE chapter_id = ? AND codex_entry_id = ?')
 			.run(chapterId, codexEntryId);
-		return { success: true, message: 'Codex entry unlinked.' };
+		return {success: true, message: 'Codex entry unlinked.'};
 	});
 	
 	ipcMain.handle('codex-entries:store', async (event, novelId, formData) => {
-		const { title, description, content, codex_category_id, new_category_name, imagePath } = formData;
+		const {title, description, content, codex_category_id, new_category_name, imagePath} = formData;
 		const userId = 1;
 		let categoryId = codex_category_id;
 		let newCategoryData = null;
@@ -737,7 +763,7 @@ function setupIpcHandlers() {
 				const result = db.prepare('INSERT INTO codex_categories (novel_id, name) VALUES (?, ?)')
 					.run(novelId, new_category_name);
 				categoryId = result.lastInsertRowid;
-				newCategoryData = { id: categoryId, name: new_category_name };
+				newCategoryData = {id: categoryId, name: new_category_name};
 			}
 			
 			const entryResult = db.prepare('INSERT INTO codex_entries (novel_id, codex_category_id, title, description, content) VALUES (?, ?, ?, ?, ?)')
@@ -775,7 +801,7 @@ function setupIpcHandlers() {
 	ipcMain.handle('codex-entries:update', (event, entryId, data) => {
 		db.prepare('UPDATE codex_entries SET title = ?, description = ?, content = ? WHERE id = ?')
 			.run(data.title, data.description, data.content, entryId);
-		return { success: true, message: 'Codex entry updated successfully.' };
+		return {success: true, message: 'Codex entry updated successfully.'};
 	});
 	
 	ipcMain.handle('codex-entries:link:attach', (event, parentEntryId, linkedEntryId) => {
@@ -803,24 +829,24 @@ function setupIpcHandlers() {
 	ipcMain.handle('codex-entries:link:detach', (event, parentEntryId, linkedEntryId) => {
 		db.prepare('DELETE FROM codex_entry_links WHERE codex_entry_id = ? AND linked_codex_entry_id = ?')
 			.run(parentEntryId, linkedEntryId);
-		return { success: true, message: 'Codex entry unlinked.' };
+		return {success: true, message: 'Codex entry unlinked.'};
 	});
 	
-	ipcMain.on('codex-entries:process-text-stream', (event, { data, channel }) => {
+	ipcMain.on('codex-entries:process-text-stream', (event, {data, channel}) => {
 		const onChunk = (chunk) => {
 			if (event.sender.isDestroyed()) return;
-			event.sender.send(channel, { chunk });
+			event.sender.send(channel, {chunk});
 		};
 		
 		const onComplete = () => {
 			if (event.sender.isDestroyed()) return;
-			event.sender.send(channel, { done: true });
+			event.sender.send(channel, {done: true});
 		};
 		
 		const onError = (error) => {
 			console.error('Streaming AI Error:', error);
 			if (event.sender.isDestroyed()) return;
-			event.sender.send(channel, { error: error.message });
+			event.sender.send(channel, {error: error.message});
 		};
 		
 		aiService.streamProcessCodexText(data, onChunk)
@@ -845,10 +871,10 @@ function setupIpcHandlers() {
 		try {
 			const modelsData = await aiService.getOpenRouterModels();
 			const processedModels = aiService.processModelsForView(modelsData);
-			return { success: true, models: processedModels };
+			return {success: true, models: processedModels};
 		} catch (error) {
 			console.error('Failed to get or process AI models:', error);
-			return { success: false, message: error.message };
+			return {success: false, message: error.message};
 		}
 	});
 	
@@ -898,20 +924,81 @@ function setupIpcHandlers() {
 	});
 	
 	ipcMain.handle('dialog:showOpenImage', async () => {
-		const { canceled, filePaths } = await dialog.showOpenDialog({
+		const {canceled, filePaths} = await dialog.showOpenDialog({
 			properties: ['openFile'],
-			filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp'] }]
+			filters: [{name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp']}]
 		});
 		if (!canceled) {
 			return filePaths[0];
 		}
 		return null;
 	});
+	
+	// --- NEW: AI Prompt Template Handlers ---
+	
+	ipcMain.handle('prompts:list', async () => {
+		try {
+			const files = fs.readdirSync(PROMPTS_DIR).filter(f => f.endsWith('.json'));
+			const prompts = files.map(file => {
+				const content = fs.readFileSync(path.join(PROMPTS_DIR, file), 'utf-8');
+				const data = JSON.parse(content);
+				return {id: path.basename(file, '.json'), name: data.name};
+			});
+			return prompts.sort((a, b) => a.name.localeCompare(b.name));
+		} catch (error) {
+			console.error('Failed to list prompts:', error);
+			throw new Error('Could not load prompt templates.');
+		}
+	});
+	
+	ipcMain.handle('prompts:get', async (event, promptId) => {
+		try {
+			const filePath = path.join(PROMPTS_DIR, `${promptId}.json`);
+			const content = fs.readFileSync(filePath, 'utf-8');
+			return JSON.parse(content);
+		} catch (error) {
+			console.error(`Failed to get prompt ${promptId}:`, error);
+			throw new Error(`Could not load prompt: ${promptId}.`);
+		}
+	});
+	
+	ipcMain.handle('prompts:save', async (event, promptId, data) => {
+		try {
+			const filePath = path.join(PROMPTS_DIR, `${promptId}.json`);
+			fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+			return {success: true};
+		} catch (error) {
+			console.error(`Failed to save prompt ${promptId}:`, error);
+			throw new Error(`Could not save prompt: ${promptId}.`);
+		}
+	});
+	
+	ipcMain.handle('prompts:reset', async (event, promptId) => {
+		try {
+			const defaultsDir = path.join(__dirname, 'src', 'prompts', 'defaults');
+			const sourcePath = path.join(defaultsDir, `${promptId}.json`);
+			const destPath = path.join(PROMPTS_DIR, `${promptId}.json`);
+			
+			if (fs.existsSync(sourcePath)) {
+				fs.copyFileSync(sourcePath, destPath);
+				const content = fs.readFileSync(destPath, 'utf-8');
+				return {success: true, data: JSON.parse(content)};
+			} else {
+				throw new Error('Default prompt file not found.');
+			}
+		} catch (error) {
+			console.error(`Failed to reset prompt ${promptId}:`, error);
+			throw new Error(`Could not reset prompt: ${promptId}.`);
+		}
+	});
+	
+	
 }
 
 // --- App Lifecycle Events ---
 app.on('ready', () => {
 	db = initializeDatabase();
+	initializePromptTemplates();
 	setupIpcHandlers();
 	createMainWindow();
 });

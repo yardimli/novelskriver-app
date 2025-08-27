@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const {contextBridge, ipcRenderer} = require('electron');
 
 contextBridge.exposeInMainWorld('api', {
 	// --- Dashboard/Novel Creation ---
@@ -63,13 +63,20 @@ contextBridge.exposeInMainWorld('api', {
 		};
 		
 		ipcRenderer.on(channel, listener);
-		ipcRenderer.send('codex-entries:process-text-stream', { data, channel });
+		ipcRenderer.send('codex-entries:process-text-stream', {data, channel});
 		
 		return () => {
 			ipcRenderer.removeListener(channel, listener);
 		};
 	},
 	getModels: () => ipcRenderer.invoke('ai:getModels'),
+	
+	// NEW: AI Prompt Template APIs
+	listPrompts: () => ipcRenderer.invoke('prompts:list'),
+	getPrompt: (promptId) => ipcRenderer.invoke('prompts:get', promptId),
+	savePrompt: (promptId, data) => ipcRenderer.invoke('prompts:save', promptId, data),
+	resetPrompt: (promptId) => ipcRenderer.invoke('prompts:reset', promptId),
+	
 	generateCodexImage: (entryId, prompt) => ipcRenderer.invoke('codex-entries:generate-image', entryId, prompt),
 	uploadCodexImage: (entryId, filePath) => ipcRenderer.invoke('codex-entries:upload-image', entryId, filePath),
 	

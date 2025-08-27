@@ -1,8 +1,15 @@
 import WindowManager from './WindowManager.js';
-import { setupCodexEntryHandler, setupChapterHandler, setupOpenWindowsMenu, setupCanvasControls } from './eventHandlers.js';
-import { setupChapterEditor } from './chapter-editor.js';
-import { setupContentEditor } from './content-editor.js';
-import { setupTopToolbar } from './toolbar.js';
+import {
+	setupCodexEntryHandler,
+	setupChapterHandler,
+	setupOpenWindowsMenu,
+	setupCanvasControls,
+	setupPromptEditorHandler
+} from './eventHandlers.js';
+import {setupChapterEditor} from './chapter-editor.js';
+import {setupContentEditor} from './content-editor.js';
+import {setupTopToolbar} from './toolbar.js';
+import {setupPromptEditor} from './prompt-editor.js';
 import './codex-entry-editor.js'; // Import for side-effects (attaches event listeners)
 
 /**
@@ -148,8 +155,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 	setupTopToolbar();
 	setupCodexEntryHandler(desktop, windowManager);
 	setupChapterHandler(desktop, windowManager);
+	setupPromptEditorHandler(desktop, windowManager); // MODIFIED: This now sets up the modal opener.
 	setupChapterEditor(desktop);
 	setupContentEditor(desktop);
 	setupOpenWindowsMenu(windowManager);
 	setupCanvasControls(windowManager);
+	
+	
+	// MODIFIED: Removed MutationObserver for prompt editor window.
+	// It is now a modal dialog initialized directly below.
+	
+	// MODIFIED: Initialize the prompt editor modal which is now part of the main document.
+	const promptEditorModal = document.getElementById('prompt-editor-modal');
+	if (promptEditorModal) {
+		setupPromptEditor(promptEditorModal);
+	}
 });
