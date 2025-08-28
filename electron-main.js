@@ -364,7 +364,6 @@ function setupIpcHandlers() {
 		}
 	});
 	
-	// MODIFIED: This handler now takes staged cover data and saves it.
 	ipcMain.handle('novels:updateCover', async (event, {novelId, coverInfo}) => {
 		let localPath;
 		let imageType = 'unknown';
@@ -556,6 +555,140 @@ function setupIpcHandlers() {
 		return {success: true};
 	});
 	
+	
+	// --- Chapter Handlers ---
+	ipcMain.handle('chapters:store', (event, novelId, data) => {
+		const {title, summary, position} = data;
+		
+		if (!title || !position) {
+			throw new Error('Title and position are required to create a chapter.');
+		}
+		
+		const [type, id] = position.split('-');
+		const targetId = parseInt(id, 10);
+		
+		let sectionId;
+		let newOrder;
+		let reorderedChapters = [];
+		
+		const transaction = db.transaction(() => {
+			if (type === 'section') {
+				// MODIFIED: Logic to insert a chapter at the beginning of a section.
+				sectionId = targetId;
+				newOrder = 1; // This will be the first chapter.
+				
+				// Shift all existing chapters in this section down by one.
+				db.prepare('UPDATE chapters SET chapter_order = chapter_order + 1 WHERE section_id = ?')
+					.run(sectionId);
+				
+				// Get the list of all chapters in the section that were reordered.
+				reorderedChapters = db.prepare('SELECT id, title, chapter_order FROM chapters WHERE section_id = ? AND chapter_order > 1 ORDER BY chapter_order ASC')
+					.all(sectionId);
+				
+			} else if (type === 'chapter') {
+				const targetChapter = db.prepare('SELECT section_id, chapter_order FROM chapters WHERE id = ?').get(targetId);
+				if (!targetChapter) throw new Error('Target chapter for insertion not found.');
+				
+				sectionId = targetChapter.section_id;
+				newOrder = targetChapter.chapter_order + 1;
+				
+				// Shift subsequent chapters
+				db.prepare('UPDATE chapters SET chapter_order = chapter_order + 1 WHERE section_id = ? AND chapter_order >= ?')
+					.run(sectionId, newOrder);
+				
+				// Get the list of chapters that were reordered to send back to the UI
+				reorderedChapters = db.prepare('SELECT id, title, chapter_order FROM chapters WHERE section_id = ? AND chapter_order >= ? ORDER BY chapter_order ASC')
+					.all(sectionId, newOrder);
+			} else {
+				throw new Error('Invalid position type for new chapter.');
+			}
+			
+			// Insert the new chapter
+			const result = db.prepare('INSERT INTO chapters (novel_id, section_id, title, summary, status, chapter_order) VALUES (?, ?, ?, ?, ?, ?)')
+				.run(novelId, sectionId, title, summary || null, 'in_progress', newOrder);
+			
+			const newChapterId = result.lastInsertRowid;
+			const newChapter = db.prepare('SELECT * FROM chapters WHERE id = ?').get(newChapterId);
+			
+			return {newChapter, reorderedChapters};
+		});
+		
+		try {
+			const {newChapter, reorderedChapters} = transaction();
+			return {success: true, chapter: newChapter, reorderedChapters};
+		} catch (error) {
+			console.error('Failed to create chapter:', error);
+			return {success: false, message: error.message};
+		}
+	});
+	
+	ipcMain.handle('chapters:getOneHtml', (event, chapterId) => {
+		const chapter = db.prepare(`
+        SELECT
+            c.*,
+            s.title as section_title,
+            s.section_order as section_order
+        FROM
+            chapters c
+        LEFT JOIN
+            sections s ON c.section_id = s.id
+        WHERE
+            c.id = ?
+    `).get(chapterId);
+		
+		if (!chapter) throw new Error('Chapter not found');
+		
+		chapter.codexEntries = db.prepare(`
+        SELECT ce.*, i.thumbnail_local_path
+        FROM codex_entries ce
+        JOIN chapter_codex_entry cce ON ce.id = cce.codex_entry_id
+        LEFT JOIN images i ON ce.id = i.codex_entry_id
+        WHERE cce.chapter_id = ?
+        ORDER BY ce.title
+    `).all(chapterId);
+		
+		chapter.codexEntries.forEach(entry => {
+			entry.thumbnail_url = entry.thumbnail_local_path
+				? `file://${path.join(imageHandler.IMAGES_DIR, entry.thumbnail_local_path)}`
+				: './assets/codex-placeholder.png';
+		});
+		
+		const chapterCodexTagTemplate = getTemplate('chapter-codex-tag');
+		
+		const codexTagsHtml = chapter.codexEntries.map(entry => {
+			return chapterCodexTagTemplate
+				.replace(/{{ENTRY_ID}}/g, entry.id)
+				.replace(/{{ENTRY_TITLE}}/g, escapeAttr(entry.title))
+				.replace(/{{THUMBNAIL_URL}}/g, escapeAttr(entry.thumbnail_url))
+				.replace(/{{CHAPTER_ID}}/g, chapter.id);
+		}).join('');
+		
+		const sectionInfoHtml = chapter.section_order ? `<h3 class="text-sm font-semibold uppercase tracking-wider text-indigo-500 dark:text-indigo-400">${chapter.section_order}. ${escapeAttr(chapter.section_title)} &ndash; Chapter ${chapter.chapter_order}</h3>` : '';
+		
+		let template = getTemplate('chapter-window');
+		template = template.replace('{{CHAPTER_ID}}', chapter.id);
+		template = template.replace('{{SECTION_INFO_HTML}}', sectionInfoHtml);
+		template = template.replace('{{CHAPTER_TITLE_ATTR}}', escapeAttr(chapter.title));
+		template = template.replace('{{CHAPTER_SUMMARY_HTML}}', chapter.summary || '');
+		template = template.replace('{{CONTENT_HTML}}', chapter.content || '');
+		template = template.replace('{{TAGS_WRAPPER_HIDDEN}}', chapter.codexEntries.length === 0 ? 'hidden' : '');
+		template = template.replace('{{CODEX_TAGS_HTML}}', codexTagsHtml);
+		
+		return template;
+	});
+	
+	ipcMain.handle('chapters:updateContent', (event, chapterId, data) => {
+		try {
+			db.prepare('UPDATE chapters SET title = ?, summary = ?, content = ? WHERE id = ?')
+				.run(data.title, data.summary, data.content, chapterId);
+			return {success: true, message: 'Chapter content updated.'};
+		} catch (error) {
+			console.error(`Failed to update chapter ${chapterId}:`, error);
+			return {success: false, message: 'Failed to save chapter content.'};
+		}
+	});
+	
+	
 	// --- File System Handlers ---
 	ipcMain.handle('files:getStructureFiles', () => {
 		try {
@@ -611,72 +744,6 @@ function setupIpcHandlers() {
 		} catch (error) {
 			console.error('Failed to save editor state:', error);
 			throw error;
-		}
-	});
-	
-	ipcMain.handle('chapters:getOneHtml', (event, chapterId) => {
-		const chapter = db.prepare(`
-        SELECT
-            c.*,
-            s.title as section_title,
-            s.section_order as section_order
-        FROM
-            chapters c
-        LEFT JOIN
-            sections s ON c.section_id = s.id
-        WHERE
-            c.id = ?
-    `).get(chapterId);
-		
-		if (!chapter) throw new Error('Chapter not found');
-		
-		chapter.codexEntries = db.prepare(`
-        SELECT ce.*, i.thumbnail_local_path
-        FROM codex_entries ce
-        JOIN chapter_codex_entry cce ON ce.id = cce.codex_entry_id
-        LEFT JOIN images i ON ce.id = i.codex_entry_id
-        WHERE cce.chapter_id = ?
-        ORDER BY ce.title
-    `).all(chapterId);
-		
-		chapter.codexEntries.forEach(entry => {
-			entry.thumbnail_url = entry.thumbnail_local_path
-				? `file://${path.join(imageHandler.IMAGES_DIR, entry.thumbnail_local_path)}`
-				: './assets/codex-placeholder.png';
-		});
-		
-		const chapterCodexTagTemplate = getTemplate('chapter-codex-tag');
-		
-		const codexTagsHtml = chapter.codexEntries.map(entry => {
-			return chapterCodexTagTemplate
-				.replace(/{{ENTRY_ID}}/g, entry.id)
-				.replace(/{{ENTRY_TITLE}}/g, escapeAttr(entry.title))
-				.replace(/{{THUMBNAIL_URL}}/g, escapeAttr(entry.thumbnail_url))
-				.replace(/{{CHAPTER_ID}}/g, chapter.id);
-		}).join('');
-		
-		const sectionInfoHtml = chapter.section_order ? `<h3 class="text-sm font-semibold uppercase tracking-wider text-indigo-500 dark:text-indigo-400">Act ${chapter.section_order}: ${escapeAttr(chapter.section_title)} &ndash; Chapter ${chapter.chapter_order}</h3>` : '';
-		
-		let template = getTemplate('chapter-window');
-		template = template.replace('{{CHAPTER_ID}}', chapter.id);
-		template = template.replace('{{SECTION_INFO_HTML}}', sectionInfoHtml);
-		template = template.replace('{{CHAPTER_TITLE_ATTR}}', escapeAttr(chapter.title));
-		template = template.replace('{{CHAPTER_SUMMARY_HTML}}', chapter.summary || '');
-		template = template.replace('{{CONTENT_HTML}}', chapter.content || '');
-		template = template.replace('{{TAGS_WRAPPER_HIDDEN}}', chapter.codexEntries.length === 0 ? 'hidden' : '');
-		template = template.replace('{{CODEX_TAGS_HTML}}', codexTagsHtml);
-		
-		return template;
-	});
-	
-	ipcMain.handle('chapters:updateContent', (event, chapterId, data) => {
-		try {
-			db.prepare('UPDATE chapters SET title = ?, summary = ?, content = ? WHERE id = ?')
-				.run(data.title, data.summary, data.content, chapterId);
-			return {success: true, message: 'Chapter content updated.'};
-		} catch (error) {
-			console.error(`Failed to update chapter ${chapterId}:`, error);
-			return {success: false, message: 'Failed to save chapter content.'};
 		}
 	});
 	
@@ -754,7 +821,6 @@ function setupIpcHandlers() {
 		return {success: true, message: 'Codex entry unlinked.'};
 	});
 	
-	// NEW: IPC handler to suggest title and category for a new codex entry from selected text.
 	ipcMain.handle('codex-entries:suggest-details', async (event, { novelId, text }) => {
 		try {
 			const categories = db.prepare('SELECT id, name FROM codex_categories WHERE novel_id = ? ORDER BY name').all(novelId);
@@ -793,7 +859,6 @@ function setupIpcHandlers() {
 		}
 	});
 	
-	// MODIFIED: Refactored to correctly handle async image operations outside the sync transaction.
 	ipcMain.handle('codex-entries:store', async (event, novelId, formData) => {
 		const { title, content, codex_category_id, new_category_name, imagePath } = formData;
 		const userId = 1;
@@ -905,14 +970,12 @@ function setupIpcHandlers() {
 			.catch(onError);
 	});
 	
-	// NEW: IPC handler to generate a cover prompt without saving.
 	ipcMain.handle('ai:generateCoverPrompt', async (event, novelId) => {
 		const novel = db.prepare('SELECT title FROM novels WHERE id = ?').get(novelId);
 		if (!novel) throw new Error('Novel not found.');
 		return await aiService.generateCoverPrompt(novel.title);
 	});
 	
-	// NEW: IPC handler to generate an image from a prompt without saving.
 	ipcMain.handle('ai:generateImageFromPrompt', async (event, prompt) => {
 		if (!prompt) throw new Error('A prompt is required to generate an image.');
 		return await aiService.generateFalImage(prompt);

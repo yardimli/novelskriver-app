@@ -335,6 +335,41 @@
 	</div>
 </dialog>
 
+<dialog id="new-chapter-modal" class="modal">
+	<div class="modal-box">
+		<h3 class="font-bold text-lg">Create New Chapter</h3>
+		<form id="new-chapter-form" novalidate>
+			<div class="py-4 max-h-[70vh] overflow-y-auto space-y-4">
+				<div id="new-chapter-error-container" class="hidden alert alert-error"></div>
+				<div class="form-control">
+					<label for="new-chapter-title" class="label"><span class="label-text">Title <span
+						class="text-error">*</span></span></label>
+					<input type="text" id="new-chapter-title" name="title" class="input input-bordered" required>
+				</div>
+				<div class="form-control">
+					<label for="new-chapter-summary" class="label"><span class="label-text">Summary (Optional)</span></label>
+					<textarea id="new-chapter-summary" name="summary" rows="3" class="textarea textarea-bordered"></textarea>
+				</div>
+				<div class="form-control">
+					<label for="new-chapter-position" class="label"><span class="label-text">Position <span
+						class="text-error">*</span></span></label>
+					<select id="new-chapter-position" name="position" class="select select-bordered" required>
+						<option value="" disabled selected>Insert after...</option>
+						<!-- Options will be populated by JS -->
+					</select>
+				</div>
+			</div>
+			<div class="modal-action">
+				<button type="button" class="js-close-new-chapter-modal btn">Cancel</button>
+				<button type="submit" class="js-new-chapter-submit-btn btn btn-accent w-28">
+					<span class="js-btn-text">Create</span>
+					<span class="js-spinner hidden animate-spin"><i class="bi bi-arrow-repeat"></i></span>
+				</button>
+			</div>
+		</form>
+	</div>
+</dialog>
+
 <script src="../src/js/theme.js"></script>
 <script src="../dist/editor-bundle.js"></script>
 </body>

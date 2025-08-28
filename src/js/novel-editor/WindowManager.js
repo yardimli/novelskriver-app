@@ -93,7 +93,15 @@ export default class WindowManager {
 			newEntryBtn.className = 'js-open-new-codex-modal btn btn-xs btn-accent gap-1 mr-2';
 			newEntryBtn.innerHTML = `<i class="bi bi-plus-lg"></i> New Entry`;
 			rightSpacer.appendChild(newEntryBtn);
-		} else {
+		} else if (id === 'outline-window') {
+			rightSpacer.className = 'flex items-center justify-end min-w-[64px]';
+			const newChapterBtn = document.createElement('button');
+			newChapterBtn.type = 'button';
+			newChapterBtn.className = 'js-open-new-chapter-modal btn btn-xs btn-accent gap-1 mr-2';
+			newChapterBtn.innerHTML = `<i class="bi bi-plus-lg"></i> New Chapter`;
+			rightSpacer.appendChild(newChapterBtn);
+		} else
+		{
 			rightSpacer.style.width = '64px';
 		}
 		

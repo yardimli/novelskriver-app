@@ -42,6 +42,7 @@ contextBridge.exposeInMainWorld('api', {
 	detachCodexFromChapter: (chapterId, codexEntryId) => ipcRenderer.invoke('chapters:codex:detach', chapterId, codexEntryId),
 	
 	updateChapterContent: (chapterId, data) => ipcRenderer.invoke('chapters:updateContent', chapterId, data),
+	createChapter: (novelId, data) => ipcRenderer.invoke('chapters:store', novelId, data),
 	
 	// Codex Entry Management
 	createCodexEntry: (novelId, formData) => ipcRenderer.invoke('codex-entries:store', novelId, formData),

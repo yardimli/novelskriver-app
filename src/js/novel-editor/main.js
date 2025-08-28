@@ -11,6 +11,7 @@ import {setupContentEditor} from './content-editor.js';
 import {setupTopToolbar} from './toolbar.js';
 import {setupPromptEditor} from './prompt-editor.js';
 import './codex-entry-editor.js'; // Import for side-effects (attaches event listeners)
+import './chapter-creation.js'; // NEW: Import for new chapter modal logic
 
 /**
  * MODIFIED: Populates the outline window template with novel data using templates.
@@ -40,6 +41,7 @@ async function populateOutlineTemplate(template, novelData) {
 		
 		const descriptionHtml = section.description ? `<p class="text-sm italic text-base-content/70 mt-1">${section.description}</p>` : '';
 		return sectionTemplateHtml
+			.replace('{{SECTION_ID}}', section.id) // MODIFIED: Added section ID for DOM selection.
 			.replace('{{SECTION_ORDER}}', section.section_order)
 			.replace('{{SECTION_TITLE}}', section.title)
 			.replace('{{SECTION_DESCRIPTION_HTML}}', descriptionHtml)
@@ -136,6 +138,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 			categorySelect.insertBefore(option, categorySelect.options[categorySelect.options.length - 1]);
 		});
 		
+		// NEW: Populate the "New Chapter" modal's position dropdown
+		const chapterPositionSelect = document.getElementById('new-chapter-position');
+		if (chapterPositionSelect) {
+			novelData.sections.forEach(section => {
+				// MODIFIED: Changed option text to imply insertion at the beginning of the section.
+				const sectionOption = new Option(`${section.title}`, `section-${section.id}`);
+				sectionOption.classList.add('font-bold', 'text-indigo-500');
+				chapterPositionSelect.appendChild(sectionOption);
+				
+				// Add options for each chapter within the section
+				if (section.chapters && section.chapters.length > 0) {
+					section.chapters.forEach(chapter => {
+						const chapterOption = new Option(`  ${chapter.chapter_order}. ${chapter.title}`, `chapter-${chapter.id}`);
+						chapterPositionSelect.appendChild(chapterOption);
+					});
+				}
+			});
+		}
+		
 		// Store the editor state on the body for the WindowManager to find
 		document.body.dataset.editorState = JSON.stringify(novelData.editor_state || null);
 		document.title = `Novel Skriver - Editing: ${novelData.title}`;
@@ -161,9 +182,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 	setupOpenWindowsMenu(windowManager);
 	setupCanvasControls(windowManager);
 	
-	
-	// MODIFIED: Removed MutationObserver for prompt editor window.
-	// It is now a modal dialog initialized directly below.
 	
 	// MODIFIED: Initialize the prompt editor modal which is now part of the main document.
 	const promptEditorModal = document.getElementById('prompt-editor-modal');
