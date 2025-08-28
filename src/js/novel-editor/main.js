@@ -124,14 +124,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 	const desktop = document.getElementById('desktop');
 	const taskbar = document.getElementById('taskbar');
 	
-	// NEW: This listener runs in the capture phase to determine if a window was already
-	// active when a mousedown event occurred. This state is used by other click handlers
-	// to decide whether to act or just allow the window to be focused.
-	document.addEventListener('mousedown', (event) => {
-		const windowEl = event.target.closest('.window-element');
-		window.wasActiveOnMousedown = !!(windowEl && windowEl.classList.contains('active'));
-	}, true);
-	
 	const params = new URLSearchParams(window.location.search);
 	const novelId = params.get('novelId');
 	

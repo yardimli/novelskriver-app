@@ -44,12 +44,26 @@ export default class WindowManager {
 		win.style.left = `${x}px`;
 		win.style.top = `${y}px`;
 		
+		// NEW: Add a double-click listener to the main window area.
+		// This resets zoom and centers the window, same as the title bar, unless an interactive element is clicked.
+		win.addEventListener('dblclick', (e) => {
+			// A list of selectors for elements that should not trigger the window-wide double-click action.
+			const isInteractive = e.target.closest(
+				'button, a, input, textarea, .js-editable, .ProseMirror, .resize-handle, .window-title-bar, [role="button"]'
+			);
+			
+			if (!isInteractive) {
+				this.zoomTo(1);
+				this.scrollIntoView(windowId);
+			}
+		});
+		
 		const isChapterWindow = windowId.startsWith('chapter-');
 		
 		const titleBar = document.createElement('div');
 		titleBar.className = 'window-title-bar card-title flex items-center justify-between h-10 bg-base-200/70 px-3 cursor-move border-b border-base-300 flex-shrink-0';
 		
-		// NEW: Add a double-click listener to the title bar to reset zoom and center the window.
+		// MODIFIED: The window-wide double-click makes this redundant, but it's kept for discoverability.
 		titleBar.addEventListener('dblclick', () => {
 			this.zoomTo(1);
 			this.scrollIntoView(windowId);
@@ -138,6 +152,22 @@ export default class WindowManager {
 		this.updateTaskbar();
 		
 		return windowId;
+	}
+	
+	/**
+	 * NEW: Sets the interactive state of a window's content area.
+	 * @param {HTMLElement} windowElement The window element.
+	 * @param {boolean} isInteractive True to enable controls, false to disable.
+	 */
+	_setWindowInteractive(windowElement, isInteractive) {
+		const contentArea = windowElement.querySelector('.card-body');
+		if (!contentArea) return;
+		
+		if (isInteractive) {
+			contentArea.classList.remove('window-inactive-content');
+		} else {
+			contentArea.classList.add('window-inactive-content');
+		}
 	}
 	
 	createControlButton(colorClass, onClick, type) {
@@ -245,11 +275,17 @@ export default class WindowManager {
 		
 		this.isShiftPressed = isShiftPressed;
 		
+		// MODIFIED: Deactivate controls in the previously active window.
 		if (this.activeWindow && this.windows.has(this.activeWindow)) {
-			this.windows.get(this.activeWindow).element.classList.remove('active');
+			const oldWin = this.windows.get(this.activeWindow);
+			oldWin.element.classList.remove('active');
+			this._setWindowInteractive(oldWin.element, false);
 		}
+		
+		// MODIFIED: Activate controls in the new window.
 		win.element.style.zIndex = this.highestZIndex++;
 		win.element.classList.add('active');
+		this._setWindowInteractive(win.element, true);
 		this.activeWindow = windowId;
 		
 		if (isShiftPressed) {
@@ -865,6 +901,14 @@ export default class WindowManager {
 	
 	handlePanStart(event) {
 		if (event.target === this.desktop) {
+			// MODIFIED: Deactivate the active window when clicking the desktop.
+			if (this.activeWindow && this.windows.has(this.activeWindow)) {
+				const oldWin = this.windows.get(this.activeWindow);
+				oldWin.element.classList.remove('active');
+				this._setWindowInteractive(oldWin.element, false);
+				this.activeWindow = null;
+				this.updateTaskbar(); // Update taskbar to show no active window
+			}
 			this._clearSelection();
 			this.isPanning = true;
 			this.panStartX = event.clientX - this.panX;
@@ -962,7 +1006,8 @@ export default class WindowManager {
 			}
 		});
 		this.selectedWindows.clear();
-		this.activeWindow = null;
+		// MODIFIED: The active window is no longer cleared here; this is handled by the caller.
+		// this.activeWindow = null;
 		this.updateTaskbar();
 	}
 	

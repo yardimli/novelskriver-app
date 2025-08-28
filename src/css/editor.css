@@ -29,6 +29,11 @@
     @apply text-black dark:text-white;
 }
 
+/* NEW: Styles to disable interaction in inactive windows' content areas. */
+.window-inactive-content {
+    @apply pointer-events-none opacity-75;
+}
+
 /* NEW: Fix for Bootstrap Icon vertical alignment within flex containers like buttons. */
 /* This ensures the icon itself is centered, preventing cropping or misalignment. */
 i[class^="bi-"], i[class*=" bi-"] {
