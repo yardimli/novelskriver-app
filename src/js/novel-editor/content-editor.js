@@ -151,11 +151,13 @@ async function saveWindowContent(windowContent) {
 		
 		const titleInput = windowContent.querySelector('.js-chapter-title-input');
 		const summary = serializeDocToHtml(instances.summaryView);
-		const content = serializeDocToHtml(instances.contentView);
+		// REMOVED: Content serialization is no longer needed for chapters.
 		
-		const data = { title: titleInput.value, summary, content };
+		// MODIFIED: The data object now only contains title and summary.
+		const data = { title: titleInput.value, summary };
 		
 		try {
+			// MODIFIED: The backend API call now sends the simplified data object.
 			const response = await window.api.updateChapterContent(chapterId, data);
 			if (!response.success) throw new Error(response.message || 'Failed to save chapter.');
 		} catch (error) {
@@ -265,14 +267,16 @@ function initEditorsForWindow(windowContent) {
 		titleInput.addEventListener('input', () => triggerDebouncedSave(windowContent));
 		
 		const summaryMount = windowContent.querySelector('.js-editable[data-name="summary"]');
-		const contentMount = windowContent.querySelector('.js-editable[data-name="content"]');
+		// REMOVED: The content editor mount point is no longer looked for.
 		
-		if (!summaryMount || !contentMount) return;
+		// MODIFIED: Check only for the summary mount point.
+		if (!summaryMount) return;
 		
 		const summaryView = createEditor(summaryMount, false);
-		const contentView = createEditor(contentMount, false);
+		// REMOVED: The content editor view is no longer created.
 		
-		editorInstances.set(key, { summaryView, contentView });
+		// MODIFIED: Only the summary view is stored for the chapter.
+		editorInstances.set(key, { summaryView });
 	}
 }
 

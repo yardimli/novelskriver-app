@@ -49,14 +49,11 @@ export default class WindowManager {
 		const titleBar = document.createElement('div');
 		titleBar.className = 'window-title-bar card-title flex items-center justify-between h-10 bg-base-200/70 px-3 cursor-move border-b border-base-300 flex-shrink-0';
 		
-		if (isChapterWindow) {
-			titleBar.addEventListener('dblclick', () => this.maximize(windowId));
-		} else {
-			titleBar.addEventListener('dblclick', () => {
-				this.zoomTo(1);
-				this.scrollIntoView(windowId);
-			});
-		}
+		// NEW: Add a double-click listener to the title bar to reset zoom and center the window.
+		titleBar.addEventListener('dblclick', () => {
+			this.zoomTo(1);
+			this.scrollIntoView(windowId);
+		});
 		
 		const controls = document.createElement('div');
 		controls.className = 'flex items-center gap-2';

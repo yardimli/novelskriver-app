@@ -90,6 +90,12 @@ export function setupCodexEntryHandler(desktop, windowManager) {
 			return;
 		}
 		
+		// NEW: Check if the window was already active before the click. If not, the click
+		// was only to focus the window, so we don't open the entry.
+		if (!window.wasActiveOnMousedown) {
+			return;
+		}
+		
 		const entryId = entryButton.dataset.entryId;
 		const entryTitle = entryButton.dataset.entryTitle;
 		openCodexEntry(entryId, entryTitle);
@@ -108,6 +114,12 @@ export function setupChapterHandler(desktop, windowManager) {
 	desktop.addEventListener('click', async (event) => {
 		const chapterButton = event.target.closest('.js-open-chapter');
 		if (!chapterButton) return;
+		
+		// NEW: Check if the window was already active before the click. If not, the click
+		// was only to focus the window, so we don't open the chapter.
+		if (!window.wasActiveOnMousedown) {
+			return;
+		}
 		
 		const chapterId = chapterButton.dataset.chapterId;
 		const chapterTitle = chapterButton.dataset.chapterTitle;

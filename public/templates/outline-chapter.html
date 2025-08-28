@@ -1,10 +1,11 @@
 <!-- NEW: Template for a single chapter in the outline window -->
-<button type="button"
-        class="js-open-chapter btn btn-ghost w-full justify-start text-left h-auto p-2"
-        data-chapter-id="{{CHAPTER_ID}}"
-        data-chapter-title="{{CHAPTER_TITLE}}">
+<!-- MODIFIED: Changed from a <button> to a <div> to remove button styling, added hover effect. -->
+<div role="button" tabindex="0"
+     class="js-open-chapter w-full text-left h-auto p-2 rounded-lg hover:bg-base-300 transition-colors cursor-pointer"
+     data-chapter-id="{{CHAPTER_ID}}"
+     data-chapter-title="{{CHAPTER_TITLE}}">
 	<div class="flex flex-col">
 		<h4 class="font-semibold">{{CHAPTER_ORDER}}. {{CHAPTER_TITLE}}</h4>
 		{{CHAPTER_SUMMARY_HTML}}
 	</div>
-</button>
+</div>

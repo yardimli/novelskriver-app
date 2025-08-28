@@ -27,10 +27,25 @@ async function populateOutlineTemplate(template, novelData) {
 	const sectionTemplateHtml = await window.api.getTemplate('outline-section');
 	const chapterTemplateHtml = await window.api.getTemplate('outline-chapter');
 	
+	// NEW: Helper function to strip HTML and truncate text to a word limit.
+	const stripHtmlAndTruncate = (html, wordLimit) => {
+		if (!html) return '';
+		const tempDiv = document.createElement('div');
+		tempDiv.innerHTML = html;
+		const text = tempDiv.textContent || tempDiv.innerText || '';
+		const words = text.trim().split(/\s+/).filter(Boolean);
+		if (words.length > wordLimit) {
+			return words.slice(0, wordLimit).join(' ') + '...';
+		}
+		return words.join(' ');
+	};
+	
 	const sectionsHtml = novelData.sections.map(section => {
 		const chaptersHtml = section.chapters && section.chapters.length > 0
 			? section.chapters.map(chapter => {
-				const summaryHtml = chapter.summary ? `<p class="text-xs text-base-content/70 mt-1 font-normal normal-case">${chapter.summary}</p>` : '';
+				// MODIFIED: Summary is now processed to be plain text and truncated.
+				const summaryText = stripHtmlAndTruncate(chapter.summary, 40);
+				const summaryHtml = summaryText ? `<p class="text-xs text-base-content/70 mt-1 font-normal normal-case">${summaryText}</p>` : '';
 				return chapterTemplateHtml
 					.replace('{{CHAPTER_ID}}', chapter.id)
 					.replace(/{{CHAPTER_TITLE}}/g, chapter.title)
@@ -108,6 +123,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 	const viewport = document.getElementById('viewport');
 	const desktop = document.getElementById('desktop');
 	const taskbar = document.getElementById('taskbar');
+	
+	// NEW: This listener runs in the capture phase to determine if a window was already
+	// active when a mousedown event occurred. This state is used by other click handlers
+	// to decide whether to act or just allow the window to be focused.
+	document.addEventListener('mousedown', (event) => {
+		const windowEl = event.target.closest('.window-element');
+		window.wasActiveOnMousedown = !!(windowEl && windowEl.classList.contains('active'));
+	}, true);
 	
 	const params = new URLSearchParams(window.location.search);
 	const novelId = params.get('novelId');

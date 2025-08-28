@@ -670,7 +670,7 @@ function setupIpcHandlers() {
 		template = template.replace('{{SECTION_INFO_HTML}}', sectionInfoHtml);
 		template = template.replace('{{CHAPTER_TITLE_ATTR}}', escapeAttr(chapter.title));
 		template = template.replace('{{CHAPTER_SUMMARY_HTML}}', chapter.summary || '');
-		template = template.replace('{{CONTENT_HTML}}', chapter.content || '');
+		// REMOVED: The content placeholder is no longer in the template.
 		template = template.replace('{{TAGS_WRAPPER_HIDDEN}}', chapter.codexEntries.length === 0 ? 'hidden' : '');
 		template = template.replace('{{CODEX_TAGS_HTML}}', codexTagsHtml);
 		
@@ -679,8 +679,9 @@ function setupIpcHandlers() {
 	
 	ipcMain.handle('chapters:updateContent', (event, chapterId, data) => {
 		try {
-			db.prepare('UPDATE chapters SET title = ?, summary = ?, content = ? WHERE id = ?')
-				.run(data.title, data.summary, data.content, chapterId);
+			// MODIFIED: The SQL query no longer updates the 'content' field.
+			db.prepare('UPDATE chapters SET title = ?, summary = ? WHERE id = ?')
+				.run(data.title, data.summary, chapterId);
 			return {success: true, message: 'Chapter content updated.'};
 		} catch (error) {
 			console.error(`Failed to update chapter ${chapterId}:`, error);

@@ -1,13 +1,12 @@
 <!-- NEW: Template for a single codex entry item in the main codex window list -->
-<!-- MODIFIED: Added items-center and gap-4 for better alignment without the description -->
-<button type="button"
-        class="js-open-codex-entry js-draggable-codex btn btn-ghost w-full justify-start text-left h-auto p-2 items-center gap-4"
-        data-entry-id="{{ENTRY_ID}}"
-        data-entry-title="{{ENTRY_TITLE}}"
-        draggable="true">
+<!-- MODIFIED: Changed from a <button> to a <div> to remove button styling, added hover effect. -->
+<div role="button" tabindex="0"
+     class="js-open-codex-entry js-draggable-codex flex w-full justify-start text-left h-auto p-2 items-center gap-4 rounded-lg hover:bg-base-200 transition-colors cursor-pointer"
+     data-entry-id="{{ENTRY_ID}}"
+     data-entry-title="{{ENTRY_TITLE}}"
+     draggable="true">
 	<img src="{{THUMBNAIL_URL}}" alt="Thumbnail for {{ENTRY_TITLE}}" class="w-12 h-12 object-cover rounded flex-shrink-0 bg-base-300 pointer-events-none">
 	<div class="flex-grow min-w-0 pointer-events-none text-left">
 		<h4 class="font-semibold truncate normal-case">{{ENTRY_TITLE}}</h4>
-		<!-- REMOVED: Description paragraph -->
 	</div>
-</button>
+</div>
