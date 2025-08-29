@@ -135,11 +135,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 	
 	document.body.dataset.novelId = novelId;
 	
+	let novelData; // MODIFIED: Declare novelData in a wider scope.
+	
 	try {
 		const outlineTemplateHtml = await window.api.getTemplate('outline-window');
 		const codexTemplateHtml = await window.api.getTemplate('codex-window');
 		
-		const novelData = await window.api.getOneNovel(novelId);
+		novelData = await window.api.getOneNovel(novelId); // MODIFIED: Assign to the wider scope variable.
 		if (!novelData) throw new Error('Novel not found.');
 		
 		document.body.dataset.outlineContent = await populateOutlineTemplate(outlineTemplateHtml, novelData);
@@ -182,7 +184,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 		return;
 	}
 	
-	const windowManager = new WindowManager(desktop, taskbar, novelId, viewport);
+	// MODIFIED: Pass the loaded novelData to the WindowManager constructor.
+	const windowManager = new WindowManager(desktop, taskbar, novelId, viewport, novelData);
 	
 	windowManager.initCanvas();
 	windowManager.loadState();

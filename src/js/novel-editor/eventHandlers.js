@@ -244,11 +244,14 @@ export function setupCanvasControls(windowManager) {
 	const zoomOutBtn = document.getElementById('zoom-out-btn');
 	const zoom100Btn = document.getElementById('zoom-100-btn');
 	const zoomFitBtn = document.getElementById('zoom-fit-btn');
+	const arrangeBtn = document.getElementById('arrange-windows-btn'); // NEW: Get the arrange button.
 	
 	if (zoomInBtn) zoomInBtn.addEventListener('click', () => windowManager.zoomIn());
 	if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => windowManager.zoomOut());
 	if (zoom100Btn) zoom100Btn.addEventListener('click', () => windowManager.zoomTo(1));
 	if (zoomFitBtn) zoomFitBtn.addEventListener('click', () => windowManager.fitToView());
+	// NEW: Add event listener for the arrange button.
+	if (arrangeBtn) arrangeBtn.addEventListener('click', () => windowManager.arrangeWindows());
 }
 
 export function setupPromptEditorHandler(desktop, windowManager) {
@@ -260,7 +263,4 @@ export function setupPromptEditorHandler(desktop, windowManager) {
 	taskbarBtn.addEventListener('click', () => {
 		promptModal.showModal();
 	});
-	
-	// The modal can be closed via the 'dialog' form method or ESC key, so no explicit close handler is needed.
-	// DaisyUI's <form method="dialog"> handles this automatically.
 }

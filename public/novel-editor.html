@@ -207,6 +207,12 @@
 			<i class="bi bi-arrows-fullscreen text-lg"></i>
 		</button>
 		
+		<!-- NEW: Button to arrange windows -->
+		<div class="divider divider-horizontal mx-0"></div>
+		<button id="arrange-windows-btn" type="button" title="Arrange Windows" class="btn btn-ghost btn-sm btn-square">
+			<i class="bi bi-grid-3x3-gap text-lg"></i>
+		</button>
+		
 		<label id="theme-toggle" class="swap swap-rotate btn btn-ghost btn-sm btn-square">
 			<input type="checkbox" class="theme-controller" value="dark"/>
 			<i class="swap-off bi bi-sun-fill text-lg"></i>
@@ -297,11 +303,7 @@
 				</div>
 			</div>
 			
-			<!-- Right Column: Editor -->
-			<!-- MODIFIED: Adjusted padding -->
 			<div class="js-prompt-editor-pane w-2/3 flex flex-col pl-4 hidden">
-				<!-- REMOVED: Prompt title h2 is no longer needed. -->
-				<!-- MODIFIED: Reduced gap, added padding for scrollbar -->
 				<form class="js-prompt-form flex-grow flex flex-col gap-2 overflow-y-auto pr-2">
 					<div class="form-control flex flex-col">
 						<label class="label py-1"><span class="label-text">System Message</span></label>
@@ -316,7 +318,6 @@
 						<textarea name="ai" class="js-autosize textarea textarea-bordered font-mono text-xs" placeholder="AI message..." rows="3"></textarea>
 					</div>
 				</form>
-				<!-- MODIFIED: Reduced top margin and added a close button -->
 				<div class="mt-2 flex justify-end gap-2">
 					<button type="button" class="js-close-prompt-modal btn">Close</button>
 					<button type="button" class="js-reset-prompt-btn btn btn-ghost">Reset to Default</button>
@@ -327,7 +328,6 @@
 				</div>
 			</div>
 			
-			<!-- Initial State: Placeholder -->
 			<div class="js-prompt-placeholder w-2/3 flex items-center justify-center text-base-content/50">
 				<p>Select a prompt to edit.</p>
 			</div>

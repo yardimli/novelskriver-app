@@ -2,11 +2,13 @@
  * Manages the creation, state, and interaction of windows in the novel editor desktop environment.
  */
 export default class WindowManager {
-	constructor(desktop, taskbar, novelId, viewport) {
+	// MODIFIED: Constructor now accepts novelData to be used for arranging windows.
+	constructor(desktop, taskbar, novelId, viewport, novelData) {
 		this.desktop = desktop;
 		this.taskbar = taskbar;
 		this.novelId = novelId;
 		this.viewport = viewport;
+		this.novelData = novelData; // NEW: Store novel data.
 		this.minimizedContainer = document.getElementById('minimized-windows-container');
 		this.windows = new Map();
 		this.activeWindow = null;
@@ -1040,5 +1042,119 @@ export default class WindowManager {
 				}
 			}
 		}
+	}
+	
+	// NEW: Method to arrange all open windows in a structured layout.
+	arrangeWindows() {
+		if (!this.novelData) {
+			console.error('Cannot arrange windows: novel data is not available.');
+			return;
+		}
+		
+		const PADDING = 50;
+		const COL_GAP = 20;
+		const ROW_GAP = 20;
+		
+		const SML_WIN_W = 400;
+		const SML_WIN_H = 400;
+		const LRG_WIN_W = 400;
+		const LRG_WIN_H = 1000;
+		
+		let currentX = PADDING;
+		const currentY = PADDING;
+		
+		// 1. Position Codex Window
+		if (this.windows.has('codex-window')) {
+			this.reposition('codex-window', currentX, currentY, LRG_WIN_W, LRG_WIN_H);
+		}
+		currentX += LRG_WIN_W + COL_GAP;
+		
+		// 2. Position Codex Entries
+		const openCodexWindows = new Map();
+		this.windows.forEach((win, id) => {
+			if (id.startsWith('codex-entry-')) {
+				const entryId = id.replace('codex-entry-', '');
+				openCodexWindows.set(entryId, id);
+			}
+		});
+		
+		if (openCodexWindows.size > 0) {
+			const codexCategories = this.novelData.codexCategories || [];
+			const charactersCategory = codexCategories.find(c => c.name.toLowerCase() === 'characters');
+			const locationsCategory = codexCategories.find(c => c.name.toLowerCase() === 'locations');
+			
+			// Column 1: Characters
+			let hasPositionedInCol1 = false;
+			if (charactersCategory && charactersCategory.entries) {
+				let colY = currentY;
+				for (const entry of charactersCategory.entries) {
+					if (openCodexWindows.has(String(entry.id))) {
+						const windowId = openCodexWindows.get(String(entry.id));
+						this.reposition(windowId, currentX, colY, SML_WIN_W, SML_WIN_H);
+						colY += SML_WIN_H + ROW_GAP;
+						hasPositionedInCol1 = true;
+					}
+				}
+			}
+			if (hasPositionedInCol1) {
+				currentX += SML_WIN_W + COL_GAP;
+			}
+			
+			// Column 2: Locations
+			let hasPositionedInCol2 = false;
+			if (locationsCategory && locationsCategory.entries) {
+				let colY = currentY;
+				for (const entry of locationsCategory.entries) {
+					if (openCodexWindows.has(String(entry.id))) {
+						const windowId = openCodexWindows.get(String(entry.id));
+						this.reposition(windowId, currentX, colY, SML_WIN_W, SML_WIN_H);
+						colY += SML_WIN_H + ROW_GAP;
+						hasPositionedInCol2 = true;
+					}
+				}
+			}
+			if (hasPositionedInCol2) {
+				currentX += SML_WIN_W + COL_GAP;
+			}
+		}
+		
+		// 3. Position Outline Window
+		if (this.windows.has('outline-window')) {
+			this.reposition('outline-window', currentX, currentY, LRG_WIN_W, LRG_WIN_H);
+		}
+		currentX += LRG_WIN_W + COL_GAP;
+		
+		// 4. Position Chapter Windows
+		const openChapterWindows = new Map();
+		this.windows.forEach((win, id) => {
+			if (id.startsWith('chapter-')) {
+				const chapterId = id.replace('chapter-', '');
+				openChapterWindows.set(chapterId, id);
+			}
+		});
+		
+		if (openChapterWindows.size > 0) {
+			const sections = this.novelData.sections || [];
+			for (const section of sections) {
+				let chapterColY = currentY;
+				if (section.chapters && section.chapters.length > 0) {
+					let chaptersInSectionAreOpen = false;
+					for (const chapter of section.chapters) {
+						if (openChapterWindows.has(String(chapter.id))) {
+							chaptersInSectionAreOpen = true;
+							const windowId = openChapterWindows.get(String(chapter.id));
+							this.reposition(windowId, currentX, chapterColY, SML_WIN_W, SML_WIN_H);
+							chapterColY += SML_WIN_H + ROW_GAP;
+						}
+					}
+					if (chaptersInSectionAreOpen) {
+						currentX += SML_WIN_W + COL_GAP;
+					}
+				}
+			}
+		}
+		
+		// 5. Fit view to show all arranged windows.
+		this.fitToView();
 	}
 }
