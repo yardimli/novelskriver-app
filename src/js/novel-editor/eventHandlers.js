@@ -253,13 +253,13 @@ export function setupCanvasControls(windowManager) {
 	if (arrangeBtn) arrangeBtn.addEventListener('click', () => windowManager.arrangeWindows());
 }
 
-export function setupPromptEditorHandler(desktop, windowManager) {
+// MODIFIED: This function now calls the main process to open a dedicated window.
+export function setupPromptEditorHandler() {
 	const taskbarBtn = document.getElementById('open-prompts-btn');
-	const promptModal = document.getElementById('prompt-editor-modal');
 	
-	if (!taskbarBtn || !promptModal) return;
-	
-	taskbarBtn.addEventListener('click', () => {
-		promptModal.showModal();
-	});
+	if (taskbarBtn) {
+		taskbarBtn.addEventListener('click', () => {
+			window.api.openPromptEditor();
+		});
+	}
 }

@@ -13,6 +13,7 @@ const imageHandler = require('./src/utils/image-handler.js');
 let db;
 let mainWindow;
 let editorWindows = new Map();
+let promptEditorWindow = null; // MODIFIED: Add a variable to track the prompt editor window
 
 const PROMPTS_DIR = path.join(app.getPath('userData'), 'prompts');
 
@@ -224,6 +225,46 @@ function createEditorWindow(novelId) {
 	
 	// editorWindow.webContents.openDevTools();
 	
+}
+
+/**
+ * NEW: Creates the AI Prompt Editor window. Manages a single instance.
+ */
+function createPromptEditorWindow() {
+	if (promptEditorWindow) {
+		promptEditorWindow.focus();
+		return;
+	}
+	
+	promptEditorWindow = new BrowserWindow({
+		width: 900,
+		height: 700,
+		icon: path.join(__dirname, 'assets/icon.png'),
+		title: 'AI Prompt Editor',
+		autoHideMenuBar: true,
+		webPreferences: {
+			preload: path.join(__dirname, 'preload.js'),
+			contextIsolation: true,
+			nodeIntegration: false
+		}
+	});
+	
+	promptEditorWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+		callback({
+			responseHeaders: {
+				...details.responseHeaders,
+				'Content-Security-Policy': ["default-src 'self'; style-src 'self' 'unsafe-inline';"]
+			}
+		});
+	});
+	
+	promptEditorWindow.loadFile('public/prompt-editor.html');
+	
+	promptEditorWindow.on('closed', () => {
+		promptEditorWindow = null;
+	});
+	
+	// promptEditorWindow.webContents.openDevTools();
 }
 
 
@@ -1148,6 +1189,11 @@ function setupIpcHandlers() {
 	});
 	
 	// --- AI Prompt Template Handlers ---
+	
+	// NEW: IPC handler to open the dedicated prompt editor window.
+	ipcMain.on('prompts:openEditor', () => {
+		createPromptEditorWindow();
+	});
 	
 	ipcMain.handle('prompts:list', async () => {
 		try {

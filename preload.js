@@ -75,6 +75,7 @@ contextBridge.exposeInMainWorld('api', {
 		};
 	},
 	getModels: () => ipcRenderer.invoke('ai:getModels'),
+	openPromptEditor: () => ipcRenderer.send('prompts:openEditor'), // NEW: Expose the function to open the editor window
 	listPrompts: () => ipcRenderer.invoke('prompts:list'),
 	getPrompt: (promptId) => ipcRenderer.invoke('prompts:get', promptId),
 	savePrompt: (promptId, data) => ipcRenderer.invoke('prompts:save', promptId, data),

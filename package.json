@@ -6,10 +6,12 @@
   "scripts": {
     "build:css": "tailwindcss -i ./src/css/input.css -o ./dist/styles.css",
     "build:js": "esbuild src/js/novel-editor/main.js --bundle --outfile=dist/editor-bundle.js --platform=browser",
-    "build": "npm run build:css && npm run build:js",
+    "build:js:prompts": "esbuild src/js/prompt-editor.js --bundle --outfile=dist/prompt-editor-bundle.js --platform=browser",
+    "build": "npm run build:css && npm run build:js && npm run build:js:prompts",
     "watch:css": "tailwindcss -i ./src/css/input.css -o ./dist/styles.css --watch",
     "watch:js": "esbuild src/js/novel-editor/main.js --bundle --outfile=dist/editor-bundle.js --platform=browser --watch",
-    "watch": "concurrently \"npm:watch:css\" \"npm:watch:js\"",
+    "watch:js:prompts": "esbuild src/js/prompt-editor.js --bundle --outfile=dist/prompt-editor-bundle.js --platform=browser --watch",
+    "watch": "concurrently \"npm:watch:css\" \"npm:watch:js\" \"npm:watch:js:prompts\"",
     "start": "npm run build && electron .",
     "postinstall": "electron-rebuild",
     "rebuild": "electron-rebuild -f -w better-sqlite3"

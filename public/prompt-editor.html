@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';">
+	<title>AI Prompt Editor</title>
+	<link rel="stylesheet" href="../node_modules/bootstrap-icons/font/bootstrap-icons.css">
+	<link rel="stylesheet" href="../dist/styles.css">
+</head>
+<body class="flex flex-col h-screen">
+
+<div class="flex flex-grow overflow-hidden">
+	<!-- Left Column: Prompt List -->
+	<aside class="w-1/3 border-r border-base-300 flex flex-col overflow-y-auto">
+		<div class="p-4 border-b border-base-300">
+			<h2 class="text-xl font-bold">Prompts</h2>
+		</div>
+		<div class="js-prompt-list-container flex-grow p-2 space-y-1">
+			<!-- Prompt list will be populated here -->
+			<div class="p-4 text-center">
+				<span class="loading loading-spinner"></span>
+			</div>
+		</div>
+	</aside>
+	
+	<!-- Right Column: Editor Pane -->
+	<main class="w-2/3 flex flex-col overflow-hidden">
+		<!-- Placeholder -->
+		<div class="js-prompt-placeholder flex-grow flex items-center justify-center">
+			<p class="text-base-content/60">Select a prompt from the list to edit.</p>
+		</div>
+		
+		<!-- Editor Form -->
+		<div class="js-prompt-editor-pane hidden flex-grow flex flex-col">
+			<form class="js-prompt-form flex-grow flex flex-col overflow-hidden">
+				<div class="p-4 border-b border-base-300 flex-shrink-0">
+					<h3 class="js-prompt-title text-lg font-bold">Editing Prompt</h3>
+				</div>
+				
+				<div class="flex-grow overflow-y-auto p-6 space-y-6">
+					<!-- System Prompt -->
+					<div>
+						<label for="prompt-system" class="label"><span class="label-text text-lg font-semibold">System Prompt</span></label>
+						<textarea id="prompt-system" name="system" class="js-autosize textarea textarea-bordered w-full h-24 font-mono text-sm" placeholder="e.g., You are a helpful assistant for a novelist..."></textarea>
+						<p class="text-xs text-base-content/60 mt-1">Instructions that define the AI's personality, context, and rules.</p>
+					</div>
+					
+					<!-- User Prompt -->
+					<div>
+						<label for="prompt-user" class="label"><span class="label-text text-lg font-semibold">User Prompt</span></label>
+						<textarea id="prompt-user" name="user" class="js-autosize textarea textarea-bordered w-full h-24 font-mono text-sm" placeholder="e.g., Based on the following text..."></textarea>
+						<p class="text-xs text-base-content/60 mt-1">The main instruction or question from the user. Use placeholders like {{TEXT}}.</p>
+					</div>
+					
+					<!-- AI Response Prefix -->
+					<div>
+						<label for="prompt-ai" class="label"><span class="label-text text-lg font-semibold">AI Response Prefix (Optional)</span></label>
+						<textarea id="prompt-ai" name="ai" class="js-autosize textarea textarea-bordered w-full h-24 font-mono text-sm" placeholder="e.g., Here is the rephrased version..."></textarea>
+						<p class="text-xs text-base-content/60 mt-1">Text to prime the AI's response, forcing it to start a certain way.</p>
+					</div>
+				</div>
+				
+				<div class="p-4 bg-base-200 border-t border-base-300 flex justify-between items-center flex-shrink-0">
+					<button type="button" class="js-reset-prompt-btn btn btn-error btn-sm">Reset to Default</button>
+					<button type="button" class="js-save-prompt-btn btn btn-primary w-28">
+						<span class="js-btn-text">Save</span>
+						<span class="js-spinner hidden animate-spin"><i class="bi bi-arrow-repeat"></i></span>
+					</button>
+				</div>
+			</form>
+		</div>
+	</main>
+</div>
+
+
+<script src="../dist/prompt-editor-bundle.js"></script>
+</body>
+</html>
