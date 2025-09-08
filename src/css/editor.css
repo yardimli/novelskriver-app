@@ -29,12 +29,11 @@
     @apply text-black dark:text-white;
 }
 
-/* NEW: Styles to disable interaction in inactive windows' content areas. */
 .window-inactive-content {
     @apply pointer-events-none opacity-75;
 }
 
-/* NEW: Fix for Bootstrap Icon vertical alignment within flex containers like buttons. */
+/* Fix for Bootstrap Icon vertical alignment within flex containers like buttons. */
 /* This ensures the icon itself is centered, preventing cropping or misalignment. */
 i[class^="bi-"], i[class*=" bi-"] {
     display: inline-flex;
@@ -70,17 +69,14 @@ i[class^="bi-"], i[class*=" bi-"] {
 .window-element {
     cursor: pointer;
 }
-/* MODIFIED: Point cursor to ProseMirror editor */
 .window-element .ProseMirror {
     cursor: text;
 }
 
-/* NEW: Style for AI-generated text during review */
 .ai-suggestion {
     @apply text-sky-600 dark:text-sky-400 bg-sky-500/10;
 }
 
-/* NEW: Styles for the floating AI action toolbar */
 #ai-floating-toolbar {
     @apply absolute z-50 bg-gray-800 text-white rounded-md shadow-lg p-1 flex items-center gap-1 text-xs;
     user-select: none; /* Prevent text selection inside the toolbar */
@@ -103,7 +99,6 @@ i[class^="bi-"], i[class*=" bi-"] {
     @apply text-gray-400 dark:text-gray-500 bg-transparent cursor-not-allowed hover:bg-transparent dark:hover:bg-transparent;
 }
 
-/* NEW: Style for active (toggled) toolbar buttons */
 #top-toolbar .js-toolbar-btn.active {
     @apply bg-gray-300 dark:bg-gray-600;
 }
@@ -112,7 +107,6 @@ i[class^="bi-"], i[class*=" bi-"] {
     @apply w-4 h-4;
 }
 
-/* NEW: Styles for highlighted text spans */
 .highlight-yellow {
     background-color: #fef08a;
     color: #713f12;
@@ -130,7 +124,6 @@ i[class^="bi-"], i[class*=" bi-"] {
     color: #7f1d1d;
 }
 
-/* NEW: Styles for ProseMirror editor */
 .ProseMirror {
     @apply h-full focus:outline-none;
 }
@@ -146,8 +139,6 @@ i[class^="bi-"], i[class*=" bi-"] {
     @apply p-0 focus:ring-0;
 }
 
-/* NEW: Custom scrollbar styles for dark mode */
-/* For Webkit-based browsers (Chrome, Safari, Edge) */
 .dark ::-webkit-scrollbar {
     @apply w-3 h-3;
 }

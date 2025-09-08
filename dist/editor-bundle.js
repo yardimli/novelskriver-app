@@ -1,11 +1,12 @@
 (() => {
   // src/js/novel-editor/WindowManager.js
   var WindowManager = class {
-    constructor(desktop, taskbar, novelId, viewport) {
+    constructor(desktop, taskbar, novelId, viewport, novelData) {
       this.desktop = desktop;
       this.taskbar = taskbar;
       this.novelId = novelId;
       this.viewport = viewport;
+      this.novelData = novelData;
       this.minimizedContainer = document.getElementById("minimized-windows-container");
       this.windows = /* @__PURE__ */ new Map();
       this.activeWindow = null;
@@ -39,12 +40,22 @@
       win.style.minHeight = "200px";
       win.style.left = `${x}px`;
       win.style.top = `${y}px`;
+      win.addEventListener("dblclick", (e) => {
+        const isInteractive = e.target.closest(
+          'button, a, input, textarea, .js-editable, .ProseMirror, .resize-handle, .window-title-bar, [role="button"]'
+        );
+        if (!isInteractive) {
+          this.zoomTo(1);
+          this.scrollIntoView(windowId);
+        }
+      });
       const isChapterWindow = windowId.startsWith("chapter-");
       const titleBar = document.createElement("div");
       titleBar.className = "window-title-bar card-title flex items-center justify-between h-10 bg-base-200/70 px-3 cursor-move border-b border-base-300 flex-shrink-0";
-      if (isChapterWindow) {
-        titleBar.addEventListener("dblclick", () => this.maximize(windowId));
-      }
+      titleBar.addEventListener("dblclick", () => {
+        this.zoomTo(1);
+        this.scrollIntoView(windowId);
+      });
       const controls = document.createElement("div");
       controls.className = "flex items-center gap-2";
       const controlButtons = [];
@@ -73,6 +84,13 @@
         newEntryBtn.className = "js-open-new-codex-modal btn btn-xs btn-accent gap-1 mr-2";
         newEntryBtn.innerHTML = `<i class="bi bi-plus-lg"></i> New Entry`;
         rightSpacer.appendChild(newEntryBtn);
+      } else if (id === "outline-window") {
+        rightSpacer.className = "flex items-center justify-end min-w-[64px]";
+        const newChapterBtn = document.createElement("button");
+        newChapterBtn.type = "button";
+        newChapterBtn.className = "js-open-new-chapter-modal btn btn-xs btn-accent gap-1 mr-2";
+        newChapterBtn.innerHTML = `<i class="bi bi-plus-lg"></i> New Chapter`;
+        rightSpacer.appendChild(newChapterBtn);
       } else {
         rightSpacer.style.width = "64px";
       }
@@ -80,17 +98,6 @@
       const contentArea = document.createElement("div");
       contentArea.className = "card-body flex-grow overflow-auto p-1";
       contentArea.innerHTML = content;
-      contentArea.addEventListener("dblclick", () => {
-        const winState = this.windows.get(windowId);
-        if (winState.dblClickState === "scrolled") {
-          this.zoomTo(1);
-          this.scrollIntoView(windowId);
-          winState.dblClickState = "zoomed";
-        } else {
-          this.scrollIntoView(windowId);
-          winState.dblClickState = "scrolled";
-        }
-      });
       const modals = contentArea.querySelectorAll("dialog.modal");
       modals.forEach((modal) => {
         document.body.appendChild(modal);
@@ -105,9 +112,7 @@
         icon,
         isMinimized: false,
         isMaximized: false,
-        originalRect: { x, y, width, height },
-        dblClickState: "none"
-        // NEW: State to track double-click actions.
+        originalRect: { x, y, width, height }
       };
       this.windows.set(windowId, windowState);
       this.makeDraggable(win, titleBar);
@@ -116,6 +121,20 @@
       this.focus(windowId);
       this.updateTaskbar();
       return windowId;
+    }
+    /**
+     * Sets the interactive state of a window's content area.
+     * @param {HTMLElement} windowElement The window element.
+     * @param {boolean} isInteractive True to enable controls, false to disable.
+     */
+    _setWindowInteractive(windowElement, isInteractive) {
+      const contentArea = windowElement.querySelector(".card-body");
+      if (!contentArea) return;
+      if (isInteractive) {
+        contentArea.classList.remove("window-inactive-content");
+      } else {
+        contentArea.classList.add("window-inactive-content");
+      }
     }
     createControlButton(colorClass, onClick, type) {
       const btn = document.createElement("button");
@@ -192,10 +211,13 @@
       }
       this.isShiftPressed = isShiftPressed;
       if (this.activeWindow && this.windows.has(this.activeWindow)) {
-        this.windows.get(this.activeWindow).element.classList.remove("active");
+        const oldWin = this.windows.get(this.activeWindow);
+        oldWin.element.classList.remove("active");
+        this._setWindowInteractive(oldWin.element, false);
       }
       win.element.style.zIndex = this.highestZIndex++;
       win.element.classList.add("active");
+      this._setWindowInteractive(win.element, true);
       this.activeWindow = windowId;
       if (isShiftPressed) {
         if (this.selectedWindows.has(windowId)) {
@@ -212,11 +234,6 @@
           win.element.classList.add("selected");
         }
       }
-      this.windows.forEach((w, id) => {
-        if (id !== windowId) {
-          w.dblClickState = "none";
-        }
-      });
       this.updateTaskbar();
       this.saveState();
     }
@@ -294,12 +311,22 @@
       }
       this.saveState();
     }
+    /**
+     * This method now includes logic to auto-pan the viewport when a window is dragged to the edge.
+     * It uses requestAnimationFrame for smooth, continuous panning and a unified positioning logic
+     * to keep the window attached to the cursor during both drag and pan operations.
+     * @param {HTMLElement} win - The window element to make draggable.
+     * @param {HTMLElement} handle - The element that acts as the drag handle (e.g., the title bar).
+     */
     makeDraggable(win, handle) {
-      const onMouseMove = (e) => {
+      let panRequest = null;
+      let panDirection = { x: 0, y: 0 };
+      let lastMouseEvent = null;
+      const positionWindows = (e) => {
         this.selectedWindows.forEach((id) => {
           const currentWinEl = this.windows.get(id).element;
-          let newLeft = currentWinEl.startLeft + (e.clientX - currentWinEl.startX) / this.scale;
-          let newTop = currentWinEl.startTop + (e.clientY - currentWinEl.startY) / this.scale;
+          let newLeft = (e.clientX - this.panX) / this.scale - currentWinEl.dragOffsetX;
+          let newTop = (e.clientY - this.panY) / this.scale - currentWinEl.dragOffsetY;
           const desktopWidth = this.desktop.offsetWidth;
           const desktopHeight = this.desktop.offsetHeight;
           const winWidth = currentWinEl.offsetWidth;
@@ -310,10 +337,59 @@
           currentWinEl.style.top = `${newTop}px`;
         });
       };
+      const panLoop = () => {
+        if (panDirection.x === 0 && panDirection.y === 0) {
+          stopAutoPan();
+          return;
+        }
+        const panSpeed = 10;
+        this.panX += panDirection.x * panSpeed;
+        this.panY += panDirection.y * panSpeed;
+        this.updateCanvasTransform();
+        if (lastMouseEvent) {
+          positionWindows(lastMouseEvent);
+        }
+        panRequest = requestAnimationFrame(panLoop);
+      };
+      const startAutoPan = () => {
+        if (panRequest) return;
+        panRequest = requestAnimationFrame(panLoop);
+      };
+      const stopAutoPan = () => {
+        if (panRequest) {
+          cancelAnimationFrame(panRequest);
+          panRequest = null;
+        }
+      };
+      const onMouseMove = (e) => {
+        lastMouseEvent = e;
+        positionWindows(e);
+        const edgeZone = 50;
+        const viewportRect = this.viewport.getBoundingClientRect();
+        panDirection = { x: 0, y: 0 };
+        if (e.clientX < viewportRect.left + edgeZone) {
+          panDirection.x = 1;
+        } else if (e.clientX > viewportRect.right - edgeZone) {
+          panDirection.x = -1;
+        }
+        if (e.clientY < viewportRect.top + edgeZone) {
+          panDirection.y = 1;
+        } else if (e.clientY > viewportRect.bottom - edgeZone) {
+          panDirection.y = -1;
+        }
+        if (panDirection.x !== 0 || panDirection.y !== 0) {
+          startAutoPan();
+        } else {
+          stopAutoPan();
+        }
+      };
       const onMouseUp = () => {
         win.classList.remove("dragging");
         document.removeEventListener("mousemove", onMouseMove);
         document.removeEventListener("mouseup", onMouseUp);
+        document.removeEventListener("mouseleave", onMouseUp);
+        stopAutoPan();
+        lastMouseEvent = null;
         this.selectedWindows.forEach((id) => {
           const winState = this.windows.get(id);
           if (winState && !winState.isMaximized) {
@@ -326,19 +402,16 @@
       handle.addEventListener("mousedown", (e) => {
         const winState = this.windows.get(win.id);
         if (winState && winState.isMaximized) return;
-        if (winState) {
-          winState.dblClickState = "none";
-        }
         win.classList.add("dragging");
+        lastMouseEvent = e;
         this.selectedWindows.forEach((id) => {
           const currentWinEl = this.windows.get(id).element;
-          currentWinEl.startX = e.clientX;
-          currentWinEl.startY = e.clientY;
-          currentWinEl.startLeft = currentWinEl.offsetLeft;
-          currentWinEl.startTop = currentWinEl.offsetTop;
+          currentWinEl.dragOffsetX = (e.clientX - this.panX) / this.scale - currentWinEl.offsetLeft;
+          currentWinEl.dragOffsetY = (e.clientY - this.panY) / this.scale - currentWinEl.offsetTop;
         });
         document.addEventListener("mousemove", onMouseMove);
         document.addEventListener("mouseup", onMouseUp);
+        document.addEventListener("mouseleave", onMouseUp);
       });
     }
     makeResizable(win, handle) {
@@ -493,7 +566,6 @@
       }
     }
     updateTaskbar() {
-      this.minimizedContainer.innerHTML = "";
       const taskbarItems = /* @__PURE__ */ new Map();
       this.windows.forEach((win, id) => {
         if (win.isMinimized) {
@@ -501,7 +573,7 @@
         }
       });
       ["outline-window", "codex-window"].forEach((id) => {
-        if (this.windows.has(id) && !taskbarItems.has(id)) {
+        if (this.windows.has(id)) {
           const win = this.windows.get(id);
           taskbarItems.set(id, { id, title: win.title, icon: win.icon });
         }
@@ -515,28 +587,50 @@
         if (indexB !== -1) return 1;
         return a.title.localeCompare(b.title);
       });
+      const desiredIds = new Set(sortedItems.map((item) => item.id));
+      const currentElements = /* @__PURE__ */ new Map();
+      const elementsToRemove = [];
+      for (const child of this.minimizedContainer.children) {
+        const windowId = child.dataset.windowId;
+        if (desiredIds.has(windowId)) {
+          currentElements.set(windowId, child);
+        } else {
+          elementsToRemove.push(child);
+        }
+      }
+      elementsToRemove.forEach((el) => el.remove());
+      let lastElement = null;
       sortedItems.forEach((item) => {
-        const win = this.windows.get(item.id);
-        const taskbarItem = document.createElement("button");
+        const windowId = item.id;
+        const win = this.windows.get(windowId);
+        let taskbarItem = currentElements.get(windowId);
+        if (!taskbarItem) {
+          taskbarItem = document.createElement("button");
+          taskbarItem.dataset.windowId = windowId;
+          taskbarItem.addEventListener("click", () => {
+            const currentWin = this.windows.get(windowId);
+            if (currentWin.isMinimized) {
+              this.restore(windowId);
+            } else {
+              this.focus(windowId);
+              this.scrollIntoView(windowId);
+            }
+          });
+        }
         taskbarItem.className = "window-minimized btn btn-sm h-10 flex-shrink min-w-[120px] max-w-[256px] flex-grow basis-0 justify-start";
-        if (!win.isMinimized && item.id === this.activeWindow) {
+        if (!win.isMinimized && windowId === this.activeWindow) {
           taskbarItem.classList.add("btn-active", "btn-primary");
         } else if (!win.isMinimized) {
-          taskbarItem.classList.add("btn-neutral");
+          taskbarItem.classList.add("bg-base-400", "hover:bg-base-500");
         } else {
           taskbarItem.classList.add("btn-ghost");
         }
         taskbarItem.innerHTML = `<div class="w-5 h-5 flex-shrink-0 flex items-center justify-center">${item.icon || ""}</div><span class="truncate normal-case font-semibold">${item.title}</span>`;
-        taskbarItem.dataset.windowId = item.id;
-        taskbarItem.addEventListener("click", () => {
-          if (win.isMinimized) {
-            this.restore(item.id);
-          } else {
-            this.focus(item.id);
-            this.scrollIntoView(item.id);
-          }
-        });
-        this.minimizedContainer.appendChild(taskbarItem);
+        const expectedNextSibling = lastElement ? lastElement.nextSibling : this.minimizedContainer.firstChild;
+        if (taskbarItem !== expectedNextSibling) {
+          this.minimizedContainer.insertBefore(taskbarItem, expectedNextSibling);
+        }
+        lastElement = taskbarItem;
       });
     }
     createDefaultWindows() {
@@ -600,7 +694,7 @@
       event.preventDefault();
       const zoomIntensity = 0.01;
       const delta = event.deltaY > 0 ? -zoomIntensity : zoomIntensity;
-      const newScale = Math.max(0.1, Math.min(1, this.scale + delta * this.scale));
+      const newScale = Math.max(0.1, Math.min(1.5, this.scale + delta * this.scale));
       const viewportRect = this.viewport.getBoundingClientRect();
       const mouseX = event.clientX - viewportRect.left;
       const mouseY = event.clientY - viewportRect.top;
@@ -614,6 +708,13 @@
     }
     handlePanStart(event) {
       if (event.target === this.desktop) {
+        if (this.activeWindow && this.windows.has(this.activeWindow)) {
+          const oldWin = this.windows.get(this.activeWindow);
+          oldWin.element.classList.remove("active");
+          this._setWindowInteractive(oldWin.element, false);
+          this.activeWindow = null;
+          this.updateTaskbar();
+        }
         this._clearSelection();
         this.isPanning = true;
         this.panStartX = event.clientX - this.panX;
@@ -636,7 +737,7 @@
       }
     }
     zoomIn() {
-      this.scale = Math.min(1, this.scale * 1.2);
+      this.scale = Math.min(1.5, this.scale * 1.2);
       this.updateCanvasTransform(true);
       this.saveState();
     }
@@ -675,7 +776,7 @@
       const viewportHeight = this.viewport.clientHeight;
       const scaleX = viewportWidth / (contentWidth + padding * 2);
       const scaleY = viewportHeight / (contentHeight + padding * 2);
-      this.scale = Math.min(1, scaleX, scaleY);
+      this.scale = Math.min(1.5, scaleX, scaleY);
       const contentCenterX = minX + contentWidth / 2;
       const contentCenterY = minY + contentHeight / 2;
       this.panX = viewportWidth / 2 - contentCenterX * this.scale;
@@ -691,6 +792,7 @@
         }
       });
       this.selectedWindows.clear();
+      this.updateTaskbar();
     }
     reposition(windowId, x, y, width, height) {
       const win = this.windows.get(windowId);
@@ -717,16 +819,105 @@
         }
       }
     }
+    arrangeWindows() {
+      if (!this.novelData) {
+        console.error("Cannot arrange windows: novel data is not available.");
+        return;
+      }
+      const PADDING = 50;
+      const COL_GAP = 20;
+      const ROW_GAP = 20;
+      const SML_WIN_W = 400;
+      const SML_WIN_H = 400;
+      const LRG_WIN_W = 400;
+      const LRG_WIN_H = 1e3;
+      let currentX = PADDING;
+      const currentY = PADDING;
+      if (this.windows.has("codex-window")) {
+        this.reposition("codex-window", currentX, currentY, LRG_WIN_W, LRG_WIN_H);
+      }
+      currentX += LRG_WIN_W + COL_GAP;
+      const openCodexWindows = /* @__PURE__ */ new Map();
+      this.windows.forEach((win, id) => {
+        if (id.startsWith("codex-entry-")) {
+          const entryId = id.replace("codex-entry-", "");
+          openCodexWindows.set(entryId, id);
+        }
+      });
+      if (openCodexWindows.size > 0) {
+        const codexCategories = this.novelData.codexCategories || [];
+        const charactersCategory = codexCategories.find((c) => c.name.toLowerCase() === "characters");
+        const locationsCategory = codexCategories.find((c) => c.name.toLowerCase() === "locations");
+        let hasPositionedInCol1 = false;
+        if (charactersCategory && charactersCategory.entries) {
+          let colY = currentY;
+          for (const entry of charactersCategory.entries) {
+            if (openCodexWindows.has(String(entry.id))) {
+              const windowId = openCodexWindows.get(String(entry.id));
+              this.reposition(windowId, currentX, colY, SML_WIN_W, SML_WIN_H);
+              colY += SML_WIN_H + ROW_GAP;
+              hasPositionedInCol1 = true;
+            }
+          }
+        }
+        if (hasPositionedInCol1) {
+          currentX += SML_WIN_W + COL_GAP;
+        }
+        let hasPositionedInCol2 = false;
+        if (locationsCategory && locationsCategory.entries) {
+          let colY = currentY;
+          for (const entry of locationsCategory.entries) {
+            if (openCodexWindows.has(String(entry.id))) {
+              const windowId = openCodexWindows.get(String(entry.id));
+              this.reposition(windowId, currentX, colY, SML_WIN_W, SML_WIN_H);
+              colY += SML_WIN_H + ROW_GAP;
+              hasPositionedInCol2 = true;
+            }
+          }
+        }
+        if (hasPositionedInCol2) {
+          currentX += SML_WIN_W + COL_GAP;
+        }
+      }
+      if (this.windows.has("outline-window")) {
+        this.reposition("outline-window", currentX, currentY, LRG_WIN_W, LRG_WIN_H);
+      }
+      currentX += LRG_WIN_W + COL_GAP;
+      const openChapterWindows = /* @__PURE__ */ new Map();
+      this.windows.forEach((win, id) => {
+        if (id.startsWith("chapter-")) {
+          const chapterId = id.replace("chapter-", "");
+          openChapterWindows.set(chapterId, id);
+        }
+      });
+      if (openChapterWindows.size > 0) {
+        const sections = this.novelData.sections || [];
+        for (const section of sections) {
+          let chapterColY = currentY;
+          if (section.chapters && section.chapters.length > 0) {
+            let chaptersInSectionAreOpen = false;
+            for (const chapter of section.chapters) {
+              if (openChapterWindows.has(String(chapter.id))) {
+                chaptersInSectionAreOpen = true;
+                const windowId = openChapterWindows.get(String(chapter.id));
+                this.reposition(windowId, currentX, chapterColY, SML_WIN_W, SML_WIN_H);
+                chapterColY += SML_WIN_H + ROW_GAP;
+              }
+            }
+            if (chaptersInSectionAreOpen) {
+              currentX += SML_WIN_W + COL_GAP;
+            }
+          }
+        }
+      }
+      this.fitToView();
+    }
   };
 
   // src/js/novel-editor/eventHandlers.js
   function setupCodexEntryHandler(desktop, windowManager) {
     const entryIcon = `<i class="bi bi-journal-richtext text-lg"></i>`;
-    desktop.addEventListener("click", async (event) => {
-      const entryButton = event.target.closest(".js-open-codex-entry");
-      if (!entryButton) return;
-      const entryId = entryButton.dataset.entryId;
-      const entryTitle = entryButton.dataset.entryTitle;
+    async function openCodexEntry(entryId, entryTitle) {
       const windowId = `codex-entry-${entryId}`;
       if (windowManager.windows.has(windowId)) {
         const win = windowManager.windows.get(windowId);
@@ -743,9 +934,18 @@
         if (!content) {
           throw new Error("Failed to load codex entry details.");
         }
-        const openWindows = document.querySelectorAll('[id^="codex-entry-"]').length;
-        const offsetX = 850 + openWindows * 30;
-        const offsetY = 120 + openWindows * 30;
+        let offsetX = 850;
+        let offsetY = 120;
+        const codexWin = windowManager.windows.get("codex-window");
+        const openCodexWindows = Array.from(windowManager.windows.keys()).filter((k) => k.startsWith("codex-entry-")).length;
+        if (codexWin && !codexWin.isMinimized) {
+          const codexEl = codexWin.element;
+          offsetX = codexEl.offsetLeft + codexEl.offsetWidth + 20;
+          offsetY = codexEl.offsetTop + openCodexWindows * 30;
+        } else {
+          offsetX += openCodexWindows * 30;
+          offsetY += openCodexWindows * 30;
+        }
         windowManager.createWindow({
           id: windowId,
           title: entryTitle,
@@ -762,6 +962,24 @@
         console.error("Error opening codex entry window:", error);
         alert(error.message);
       }
+    }
+    desktop.addEventListener("click", (event) => {
+      const entryButton = event.target.closest(".js-open-codex-entry");
+      if (!entryButton || entryButton.closest("#codex-window")) {
+        return;
+      }
+      const entryId = entryButton.dataset.entryId;
+      const entryTitle = entryButton.dataset.entryTitle;
+      openCodexEntry(entryId, entryTitle);
+    });
+    desktop.addEventListener("click", (event) => {
+      const entryButton = event.target.closest(".js-open-codex-entry");
+      if (!entryButton || !entryButton.closest("#codex-window")) {
+        return;
+      }
+      const entryId = entryButton.dataset.entryId;
+      const entryTitle = entryButton.dataset.entryTitle;
+      openCodexEntry(entryId, entryTitle);
     });
   }
   function setupChapterHandler(desktop, windowManager) {
@@ -787,9 +1005,18 @@
         if (!content) {
           throw new Error("Failed to load chapter details.");
         }
-        const openWindows = document.querySelectorAll('[id^="chapter-"]').length;
-        const offsetX = 100 + openWindows * 30;
-        const offsetY = 300 + openWindows * 30;
+        let offsetX = 100;
+        let offsetY = 300;
+        const outlineWin = windowManager.windows.get("outline-window");
+        const openChapterWindows = Array.from(windowManager.windows.keys()).filter((k) => k.startsWith("chapter-")).length;
+        if (outlineWin && !outlineWin.isMinimized) {
+          const outlineEl = outlineWin.element;
+          offsetX = outlineEl.offsetLeft + outlineEl.offsetWidth + 20;
+          offsetY = outlineEl.offsetTop + openChapterWindows * 30;
+        } else {
+          offsetX += openChapterWindows * 30;
+          offsetY += openChapterWindows * 30;
+        }
         windowManager.createWindow({
           id: windowId,
           title: chapterTitle,
@@ -866,10 +1093,20 @@
     const zoomOutBtn = document.getElementById("zoom-out-btn");
     const zoom100Btn = document.getElementById("zoom-100-btn");
     const zoomFitBtn = document.getElementById("zoom-fit-btn");
+    const arrangeBtn = document.getElementById("arrange-windows-btn");
     if (zoomInBtn) zoomInBtn.addEventListener("click", () => windowManager.zoomIn());
     if (zoomOutBtn) zoomOutBtn.addEventListener("click", () => windowManager.zoomOut());
     if (zoom100Btn) zoom100Btn.addEventListener("click", () => windowManager.zoomTo(1));
     if (zoomFitBtn) zoomFitBtn.addEventListener("click", () => windowManager.fitToView());
+    if (arrangeBtn) arrangeBtn.addEventListener("click", () => windowManager.arrangeWindows());
+  }
+  function setupPromptEditorHandler(desktop, windowManager) {
+    const taskbarBtn = document.getElementById("open-prompts-btn");
+    const promptModal = document.getElementById("prompt-editor-modal");
+    if (!taskbarBtn || !promptModal) return;
+    taskbarBtn.addEventListener("click", () => {
+      promptModal.showModal();
+    });
   }
 
   // src/js/novel-editor/chapter-editor.js
@@ -912,7 +1149,7 @@
         if (!data.success) throw new Error(data.message || "Failed to link codex entry.");
         const tagContainer = dropZone.querySelector(".js-codex-tags-container");
         if (tagContainer) {
-          const newTag = createCodexTagElement(chapterId, data.codexEntry);
+          const newTag = await createCodexTagElement(chapterId, data.codexEntry);
           tagContainer.appendChild(newTag);
           const tagsWrapper = dropZone.querySelector(".js-codex-tags-wrapper");
           if (tagsWrapper) tagsWrapper.classList.remove("hidden");
@@ -947,29 +1184,15 @@
       }
     });
   }
-  function createCodexTagElement(chapterId, codexEntry) {
+  async function createCodexTagElement(chapterId, codexEntry) {
+    let template = await window.api.getTemplate("chapter-codex-tag");
+    template = template.replace(/{{CHAPTER_ID}}/g, chapterId);
+    template = template.replace(/{{ENTRY_ID}}/g, codexEntry.id);
+    template = template.replace(/{{ENTRY_TITLE}}/g, codexEntry.title);
+    template = template.replace(/{{THUMBNAIL_URL}}/g, codexEntry.thumbnail_url);
     const div = document.createElement("div");
-    div.className = "js-codex-tag group/tag relative inline-flex items-center gap-2 bg-gray-200 dark:bg-gray-700 rounded-full pr-2";
-    div.dataset.entryId = codexEntry.id;
-    div.innerHTML = `
-        <button type="button"
-                class="js-open-codex-entry flex items-center gap-2 pl-1 pr-2 py-1 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-                data-entry-id="${codexEntry.id}"
-                data-entry-title="${codexEntry.title}">
-            <img src="${codexEntry.thumbnail_url}" alt="Thumbnail for ${codexEntry.title}" class="w-5 h-5 object-cover rounded-full flex-shrink-0">
-            <span class="js-codex-tag-title text-xs font-medium">${codexEntry.title}</span>
-        </button>
-        <button type="button"
-                class="js-remove-codex-link absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover/tag:opacity-100 transition-opacity"
-                data-chapter-id="${chapterId}"
-                data-entry-id="${codexEntry.id}"
-                title="Unlink this entry">
-            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8z"/>
-            </svg>
-        </button>
-    `;
-    return div;
+    div.innerHTML = template.trim();
+    return div.firstElementChild;
   }
 
   // node_modules/orderedmap/dist/index.js
@@ -13746,6 +13969,11 @@
   var activeEditorView = null;
   var toolbar = document.getElementById("top-toolbar");
   var wordCountEl = document.getElementById("js-word-count");
+  var isAiActionActive = false;
+  var originalFragment = null;
+  var aiActionRange = null;
+  var currentAiParams = null;
+  var floatingToolbar = null;
   function isNodeActive(state, type) {
     const { $from } = state.selection;
     for (let i = $from.depth; i > 0; i--) {
@@ -13754,6 +13982,52 @@
       }
     }
     return false;
+  }
+  async function handleCreateCodexFromSelection() {
+    if (!activeEditorView) return;
+    const { state } = activeEditorView;
+    if (state.selection.empty) return;
+    const selectedText = state.doc.textBetween(state.selection.from, state.selection.to, " ");
+    const modal = document.getElementById("new-codex-entry-modal");
+    const form = document.getElementById("new-codex-entry-form");
+    if (!modal || !form) return;
+    form.reset();
+    form.querySelector("#new-category-wrapper").classList.add("hidden");
+    form.querySelectorAll(".js-error-message").forEach((el) => {
+      el.textContent = "";
+      el.classList.add("hidden");
+    });
+    const genericErrorContainer = form.querySelector("#new-codex-error-container");
+    if (genericErrorContainer) {
+      genericErrorContainer.classList.add("hidden");
+      genericErrorContainer.textContent = "";
+    }
+    const titleInput = form.querySelector("#new-codex-title");
+    const contentTextarea = form.querySelector("#new-codex-content");
+    const categorySelect = form.querySelector("#new-codex-category");
+    const spinner = document.getElementById("new-codex-ai-spinner");
+    if (titleInput) titleInput.value = selectedText.trim();
+    if (contentTextarea) contentTextarea.value = selectedText;
+    modal.showModal();
+    if (spinner) spinner.classList.remove("hidden");
+    try {
+      const novelId = document.body.dataset.novelId;
+      const result = await window.api.suggestCodexDetails(novelId, selectedText);
+      if (result.success) {
+        if (result.title && titleInput) {
+          titleInput.value = result.title;
+        }
+        if (result.categoryId && categorySelect) {
+          categorySelect.value = result.categoryId;
+        }
+      } else {
+        console.warn("AI suggestion for codex entry failed:", result.message);
+      }
+    } catch (error) {
+      console.error("Error getting AI suggestion for codex entry:", error);
+    } finally {
+      if (spinner) spinner.classList.add("hidden");
+    }
   }
   function updateToolbarState(view) {
     activeEditorView = view;
@@ -13780,6 +14054,9 @@
             return;
           case "redo":
             btn.disabled = !redo(state);
+            return;
+          case "create_codex":
+            btn.disabled = empty2;
             return;
           case "bold":
             markType = schema3.marks.strong;
@@ -13817,7 +14094,7 @@
             return;
         }
         if (btn.closest(".js-dropdown-container") || btn.classList.contains("js-ai-action-btn")) {
-          btn.disabled = !isTextSelected;
+          btn.disabled = !isTextSelected || isAiActionActive;
         }
         if (commandFn) {
           btn.disabled = !commandFn(state);
@@ -13911,34 +14188,191 @@
     }
     activeEditorView.dispatch(tr);
   }
-  async function handleAiAction(button) {
-    if (!activeEditorView) return;
-    const action = button.dataset.action;
-    const dropdown = button.closest(".js-dropdown-container").querySelector(".js-dropdown");
-    const modelSelect = dropdown.querySelector(".js-llm-model-select");
-    const model = modelSelect.value;
-    const { state } = activeEditorView;
-    const { schema: schema3 } = state;
-    const { from: from2, to } = state.selection;
-    const text = state.doc.textBetween(from2, to, " ");
-    const entryId = activeEditorView.dom.closest(".codex-entry-window-content")?.dataset.entryId;
-    if (!action || !model || !text || !entryId) {
-      alert("Could not perform AI action. Missing required information.");
-      return;
+  function setEditorEditable(view, isEditable) {
+    view.setProps({
+      editable: () => isEditable
+    });
+  }
+  function cleanupAiAction() {
+    if (floatingToolbar) {
+      floatingToolbar.remove();
+      floatingToolbar = null;
     }
-    button.disabled = true;
-    button.textContent = "Processing...";
+    if (activeEditorView) {
+      setEditorEditable(activeEditorView, true);
+      const { state, dispatch } = activeEditorView;
+      const { schema: schema3 } = state;
+      const tr = state.tr.removeMark(0, state.doc.content.size, schema3.marks.ai_suggestion);
+      dispatch(tr);
+      activeEditorView.focus();
+    }
+    isAiActionActive = false;
+    originalFragment = null;
+    aiActionRange = null;
+    currentAiParams = null;
+    updateToolbarState(activeEditorView);
+  }
+  function handleApply() {
+    if (!isAiActionActive || !activeEditorView) return;
+    cleanupAiAction();
+  }
+  function handleDiscard() {
+    if (!isAiActionActive || !activeEditorView || !originalFragment) return;
+    const { state, dispatch } = activeEditorView;
+    const tr = state.tr.replace(aiActionRange.from, aiActionRange.to, originalFragment);
+    dispatch(tr);
+    cleanupAiAction();
+  }
+  async function handleRetry() {
+    if (!isAiActionActive || !activeEditorView || !currentAiParams) return;
+    const { state, dispatch } = activeEditorView;
+    const tr = state.tr.replace(aiActionRange.from, aiActionRange.to, originalFragment);
+    dispatch(tr);
+    if (floatingToolbar) {
+      floatingToolbar.remove();
+      floatingToolbar = null;
+    }
+    isAiActionActive = false;
+    await handleAiAction(null, currentAiParams);
+  }
+  function createFloatingToolbar(view, from2, to, model) {
+    if (floatingToolbar) floatingToolbar.remove();
+    const text = view.state.doc.textBetween(from2, to, " ");
+    const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
+    const modelName = model.split("/").pop() || model;
+    const toolbarEl = document.createElement("div");
+    toolbarEl.id = "ai-floating-toolbar";
+    toolbarEl.innerHTML = `
+        <button data-action="apply" title="Apply"><i class="bi bi-check-lg"></i> Apply</button>
+        <button data-action="retry" title="Retry"><i class="bi bi-arrow-repeat"></i> Retry</button>
+        <button data-action="discard" title="Discard"><i class="bi bi-x-lg"></i> Discard</button>
+        <div class="divider-vertical"></div>
+        <span class="text-gray-400">${wordCount} Words, ${modelName}</span>
+    `;
+    const viewport = document.getElementById("viewport");
+    if (!viewport) {
+      console.error("Could not find viewport element for floating toolbar.");
+      document.body.appendChild(toolbarEl);
+    } else {
+      viewport.appendChild(toolbarEl);
+    }
+    floatingToolbar = toolbarEl;
+    const toolbarWidth = toolbarEl.offsetWidth;
+    const toolbarHeight = toolbarEl.offsetHeight;
+    const viewportRect = viewport.getBoundingClientRect();
+    const startCoords = view.coordsAtPos(from2);
+    const padding = { left: 100, right: 400, top: 100, bottom: 100 };
+    let desiredLeft = startCoords.left - viewportRect.left;
+    const minLeft = padding.left;
+    const maxLeft = viewport.clientWidth - toolbarWidth - padding.right;
+    const finalLeft = Math.max(minLeft, Math.min(desiredLeft, maxLeft));
+    let desiredTop = startCoords.top - viewportRect.top - toolbarHeight - 5;
+    if (desiredTop < padding.top) {
+      desiredTop = startCoords.bottom - viewportRect.top + 5;
+    }
+    const minTop = padding.top;
+    const maxTop = viewport.clientHeight - toolbarHeight - padding.bottom;
+    const finalTop = Math.max(minTop, Math.min(desiredTop, maxTop));
+    toolbarEl.style.left = `${finalLeft}px`;
+    toolbarEl.style.top = `${finalTop}px`;
+    toolbarEl.addEventListener("mousedown", (e) => e.preventDefault());
+    toolbarEl.addEventListener("click", (e) => {
+      const button = e.target.closest("button");
+      if (!button) return;
+      const action = button.dataset.action;
+      if (action === "apply") handleApply();
+      if (action === "discard") handleDiscard();
+      if (action === "retry") handleRetry();
+    });
+  }
+  async function handleAiAction(button, params = null) {
+    if (!activeEditorView || isAiActionActive) return;
+    let action, model, text, from2, to;
+    if (params) {
+      action = params.action;
+      model = params.model;
+      text = params.text;
+      from2 = aiActionRange.from;
+      to = aiActionRange.from + originalFragment.size;
+    } else {
+      action = button.dataset.action;
+      const dropdown = button.closest(".js-dropdown-container").querySelector(".js-dropdown");
+      const modelSelect = dropdown.querySelector(".js-llm-model-select");
+      model = modelSelect.value;
+      const { state } = activeEditorView;
+      from2 = state.selection.from;
+      to = state.selection.to;
+      text = state.doc.textBetween(from2, to, " ");
+      if (!action || !model || !text || state.selection.empty) {
+        alert("Could not perform AI action. Please select text and choose a model.");
+        return;
+      }
+      originalFragment = state.doc.slice(from2, to);
+      aiActionRange = { from: from2, to };
+      currentAiParams = { text, action, model };
+      button.disabled = true;
+      button.textContent = "Processing...";
+    }
+    isAiActionActive = true;
+    updateToolbarState(activeEditorView);
+    setEditorEditable(activeEditorView, false);
+    let isFirstChunk = true;
+    let currentInsertionPos = from2;
+    let justCreatedParagraph = false;
+    const onData = (payload) => {
+      if (payload.chunk) {
+        const { schema: schema3 } = activeEditorView.state;
+        const mark = schema3.marks.ai_suggestion.create();
+        let tr = activeEditorView.state.tr;
+        if (isFirstChunk) {
+          tr.replaceWith(from2, to, []);
+          isFirstChunk = false;
+          justCreatedParagraph = false;
+        }
+        const parts = payload.chunk.split("\n");
+        parts.forEach((part, index) => {
+          if (part) {
+            const textNode = schema3.text(part, [mark]);
+            tr.insert(currentInsertionPos, textNode);
+            currentInsertionPos += part.length;
+            justCreatedParagraph = false;
+          }
+          if (index < parts.length - 1) {
+            if (!justCreatedParagraph) {
+              tr.split(currentInsertionPos);
+              currentInsertionPos += 2;
+              justCreatedParagraph = true;
+            }
+          }
+        });
+        aiActionRange.to = currentInsertionPos;
+        activeEditorView.dispatch(tr);
+      } else if (payload.done) {
+        if (button) {
+          button.disabled = false;
+          button.textContent = "Apply";
+        }
+        createFloatingToolbar(activeEditorView, aiActionRange.from, aiActionRange.to, model);
+      } else if (payload.error) {
+        console.error("AI Action Error:", payload.error);
+        alert(`Error: ${payload.error}`);
+        if (button) {
+          button.disabled = false;
+          button.textContent = "Apply";
+        }
+        handleDiscard();
+      }
+    };
     try {
-      const data = await window.api.processCodexText(entryId, { text, action, model });
-      if (!data.success) throw new Error(data.message || "AI processing failed.");
-      const tr = activeEditorView.state.tr.replaceWith(from2, to, schema3.text(data.text));
-      activeEditorView.dispatch(tr);
+      window.api.processCodexTextStream({ text, action, model }, onData);
     } catch (error) {
       console.error("AI Action Error:", error);
       alert(`Error: ${error.message}`);
-    } finally {
-      button.disabled = false;
-      button.textContent = "Apply";
+      if (button) {
+        button.disabled = false;
+        button.textContent = "Apply";
+      }
+      handleDiscard();
     }
   }
   async function handleToolbarAction(button) {
@@ -13951,6 +14385,8 @@
         undo(activeEditorView.state, activeEditorView.dispatch);
       } else if (command === "redo") {
         redo(activeEditorView.state, activeEditorView.dispatch);
+      } else if (command === "create_codex") {
+        await handleCreateCodexFromSelection();
       } else {
         applyCommand(command);
       }
@@ -13965,7 +14401,7 @@
       applyCommand("heading", { level });
       closeAllDropdowns();
     }
-    if (activeEditorView) {
+    if (activeEditorView && !isAiActionActive) {
       activeEditorView.focus();
     }
   }
@@ -13974,9 +14410,46 @@
       if (document.activeElement) document.activeElement.blur();
     });
   }
+  async function populateModelDropdowns() {
+    const selects = toolbar.querySelectorAll(".js-llm-model-select");
+    if (selects.length === 0) return;
+    try {
+      const result = await window.api.getModels();
+      if (!result.success || !result.models || result.models.length === 0) {
+        throw new Error(result.message || "No models returned from API.");
+      }
+      const models = result.models;
+      const defaultModel = "openai/gpt-4o-mini";
+      selects.forEach((select) => {
+        select.innerHTML = "";
+        models.forEach((model) => {
+          const option = document.createElement("option");
+          option.value = model.id;
+          option.textContent = model.name;
+          select.appendChild(option);
+        });
+        if (models.some((m) => m.id === defaultModel)) {
+          select.value = defaultModel;
+        } else if (models.length > 0) {
+          select.value = models[0].id;
+        }
+      });
+    } catch (error) {
+      console.error("Failed to populate AI model dropdowns:", error);
+      selects.forEach((select) => {
+        select.innerHTML = '<option value="" disabled selected>Error loading</option>';
+      });
+    }
+  }
   function setupTopToolbar() {
     if (!toolbar) return;
     toolbar.addEventListener("mousedown", (event) => {
+      const target = event.target;
+      const dropdownTrigger = target.closest('button[tabindex="0"]');
+      const inDropdownContent = target.closest(".dropdown-content");
+      if (dropdownTrigger && dropdownTrigger.closest(".dropdown") || inDropdownContent) {
+        return;
+      }
       event.preventDefault();
     });
     toolbar.addEventListener("click", (event) => {
@@ -13988,9 +14461,10 @@
       handleToolbarAction(button);
     });
     updateToolbarState(null);
+    populateModelDropdowns();
   }
 
-  // src/js/novel-editor/codex-content-editor.js
+  // src/js/novel-editor/content-editor.js
   var debounceTimers = /* @__PURE__ */ new Map();
   var editorInstances = /* @__PURE__ */ new Map();
   var activeEditorView2 = null;
@@ -14044,7 +14518,11 @@
       highlight_yellow: highlightMarkSpec("highlight-yellow"),
       highlight_green: highlightMarkSpec("highlight-green"),
       highlight_blue: highlightMarkSpec("highlight-blue"),
-      highlight_red: highlightMarkSpec("highlight-red")
+      highlight_red: highlightMarkSpec("highlight-red"),
+      ai_suggestion: {
+        parseDOM: [{ tag: "span.ai-suggestion" }],
+        toDOM: () => ["span", { class: "ai-suggestion" }, 0]
+      }
     }
   });
   var descriptionSchema = new Schema({
@@ -14056,57 +14534,89 @@
     marks: {}
   });
   function triggerDebouncedSave(windowContent) {
-    const entryId = windowContent.dataset.entryId;
-    if (!entryId) return;
-    if (debounceTimers.has(entryId)) {
-      clearTimeout(debounceTimers.get(entryId));
+    const isChapter = windowContent.matches(".chapter-window-content");
+    const isCodex = windowContent.matches(".codex-entry-window-content");
+    let id, key;
+    if (isChapter) {
+      id = windowContent.dataset.chapterId;
+      key = `chapter-${id}`;
+    } else if (isCodex) {
+      id = windowContent.dataset.entryId;
+      key = `codex-${id}`;
+    } else {
+      return;
+    }
+    if (!id) return;
+    if (debounceTimers.has(key)) {
+      clearTimeout(debounceTimers.get(key));
     }
     const timer = setTimeout(() => {
-      saveCodexEntry(windowContent);
-      debounceTimers.delete(entryId);
+      saveWindowContent(windowContent);
+      debounceTimers.delete(key);
     }, 2e3);
-    debounceTimers.set(entryId, timer);
+    debounceTimers.set(key, timer);
   }
-  async function saveCodexEntry(windowContent) {
-    const entryId = windowContent.dataset.entryId;
-    const instances = editorInstances.get(entryId);
-    if (!instances) return;
-    const titleInput = windowContent.querySelector(".js-codex-title-input");
-    const description = instances.descriptionView.state.doc.textContent;
-    const serializer = DOMSerializer.fromSchema(schema2);
-    const fragment = serializer.serializeFragment(instances.contentView.state.doc.content);
-    const tempDiv = document.createElement("div");
-    tempDiv.appendChild(fragment);
-    const content = tempDiv.innerHTML;
-    const data = {
-      title: titleInput.value,
-      description,
-      content
+  async function saveWindowContent(windowContent) {
+    const isChapter = windowContent.matches(".chapter-window-content");
+    const isCodex = windowContent.matches(".codex-entry-window-content");
+    const serializeDocToHtml = (view) => {
+      const serializer = DOMSerializer.fromSchema(view.state.schema);
+      const fragment = serializer.serializeFragment(view.state.doc.content);
+      const tempDiv = document.createElement("div");
+      tempDiv.appendChild(fragment);
+      return tempDiv.innerHTML;
     };
-    try {
-      const response = await window.api.updateCodexEntry(entryId, data);
-      if (!response.success) {
-        throw new Error(response.message || "Failed to save codex entry.");
+    if (isCodex) {
+      const entryId = windowContent.dataset.entryId;
+      const instances = editorInstances.get(`codex-${entryId}`);
+      if (!instances) return;
+      const titleInput = windowContent.querySelector(".js-codex-title-input");
+      const content = serializeDocToHtml(instances.contentView);
+      const data = { title: titleInput.value, content };
+      try {
+        const response = await window.api.updateCodexEntry(entryId, data);
+        if (!response.success) throw new Error(response.message || "Failed to save codex entry.");
+      } catch (error) {
+        console.error("Error saving codex entry:", error);
+        alert("Error: Could not save changes to codex entry.");
       }
-    } catch (error) {
-      console.error("Error saving codex entry:", error);
-      alert("Error: Could not save changes to codex entry.");
+    } else if (isChapter) {
+      const chapterId = windowContent.dataset.chapterId;
+      const instances = editorInstances.get(`chapter-${chapterId}`);
+      if (!instances) return;
+      const titleInput = windowContent.querySelector(".js-chapter-title-input");
+      const summary = serializeDocToHtml(instances.summaryView);
+      const data = { title: titleInput.value, summary };
+      try {
+        const response = await window.api.updateChapterContent(chapterId, data);
+        if (!response.success) throw new Error(response.message || "Failed to save chapter.");
+      } catch (error) {
+        console.error("Error saving chapter:", error);
+        alert("Error: Could not save changes to chapter.");
+      }
     }
   }
   function initEditorsForWindow(windowContent) {
-    const entryId = windowContent.dataset.entryId;
-    if (!entryId || editorInstances.has(entryId)) return;
-    const titleInput = windowContent.querySelector(".js-codex-title-input");
-    titleInput.addEventListener("input", () => triggerDebouncedSave(windowContent));
-    const descriptionMount = windowContent.querySelector('.js-codex-editable[data-name="description"]');
-    const contentMount = windowContent.querySelector('.js-codex-editable[data-name="content"]');
+    const isChapter = windowContent.matches(".chapter-window-content");
+    const isCodex = windowContent.matches(".codex-entry-window-content");
+    let id, key;
+    if (isChapter) {
+      id = windowContent.dataset.chapterId;
+      key = `chapter-${id}`;
+    } else if (isCodex) {
+      id = windowContent.dataset.entryId;
+      key = `codex-${id}`;
+    } else {
+      return;
+    }
+    if (!id || editorInstances.has(key)) return;
     const initialContentContainer = windowContent.querySelector(".js-pm-content");
-    if (!descriptionMount || !contentMount || !initialContentContainer) return;
-    const createEditor = (mount, isDescription) => {
+    if (!initialContentContainer) return;
+    const createEditor = (mount, isSimpleSchema) => {
       const name = mount.dataset.name;
       const placeholder = mount.dataset.placeholder || "";
       const initialContentEl = initialContentContainer.querySelector(`[data-name="${name}"]`);
-      const currentSchema = isDescription ? descriptionSchema : schema2;
+      const currentSchema = isSimpleSchema ? descriptionSchema : schema2;
       const doc3 = DOMParser.fromSchema(currentSchema).parse(initialContentEl);
       const customKeymap = {
         ...baseKeymap,
@@ -14122,7 +14632,7 @@
             history(),
             keymap({ "Mod-z": undo, "Mod-y": redo, "Shift-Mod-z": redo }),
             keymap(customKeymap),
-            isDescription ? keymap({ "Enter": () => true }) : keymap({}),
+            isSimpleSchema ? keymap({ "Enter": () => true }) : keymap({}),
             new Plugin({
               props: {
                 handleDOMEvents: {
@@ -14159,32 +14669,48 @@
       });
       return view;
     };
-    const descriptionView = createEditor(descriptionMount, true);
-    const contentView = createEditor(contentMount, false);
-    editorInstances.set(entryId, { descriptionView, contentView });
+    if (isCodex) {
+      const titleInput = windowContent.querySelector(".js-codex-title-input");
+      titleInput.addEventListener("input", () => triggerDebouncedSave(windowContent));
+      const contentMount = windowContent.querySelector('.js-codex-editable[data-name="content"]');
+      if (!contentMount) return;
+      const contentView = createEditor(contentMount, false);
+      editorInstances.set(key, { contentView });
+    } else if (isChapter) {
+      const titleInput = windowContent.querySelector(".js-chapter-title-input");
+      titleInput.addEventListener("input", () => triggerDebouncedSave(windowContent));
+      const summaryMount = windowContent.querySelector('.js-editable[data-name="summary"]');
+      if (!summaryMount) return;
+      const summaryView = createEditor(summaryMount, false);
+      editorInstances.set(key, { summaryView });
+    }
   }
-  function setupCodexContentEditor(desktop) {
+  function setupContentEditor(desktop) {
     const observer = new MutationObserver((mutationsList) => {
       for (const mutation of mutationsList) {
         if (mutation.type === "childList") {
           mutation.addedNodes.forEach((node) => {
             if (node.nodeType !== Node.ELEMENT_NODE) return;
-            const windowContent = node.querySelector(".codex-entry-window-content") || (node.matches(".codex-entry-window-content") ? node : null);
+            const windowContent = node.querySelector(".codex-entry-window-content, .chapter-window-content") || (node.matches(".codex-entry-window-content, .chapter-window-content") ? node : null);
             if (windowContent) {
               initEditorsForWindow(windowContent);
             }
           });
           mutation.removedNodes.forEach((node) => {
             if (node.nodeType !== Node.ELEMENT_NODE) return;
-            const windowContent = node.querySelector(".codex-entry-window-content") || (node.matches(".codex-entry-window-content") ? node : null);
+            const windowContent = node.querySelector(".codex-entry-window-content, .chapter-window-content") || (node.matches(".codex-entry-window-content, .chapter-window-content") ? node : null);
             if (windowContent) {
-              const entryId = windowContent.dataset.entryId;
-              if (editorInstances.has(entryId)) {
-                const { descriptionView, contentView } = editorInstances.get(entryId);
-                descriptionView.destroy();
-                contentView.destroy();
-                editorInstances.delete(entryId);
-                debounceTimers.delete(entryId);
+              let key;
+              if (windowContent.matches(".codex-entry-window-content")) {
+                key = `codex-${windowContent.dataset.entryId}`;
+              } else if (windowContent.matches(".chapter-window-content")) {
+                key = `chapter-${windowContent.dataset.chapterId}`;
+              }
+              if (key && editorInstances.has(key)) {
+                const views = editorInstances.get(key);
+                Object.values(views).forEach((view) => view.destroy());
+                editorInstances.delete(key);
+                debounceTimers.delete(key);
               }
             }
           });
@@ -14192,10 +14718,139 @@
       }
     });
     observer.observe(desktop, { childList: true, subtree: true });
-    desktop.querySelectorAll(".codex-entry-window-content").forEach(initEditorsForWindow);
+    desktop.querySelectorAll(".codex-entry-window-content, .chapter-window-content").forEach(initEditorsForWindow);
+  }
+
+  // src/js/novel-editor/prompt-editor.js
+  function setupPromptEditor(windowEl) {
+    const contentEl = windowEl.querySelector(".js-prompt-editor-content");
+    const listContainer = contentEl.querySelector(".js-prompt-list-container");
+    const editorPane = contentEl.querySelector(".js-prompt-editor-pane");
+    const placeholder = contentEl.querySelector(".js-prompt-placeholder");
+    const form = contentEl.querySelector(".js-prompt-form");
+    const saveBtn = contentEl.querySelector(".js-save-prompt-btn");
+    const resetBtn = contentEl.querySelector(".js-reset-prompt-btn");
+    const modal = document.getElementById("prompt-editor-modal");
+    const closeBtn = windowEl.querySelector(".js-close-prompt-modal");
+    let currentPrompt = null;
+    const setButtonLoadingState = (button, isLoading) => {
+      const text = button.querySelector(".js-btn-text");
+      const spinner = button.querySelector(".js-spinner");
+      if (isLoading) {
+        button.disabled = true;
+        if (text) text.classList.add("hidden");
+        if (spinner) spinner.classList.remove("hidden");
+      } else {
+        button.disabled = false;
+        if (text) text.classList.remove("hidden");
+        if (spinner) spinner.classList.add("hidden");
+      }
+    };
+    const autosizeTextarea = (textarea) => {
+      setTimeout(() => {
+        textarea.style.height = "auto";
+        textarea.style.height = `${textarea.scrollHeight + 50}px`;
+      }, 0);
+    };
+    form.querySelectorAll(".js-autosize").forEach((textarea) => {
+      textarea.addEventListener("input", () => autosizeTextarea(textarea));
+    });
+    const loadPromptList = async () => {
+      try {
+        const prompts = await window.api.listPrompts();
+        listContainer.innerHTML = "";
+        if (prompts.length === 0) {
+          listContainer.innerHTML = '<p class="p-4 text-sm text-base-content/70">No prompts found.</p>';
+          return;
+        }
+        prompts.forEach((prompt) => {
+          const button = document.createElement("button");
+          button.className = "js-prompt-item btn btn-ghost w-full justify-start text-left";
+          button.dataset.promptId = prompt.id;
+          button.textContent = prompt.name;
+          listContainer.appendChild(button);
+        });
+      } catch (error) {
+        console.error("Failed to load prompt list:", error);
+        listContainer.innerHTML = `<p class="p-4 text-sm text-error">${error.message}</p>`;
+      }
+    };
+    const loadPrompt = async (promptId) => {
+      listContainer.querySelectorAll(".js-prompt-item").forEach((btn) => {
+        btn.classList.toggle("btn-active", btn.dataset.promptId === promptId);
+      });
+      editorPane.classList.remove("hidden");
+      placeholder.classList.add("hidden");
+      try {
+        const promptData = await window.api.getPrompt(promptId);
+        currentPrompt = promptData;
+        form.elements.system.value = promptData.system || "";
+        form.elements.user.value = promptData.user || "";
+        form.elements.ai.value = promptData.ai || "";
+        form.querySelectorAll(".js-autosize").forEach(autosizeTextarea);
+      } catch (error) {
+        console.error(`Failed to load prompt ${promptId}:`, error);
+        alert(error.message);
+      }
+    };
+    listContainer.addEventListener("click", (event) => {
+      const button = event.target.closest(".js-prompt-item");
+      if (button) {
+        loadPrompt(button.dataset.promptId);
+      }
+    });
+    saveBtn.addEventListener("click", async () => {
+      if (!currentPrompt) return;
+      setButtonLoadingState(saveBtn, true);
+      const dataToSave = {
+        name: currentPrompt.name,
+        // Get name from the stored prompt object
+        system: form.elements.system.value,
+        user: form.elements.user.value,
+        ai: form.elements.ai.value
+      };
+      try {
+        await window.api.savePrompt(currentPrompt.id, dataToSave);
+      } catch (error) {
+        console.error(`Failed to save prompt ${currentPrompt.id}:`, error);
+        alert(error.message);
+      } finally {
+        setButtonLoadingState(saveBtn, false);
+      }
+    });
+    resetBtn.addEventListener("click", async () => {
+      if (!currentPrompt) return;
+      if (confirm(`Are you sure you want to reset the "${currentPrompt.name}" prompt to its default state? Any customizations will be lost.`)) {
+        try {
+          const result = await window.api.resetPrompt(currentPrompt.id);
+          if (result.success) {
+            currentPrompt = result.data;
+            form.elements.system.value = result.data.system || "";
+            form.elements.user.value = result.data.user || "";
+            form.elements.ai.value = result.data.ai || "";
+            form.querySelectorAll(".js-autosize").forEach(autosizeTextarea);
+            alert("Prompt has been reset to default.");
+          }
+        } catch (error) {
+          console.error(`Failed to reset prompt ${currentPrompt.id}:`, error);
+          alert(error.message);
+        }
+      }
+    });
+    if (closeBtn && modal) {
+      closeBtn.addEventListener("click", () => {
+        modal.close();
+      });
+    }
+    loadPromptList();
   }
 
   // src/js/novel-editor/codex-entry-editor.js
+  function createElementFromHTML(htmlString) {
+    const div = document.createElement("div");
+    div.innerHTML = htmlString.trim();
+    return div.firstElementChild;
+  }
   document.addEventListener("DOMContentLoaded", () => {
     const desktop = document.getElementById("desktop");
     if (!desktop) return;
@@ -14371,7 +15026,7 @@
         if (!data.success) throw new Error(data.message || "Failed to link codex entry.");
         const tagContainer = dropZone.querySelector(".js-codex-tags-container");
         if (tagContainer) {
-          const newTag = createCodexLinkTagElement(parentEntryId, data.codexEntry);
+          const newTag = await createCodexLinkTagElement(parentEntryId, data.codexEntry);
           tagContainer.appendChild(newTag);
           const tagsWrapper = dropZone.querySelector(".js-codex-tags-wrapper");
           if (tagsWrapper) tagsWrapper.classList.remove("hidden");
@@ -14403,33 +15058,16 @@
         alert(error.message);
       }
     });
-    function createCodexLinkTagElement(parentEntryId, codexEntry) {
-      const div = document.createElement("div");
-      div.className = "js-codex-tag group/tag relative inline-flex items-center gap-2 bg-gray-200 dark:bg-gray-700 rounded-full pr-2";
-      div.dataset.entryId = codexEntry.id;
-      div.innerHTML = `
-			<button type="button"
-					class="js-open-codex-entry flex items-center gap-2 pl-1 pr-2 py-1 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-					data-entry-id="${codexEntry.id}"
-					data-entry-title="${codexEntry.title}">
-				<img src="${codexEntry.thumbnail_url}" alt="Thumbnail for ${codexEntry.title}" class="w-5 h-5 object-cover rounded-full flex-shrink-0">
-				<span class="js-codex-tag-title text-xs font-medium">${codexEntry.title}</span>
-			</button>
-			<button type="button"
-					class="js-remove-codex-codex-link absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover/tag:opacity-100 transition-opacity"
-					data-parent-entry-id="${parentEntryId}"
-					data-entry-id="${codexEntry.id}"
-					title="Unlink this entry">
-				<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor" viewBox="0 0 16 16">
-					<path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8z"/>
-				</svg>
-			</button>
-		`;
-      return div;
+    async function createCodexLinkTagElement(parentEntryId, codexEntry) {
+      let template = await window.api.getTemplate("codex-link-tag");
+      template = template.replace(/{{PARENT_ENTRY_ID}}/g, parentEntryId);
+      template = template.replace(/{{ENTRY_ID}}/g, codexEntry.id);
+      template = template.replace(/{{ENTRY_TITLE}}/g, codexEntry.title);
+      template = template.replace(/{{THUMBNAIL_URL}}/g, codexEntry.thumbnail_url);
+      return createElementFromHTML(template);
     }
     const newCodexModal = document.getElementById("new-codex-entry-modal");
     const newCodexForm = document.getElementById("new-codex-entry-form");
-    const novelId = document.body.dataset.novelId;
     document.body.addEventListener("click", (event) => {
       if (event.target.closest(".js-open-new-codex-modal")) {
         if (newCodexModal) newCodexModal.showModal();
@@ -14469,15 +15107,19 @@
         }
         delete data.image;
         try {
+          const novelId = document.body.dataset.novelId;
+          if (!novelId) {
+            throw new Error("Could not determine the Novel ID for this operation.");
+          }
           const result = await window.api.createCodexEntry(novelId, data);
           if (!result.success) {
             throw new Error(result.message || "Form submission failed");
           }
           resetAndCloseNewCodexModal();
           if (result.newCategory) {
-            addNewCategoryToCodexWindow(result.newCategory);
+            await addNewCategoryToCodexWindow(result.newCategory);
           }
-          const newEntryButton = addNewEntryToCategoryList(result.codexEntry);
+          const newEntryButton = await addNewEntryToCategoryList(result.codexEntry);
           if (newEntryButton) {
             newEntryButton.click();
           }
@@ -14517,7 +15159,7 @@
         genericErrorContainer.classList.remove("hidden");
       }
     }
-    function addNewEntryToCategoryList(entryData) {
+    async function addNewEntryToCategoryList(entryData) {
       const codexWindowContent = document.querySelector("#codex-window .p-4");
       if (!codexWindowContent) return null;
       const categoryContainer = codexWindowContent.querySelector(`#codex-category-${entryData.category_id}`);
@@ -14526,19 +15168,12 @@
       if (!listContainer) return null;
       const emptyMsg = listContainer.querySelector("p");
       if (emptyMsg) emptyMsg.remove();
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "js-open-codex-entry js-draggable-codex btn btn-ghost w-full justify-start text-left h-auto p-2";
-      button.dataset.entryId = entryData.id;
-      button.dataset.entryTitle = entryData.title;
-      button.draggable = true;
-      button.innerHTML = `
-            <img src="${entryData.thumbnail_url}" alt="Thumbnail for ${entryData.title}" class="w-12 h-12 object-cover rounded flex-shrink-0 bg-base-300 pointer-events-none">
-            <div class="flex-grow min-w-0 pointer-events-none text-left">
-                <h4 class="font-semibold truncate normal-case">${entryData.title}</h4>
-                <p class="text-xs text-base-content/70 mt-1 font-normal normal-case">${entryData.description || ""}</p>
-            </div>
-        `;
+      let template = await window.api.getTemplate("codex-list-item");
+      template = template.replace(/{{ENTRY_ID}}/g, entryData.id);
+      template = template.replace(/{{ENTRY_TITLE}}/g, entryData.title);
+      template = template.replace(/{{THUMBNAIL_URL}}/g, entryData.thumbnail_url);
+      const button = createElementFromHTML(template);
+      if (!button) return null;
       listContainer.appendChild(button);
       const countSpan = categoryContainer.querySelector(".js-codex-category-count");
       if (countSpan) {
@@ -14548,21 +15183,15 @@
       }
       return button;
     }
-    function addNewCategoryToCodexWindow(categoryData) {
+    async function addNewCategoryToCodexWindow(categoryData) {
       const codexWindowContent = document.querySelector("#codex-window .p-4");
       if (!codexWindowContent) return;
       if (document.getElementById(`codex-category-${categoryData.id}`)) return;
-      const div = document.createElement("div");
-      div.id = `codex-category-${categoryData.id}`;
-      div.innerHTML = `
-            <h3 class="text-lg font-bold text-teal-500 sticky top-0 bg-base-100/90 backdrop-blur-sm py-2 -mx-1 px-1">
-                ${categoryData.name}
-                <span class="js-codex-category-count text-sm font-normal text-base-content/70 ml-2">(0 items)</span>
-            </h3>
-            <div class="js-codex-entries-list mt-2 space-y-2">
-                <p class="text-sm text-base-content/70 px-2">No entries in this category yet.</p>
-            </div>
-        `;
+      let template = await window.api.getTemplate("codex-category-item");
+      template = template.replace(/{{CATEGORY_ID}}/g, categoryData.id);
+      template = template.replace(/{{CATEGORY_NAME}}/g, categoryData.name);
+      const div = createElementFromHTML(template);
+      if (!div) return;
       codexWindowContent.appendChild(div);
       const categorySelect = document.getElementById("new-codex-category");
       if (categorySelect) {
@@ -14572,61 +15201,294 @@
     }
   });
 
+  // src/js/novel-editor/chapter-creation.js
+  document.addEventListener("DOMContentLoaded", () => {
+    const desktop = document.getElementById("desktop");
+    if (!desktop) return;
+    const newChapterModal = document.getElementById("new-chapter-modal");
+    const newChapterForm = document.getElementById("new-chapter-form");
+    if (!newChapterModal || !newChapterForm) return;
+    desktop.addEventListener("click", (event) => {
+      if (event.target.closest(".js-open-new-chapter-modal")) {
+        newChapterModal.showModal();
+      }
+    });
+    newChapterModal.addEventListener("click", (event) => {
+      if (event.target.closest(".js-close-new-chapter-modal")) {
+        resetAndCloseModal();
+      }
+    });
+    newChapterForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const submitBtn = newChapterForm.querySelector(".js-new-chapter-submit-btn");
+      setButtonLoadingState(submitBtn, true);
+      clearFormErrors();
+      const formData = new FormData(newChapterForm);
+      const data = Object.fromEntries(formData.entries());
+      try {
+        const novelId = document.body.dataset.novelId;
+        if (!novelId) throw new Error("Novel ID not found.");
+        const result = await window.api.createChapter(novelId, data);
+        if (!result.success) throw new Error(result.message || "Failed to create chapter.");
+        await updateOutlineUI(result.chapter, result.reorderedChapters);
+        resetAndCloseModal();
+      } catch (error) {
+        console.error("Error creating chapter:", error);
+        displayGenericError(error.message);
+      } finally {
+        setButtonLoadingState(submitBtn, false);
+      }
+    });
+    function setButtonLoadingState(button, isLoading) {
+      const text = button.querySelector(".js-btn-text");
+      const spinner = button.querySelector(".js-spinner");
+      if (isLoading) {
+        button.disabled = true;
+        if (text) text.classList.add("hidden");
+        if (spinner) spinner.classList.remove("hidden");
+      } else {
+        button.disabled = false;
+        if (text) text.classList.remove("hidden");
+        if (spinner) spinner.classList.add("hidden");
+      }
+    }
+    function resetAndCloseModal() {
+      newChapterModal.close();
+      newChapterForm.reset();
+      clearFormErrors();
+    }
+    function clearFormErrors() {
+      const errorContainer = newChapterForm.querySelector("#new-chapter-error-container");
+      errorContainer.classList.add("hidden");
+      errorContainer.textContent = "";
+    }
+    function displayGenericError(message) {
+      const errorContainer = newChapterForm.querySelector("#new-chapter-error-container");
+      errorContainer.textContent = message;
+      errorContainer.classList.remove("hidden");
+    }
+    async function updateOutlineUI(newChapter, reorderedChapters) {
+      const outlineWindow = document.getElementById("outline-window");
+      if (!outlineWindow) return;
+      const chapterTemplateHtml = await window.api.getTemplate("outline-chapter");
+      const summaryHtml = newChapter.summary ? `<p class="text-xs text-base-content/70 mt-1 font-normal normal-case">${newChapter.summary}</p>` : "";
+      const newChapterHtml = chapterTemplateHtml.replace("{{CHAPTER_ID}}", newChapter.id).replace(/{{CHAPTER_TITLE}}/g, newChapter.title).replace("{{CHAPTER_ORDER}}", newChapter.chapter_order).replace("{{CHAPTER_SUMMARY_HTML}}", summaryHtml);
+      const tempDiv = document.createElement("div");
+      tempDiv.innerHTML = newChapterHtml.trim();
+      const newChapterElement = tempDiv.firstElementChild;
+      const position = newChapterForm.querySelector("#new-chapter-position").value;
+      const [type, id] = position.split("-");
+      const sectionContainer = outlineWindow.querySelector(`.p-3[data-section-id="${newChapter.section_id}"]`);
+      if (!sectionContainer) return;
+      const chaptersList = sectionContainer.querySelector(".space-y-2");
+      if (!chaptersList) return;
+      const placeholder = chaptersList.querySelector("p");
+      if (placeholder) placeholder.remove();
+      if (type === "section") {
+        chaptersList.prepend(newChapterElement);
+      } else if (type === "chapter") {
+        const targetChapterElement = chaptersList.querySelector(`.js-open-chapter[data-chapter-id="${id}"]`);
+        if (targetChapterElement) {
+          targetChapterElement.after(newChapterElement);
+        } else {
+          chaptersList.appendChild(newChapterElement);
+        }
+      }
+      reorderedChapters.forEach((chapter) => {
+        const chapterElement = chaptersList.querySelector(`.js-open-chapter[data-chapter-id="${chapter.id}"]`);
+        if (chapterElement) {
+          const titleElement = chapterElement.querySelector("h4");
+          if (titleElement) {
+            titleElement.textContent = `${chapter.chapter_order}. ${chapter.title}`;
+          }
+        }
+      });
+      const chapterPositionSelect = document.getElementById("new-chapter-position");
+      if (chapterPositionSelect) {
+        chapterPositionSelect.innerHTML = '<option value="" disabled selected>Insert after...</option>';
+        const novelData = await window.api.getOneNovel(document.body.dataset.novelId);
+        novelData.sections.forEach((section) => {
+          const sectionOption = new Option(`${section.title}`, `section-${section.id}`);
+          sectionOption.classList.add("font-bold", "text-indigo-500");
+          chapterPositionSelect.appendChild(sectionOption);
+          if (section.chapters && section.chapters.length > 0) {
+            section.chapters.forEach((chapter) => {
+              const chapterOption = new Option(`  ${chapter.chapter_order}. ${chapter.title}`, `chapter-${chapter.id}`);
+              chapterPositionSelect.appendChild(chapterOption);
+            });
+          }
+        });
+      }
+    }
+  });
+
+  // src/js/novel-editor/chapter-pov-editor.js
+  function setupChapterPovEditor(desktop) {
+    const modal = document.getElementById("chapter-pov-modal");
+    if (!modal) return;
+    const form = document.getElementById("chapter-pov-form");
+    const errorContainer = document.getElementById("chapter-pov-error-container");
+    const chapterIdInput = document.getElementById("pov-chapter-id");
+    const povTypeSelect = document.getElementById("chapter_pov_type");
+    const povCharacterSelect = document.getElementById("chapter_pov_character");
+    const saveBtn = modal.querySelector(".js-save-pov-btn");
+    const deleteBtn = modal.querySelector(".js-delete-pov-override-btn");
+    const closeBtn = modal.querySelector(".js-close-pov-modal");
+    async function openPovModal(chapterId) {
+      chapterIdInput.value = chapterId;
+      errorContainer.classList.add("hidden");
+      errorContainer.textContent = "";
+      form.reset();
+      try {
+        const data = await window.api.getPovDataForChapter(chapterId);
+        povTypeSelect.value = data.currentPov;
+        povCharacterSelect.innerHTML = '<option value="">\u2014 None \u2014</option>';
+        data.characters.forEach((char) => {
+          const option = new Option(char.title, char.id);
+          povCharacterSelect.appendChild(option);
+        });
+        povCharacterSelect.value = data.currentCharacterId || "";
+        deleteBtn.disabled = !data.isOverride;
+        modal.showModal();
+      } catch (error) {
+        console.error("Failed to load POV data:", error);
+        alert("Could not load POV settings for this chapter.");
+      }
+    }
+    function updatePovDisplay(chapterId, updatedData) {
+      const chapterWindow = document.getElementById(`chapter-${chapterId}`);
+      if (!chapterWindow) return;
+      const povDisplayMap = {
+        "first_person": "1st Person",
+        "second_person": "2nd Person",
+        "third_person": "3rd Person",
+        "third_person_limited": "3rd Person (Limited)",
+        "third_person_omniscient": "3rd Person (Omniscient)"
+      };
+      const povType = updatedData.pov || updatedData.novel_default_pov;
+      const povTypeDisplay = povDisplayMap[povType] || "Not Set";
+      const povCharacterHtml = updatedData.pov_character_name ? ` &ndash; <span class="italic">${updatedData.pov_character_name}</span>` : "";
+      const povSourceText = updatedData.pov ? "This chapter has a custom POV." : "Using novel's default POV setting.";
+      const typeEl = chapterWindow.querySelector(".js-pov-display-type");
+      const charEl = chapterWindow.querySelector(".js-pov-display-character");
+      const sourceEl = chapterWindow.querySelector(".js-pov-display-source-text");
+      if (typeEl) typeEl.textContent = povTypeDisplay;
+      if (charEl) charEl.innerHTML = povCharacterHtml;
+      if (sourceEl) sourceEl.textContent = povSourceText;
+      const openBtn = chapterWindow.querySelector(".js-open-pov-modal");
+      if (openBtn) {
+        deleteBtn.disabled = !updatedData.pov;
+      }
+    }
+    desktop.addEventListener("click", (event) => {
+      const openBtn = event.target.closest(".js-open-pov-modal");
+      if (openBtn) {
+        openPovModal(openBtn.dataset.chapterId);
+      }
+    });
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const chapterId = chapterIdInput.value;
+      const pov = povTypeSelect.value;
+      const pov_character_id = povCharacterSelect.value;
+      const btnText = saveBtn.querySelector(".js-btn-text");
+      const spinner = saveBtn.querySelector(".js-spinner");
+      btnText.classList.add("hidden");
+      spinner.classList.remove("hidden");
+      saveBtn.disabled = true;
+      try {
+        const result = await window.api.updateChapterPov({ chapterId, pov, pov_character_id });
+        if (result.success) {
+          updatePovDisplay(chapterId, result.updatedChapter);
+          modal.close();
+        } else {
+          throw new Error(result.message || "Failed to save POV settings.");
+        }
+      } catch (error) {
+        errorContainer.textContent = error.message;
+        errorContainer.classList.remove("hidden");
+      } finally {
+        btnText.classList.remove("hidden");
+        spinner.classList.add("hidden");
+        saveBtn.disabled = false;
+      }
+    });
+    deleteBtn.addEventListener("click", async () => {
+      const chapterId = chapterIdInput.value;
+      if (!confirm("Are you sure you want to remove this chapter's custom POV? It will revert to the novel's default setting.")) {
+        return;
+      }
+      deleteBtn.disabled = true;
+      try {
+        const result = await window.api.deleteChapterPovOverride(chapterId);
+        if (result.success) {
+          updatePovDisplay(chapterId, result.updatedChapter);
+          modal.close();
+        } else {
+          throw new Error(result.message || "Failed to delete override.");
+        }
+      } catch (error) {
+        errorContainer.textContent = error.message;
+        errorContainer.classList.remove("hidden");
+      } finally {
+      }
+    });
+    closeBtn.addEventListener("click", () => {
+      modal.close();
+    });
+  }
+
   // src/js/novel-editor/main.js
-  function populateOutlineTemplate(template, novelData) {
+  async function populateOutlineTemplate(template, novelData) {
     if (!novelData.sections || novelData.sections.length === 0) {
       return '<p class="text-center text-base-content/70 p-4">No sections found for this novel.</p>';
     }
+    const sectionTemplateHtml = await window.api.getTemplate("outline-section");
+    const chapterTemplateHtml = await window.api.getTemplate("outline-chapter");
+    const stripHtmlAndTruncate = (html, wordLimit) => {
+      if (!html) return "";
+      const tempDiv = document.createElement("div");
+      tempDiv.innerHTML = html;
+      const text = tempDiv.textContent || tempDiv.innerText || "";
+      const words = text.trim().split(/\s+/).filter(Boolean);
+      if (words.length > wordLimit) {
+        return words.slice(0, wordLimit).join(" ") + "...";
+      }
+      return words.join(" ");
+    };
     const sectionsHtml = novelData.sections.map((section) => {
-      const chaptersHtml = section.chapters && section.chapters.length > 0 ? section.chapters.map((chapter) => `
-                <button type="button"
-                        class="js-open-chapter btn btn-ghost w-full justify-start text-left h-auto p-2"
-                        data-chapter-id="${chapter.id}"
-                        data-chapter-title="${chapter.title}">
-                    <div class="flex flex-col">
-                        <h4 class="font-semibold">${chapter.chapter_order}. ${chapter.title}</h4>
-                        ${chapter.summary ? `<p class="text-xs text-base-content/70 mt-1 font-normal normal-case">${chapter.summary}</p>` : ""}
-                    </div>
-                </button>
-            `).join("") : '<p class="text-sm text-base-content/70 px-2">No chapters in this section yet.</p>';
-      return `
-            <div class="p-3 rounded-lg bg-base-200 hover:bg-base-300 transition-colors">
-                <h3 class="text-lg font-bold text-indigo-500">${section.section_order}. ${section.title}</h3>
-                ${section.description ? `<p class="text-sm italic text-base-content/70 mt-1">${section.description}</p>` : ""}
-                <div class="mt-3 pl-4 border-l-2 border-base-300 space-y-2">${chaptersHtml}</div>
-            </div>
-        `;
+      const chaptersHtml = section.chapters && section.chapters.length > 0 ? section.chapters.map((chapter) => {
+        const summaryText = stripHtmlAndTruncate(chapter.summary, 40);
+        const summaryHtml = summaryText ? `<p class="text-xs text-base-content/70 mt-1 font-normal normal-case">${summaryText}</p>` : "";
+        return chapterTemplateHtml.replace("{{CHAPTER_ID}}", chapter.id).replace(/{{CHAPTER_TITLE}}/g, chapter.title).replace("{{CHAPTER_ORDER}}", chapter.chapter_order).replace("{{CHAPTER_SUMMARY_HTML}}", summaryHtml);
+      }).join("") : '<p class="text-sm text-base-content/70 px-2">No chapters in this section yet.</p>';
+      const descriptionHtml = section.description ? `<p class="text-sm italic text-base-content/70 mt-1">${section.description}</p>` : "";
+      return sectionTemplateHtml.replace("{{SECTION_ID}}", section.id).replace("{{SECTION_ORDER}}", section.section_order).replace("{{SECTION_TITLE}}", section.title).replace("{{SECTION_DESCRIPTION_HTML}}", descriptionHtml).replace("<!-- CHAPTERS_PLACEHOLDER -->", chaptersHtml);
     }).join("");
     return template.replace("<!-- SECTIONS_PLACEHOLDER -->", sectionsHtml);
   }
-  function populateCodexTemplate(template, novelData) {
+  async function populateCodexTemplate(template, novelData) {
     if (!novelData.codexCategories || novelData.codexCategories.length === 0) {
       return '<p class="text-center text-base-content/70 p-4">No codex categories found.</p>';
     }
+    const categoryTemplateHtml = await window.api.getTemplate("codex-category-item");
+    const entryTemplateHtml = await window.api.getTemplate("codex-list-item");
     const categoriesHtml = novelData.codexCategories.map((category) => {
-      const entriesHtml = category.entries && category.entries.length > 0 ? category.entries.map((entry) => `
-                <button type="button"
-                        class="js-open-codex-entry js-draggable-codex btn btn-ghost w-full justify-start text-left h-auto p-2"
-                        data-entry-id="${entry.id}"
-                        data-entry-title="${entry.title}"
-                        draggable="true">
-                    <img src="${entry.thumbnail_url}" alt="Thumbnail for ${entry.title}" class="w-12 h-12 object-cover rounded flex-shrink-0 bg-base-300 pointer-events-none">
-                    <div class="flex-grow min-w-0 pointer-events-none text-left">
-                        <h4 class="font-semibold truncate normal-case">${entry.title}</h4>
-                        ${entry.description ? `<p class="text-xs text-base-content/70 mt-1 font-normal normal-case">${entry.description}</p>` : ""}
-                    </div>
-                </button>
-            `).join("") : '<p class="text-sm text-base-content/70 px-2">No entries in this category yet.</p>';
+      const entriesHtml = category.entries && category.entries.length > 0 ? category.entries.map((entry) => {
+        return entryTemplateHtml.replace(/{{ENTRY_ID}}/g, entry.id).replace(/{{ENTRY_TITLE}}/g, entry.title).replace(/{{THUMBNAIL_URL}}/g, entry.thumbnail_url);
+      }).join("") : '<p class="text-sm text-base-content/70 px-2">No entries in this category yet.</p>';
       const itemCount = category.entries_count || 0;
-      return `
-            <div id="codex-category-${category.id}">
-                <h3 class="text-lg font-bold text-teal-500 sticky top-0 bg-base-100/90 backdrop-blur-sm py-2 -mx-1 px-1">
-                    ${category.name}
-                    <span class="js-codex-category-count text-sm font-normal text-base-content/70 ml-2">(${itemCount} ${itemCount === 1 ? "item" : "items"})</span>
-                </h3>
-                <div class="js-codex-entries-list mt-2 space-y-2">${entriesHtml}</div>
-            </div>
-        `;
+      const itemText = itemCount === 1 ? "item" : "items";
+      let populatedCategory = categoryTemplateHtml.replace("{{CATEGORY_ID}}", category.id).replace("{{CATEGORY_NAME}}", category.name);
+      populatedCategory = populatedCategory.replace(
+        '<span class="js-codex-category-count text-sm font-normal text-base-content/70 ml-2">(0 items)</span>',
+        `<span class="js-codex-category-count text-sm font-normal text-base-content/70 ml-2">(${itemCount} ${itemText})</span>`
+      );
+      populatedCategory = populatedCategory.replace(
+        '<p class="text-sm text-base-content/70 px-2">No entries in this category yet.</p>',
+        entriesHtml
+      );
+      return populatedCategory;
     }).join("");
     return template.replace("<!-- CATEGORIES_PLACEHOLDER -->", categoriesHtml);
   }
@@ -14642,34 +15504,55 @@
       return;
     }
     document.body.dataset.novelId = novelId;
+    let novelData;
     try {
       const outlineTemplateHtml = await window.api.getTemplate("outline-window");
       const codexTemplateHtml = await window.api.getTemplate("codex-window");
-      const novelData = await window.api.getOneNovel(novelId);
+      novelData = await window.api.getOneNovel(novelId);
       if (!novelData) throw new Error("Novel not found.");
-      document.body.dataset.outlineContent = populateOutlineTemplate(outlineTemplateHtml, novelData);
-      document.body.dataset.codexContent = populateCodexTemplate(codexTemplateHtml, novelData);
+      document.body.dataset.outlineContent = await populateOutlineTemplate(outlineTemplateHtml, novelData);
+      document.body.dataset.codexContent = await populateCodexTemplate(codexTemplateHtml, novelData);
       const categorySelect = document.getElementById("new-codex-category");
       novelData.codexCategories.forEach((category) => {
         const option = new Option(category.name, category.id);
         categorySelect.insertBefore(option, categorySelect.options[categorySelect.options.length - 1]);
       });
+      const chapterPositionSelect = document.getElementById("new-chapter-position");
+      if (chapterPositionSelect) {
+        novelData.sections.forEach((section) => {
+          const sectionOption = new Option(`${section.title}`, `section-${section.id}`);
+          sectionOption.classList.add("font-bold", "text-indigo-500");
+          chapterPositionSelect.appendChild(sectionOption);
+          if (section.chapters && section.chapters.length > 0) {
+            section.chapters.forEach((chapter) => {
+              const chapterOption = new Option(`  ${chapter.chapter_order}. ${chapter.title}`, `chapter-${chapter.id}`);
+              chapterPositionSelect.appendChild(chapterOption);
+            });
+          }
+        });
+      }
       document.body.dataset.editorState = JSON.stringify(novelData.editor_state || null);
-      document.title = `Editing: ${novelData.title} - Novel Writer`;
+      document.title = `Novel Skriver - Editing: ${novelData.title}`;
     } catch (error) {
       console.error("Failed to load initial novel data:", error);
       document.body.innerHTML = `<p class="text-error p-8">Error: Could not load novel data. ${error.message}</p>`;
       return;
     }
-    const windowManager = new WindowManager(desktop, taskbar, novelId, viewport);
+    const windowManager = new WindowManager(desktop, taskbar, novelId, viewport, novelData);
     windowManager.initCanvas();
     windowManager.loadState();
     setupTopToolbar();
     setupCodexEntryHandler(desktop, windowManager);
     setupChapterHandler(desktop, windowManager);
+    setupPromptEditorHandler(desktop, windowManager);
     setupChapterEditor(desktop);
-    setupCodexContentEditor(desktop);
+    setupContentEditor(desktop);
     setupOpenWindowsMenu(windowManager);
     setupCanvasControls(windowManager);
+    setupChapterPovEditor(desktop);
+    const promptEditorModal = document.getElementById("prompt-editor-modal");
+    if (promptEditorModal) {
+      setupPromptEditor(promptEditorModal);
+    }
   });
 })();

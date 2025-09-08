@@ -1,4 +1,3 @@
-<!-- NEW: Template for a single codex entry window -->
 <div class="p-4 flex flex-col h-full codex-entry-window-content select-text js-codex-drop-zone transition-colors duration-300" data-entry-id="{{ENTRY_ID}}" data-entry-title="{{ENTRY_TITLE_ATTR}}">
 	<div class="flex-grow flex gap-4 overflow-hidden">
 		<div class="w-1/3 flex-shrink-0">
@@ -10,7 +9,6 @@
 				<button type="button" class="js-codex-generate-ai btn btn-sm btn-accent btn-block">Generate with AI</button>
 			</div>
 		</div>
-		<!-- MODIFIED: Text content is now in a single flex column, description removed -->
 		<div class="w-2/3 flex flex-col min-w-0">
 			<div class="flex-shrink-0 prose-sm dark:prose-invert max-w-none">
 				<input type="text" name="title" value="{{ENTRY_TITLE_ATTR}}" class="js-codex-title-input text-2xl font-bold w-full bg-transparent border-0 p-0 focus:ring-0 focus:border-b-2 focus:border-teal-500" placeholder="Codex Entry Title">
@@ -18,7 +16,6 @@
 			<div class="mt-4 flex-grow overflow-y-auto prose prose-sm dark:prose-invert max-w-none js-codex-editable relative" data-name="content" data-placeholder="Enter detailed content here..."></div>
 		</div>
 	</div>
-	<!-- MODIFIED: Hidden container for initial ProseMirror content no longer includes the description -->
 	<div class="js-pm-content hidden">
 		<div data-name="content">{{CONTENT_HTML}}</div>
 	</div>

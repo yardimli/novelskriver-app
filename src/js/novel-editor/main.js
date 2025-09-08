@@ -11,10 +11,11 @@ import {setupContentEditor} from './content-editor.js';
 import {setupTopToolbar} from './toolbar.js';
 import {setupPromptEditor} from './prompt-editor.js';
 import './codex-entry-editor.js'; // Import for side-effects (attaches event listeners)
-import './chapter-creation.js'; // NEW: Import for new chapter modal logic
+import './chapter-creation.js'; // Import for new chapter modal logic
+import { setupChapterPovEditor } from './chapter-pov-editor.js'; // Import for POV editor logic
 
 /**
- * MODIFIED: Populates the outline window template with novel data using templates.
+ * Populates the outline window template with novel data using templates.
  * @param {string} template - The raw HTML template string for the outline window.
  * @param {object} novelData - The full novel data object.
  * @returns {Promise<string>} - The populated HTML string.
@@ -27,7 +28,6 @@ async function populateOutlineTemplate(template, novelData) {
 	const sectionTemplateHtml = await window.api.getTemplate('outline-section');
 	const chapterTemplateHtml = await window.api.getTemplate('outline-chapter');
 	
-	// NEW: Helper function to strip HTML and truncate text to a word limit.
 	const stripHtmlAndTruncate = (html, wordLimit) => {
 		if (!html) return '';
 		const tempDiv = document.createElement('div');
@@ -43,7 +43,6 @@ async function populateOutlineTemplate(template, novelData) {
 	const sectionsHtml = novelData.sections.map(section => {
 		const chaptersHtml = section.chapters && section.chapters.length > 0
 			? section.chapters.map(chapter => {
-				// MODIFIED: Summary is now processed to be plain text and truncated.
 				const summaryText = stripHtmlAndTruncate(chapter.summary, 40);
 				const summaryHtml = summaryText ? `<p class="text-xs text-base-content/70 mt-1 font-normal normal-case">${summaryText}</p>` : '';
 				return chapterTemplateHtml
@@ -56,7 +55,7 @@ async function populateOutlineTemplate(template, novelData) {
 		
 		const descriptionHtml = section.description ? `<p class="text-sm italic text-base-content/70 mt-1">${section.description}</p>` : '';
 		return sectionTemplateHtml
-			.replace('{{SECTION_ID}}', section.id) // MODIFIED: Added section ID for DOM selection.
+			.replace('{{SECTION_ID}}', section.id)
 			.replace('{{SECTION_ORDER}}', section.section_order)
 			.replace('{{SECTION_TITLE}}', section.title)
 			.replace('{{SECTION_DESCRIPTION_HTML}}', descriptionHtml)
@@ -67,7 +66,7 @@ async function populateOutlineTemplate(template, novelData) {
 }
 
 /**
- * MODIFIED: Populates the codex window template with novel data using templates.
+ * Populates the codex window template with novel data using templates.
  * @param {string} template - The raw HTML template string for the codex window.
  * @param {object} novelData - The full novel data object.
  * @returns {Promise<string>} - The populated HTML string.
@@ -83,7 +82,6 @@ async function populateCodexTemplate(template, novelData) {
 	const categoriesHtml = novelData.codexCategories.map(category => {
 		const entriesHtml = category.entries && category.entries.length > 0
 			? category.entries.map(entry => {
-				// MODIFIED: Removed replacement for {{DESCRIPTION}} as it's no longer in the template.
 				return entryTemplateHtml
 					.replace(/{{ENTRY_ID}}/g, entry.id)
 					.replace(/{{ENTRY_TITLE}}/g, entry.title)
@@ -135,13 +133,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 	
 	document.body.dataset.novelId = novelId;
 	
-	let novelData; // MODIFIED: Declare novelData in a wider scope.
+	let novelData;
 	
 	try {
 		const outlineTemplateHtml = await window.api.getTemplate('outline-window');
 		const codexTemplateHtml = await window.api.getTemplate('codex-window');
 		
-		novelData = await window.api.getOneNovel(novelId); // MODIFIED: Assign to the wider scope variable.
+		novelData = await window.api.getOneNovel(novelId);
 		if (!novelData) throw new Error('Novel not found.');
 		
 		document.body.dataset.outlineContent = await populateOutlineTemplate(outlineTemplateHtml, novelData);
@@ -155,11 +153,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 			categorySelect.insertBefore(option, categorySelect.options[categorySelect.options.length - 1]);
 		});
 		
-		// NEW: Populate the "New Chapter" modal's position dropdown
+		// Populate the "New Chapter" modal's position dropdown
 		const chapterPositionSelect = document.getElementById('new-chapter-position');
 		if (chapterPositionSelect) {
 			novelData.sections.forEach(section => {
-				// MODIFIED: Changed option text to imply insertion at the beginning of the section.
 				const sectionOption = new Option(`${section.title}`, `section-${section.id}`);
 				sectionOption.classList.add('font-bold', 'text-indigo-500');
 				chapterPositionSelect.appendChild(sectionOption);
@@ -184,7 +181,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 		return;
 	}
 	
-	// MODIFIED: Pass the loaded novelData to the WindowManager constructor.
 	const windowManager = new WindowManager(desktop, taskbar, novelId, viewport, novelData);
 	
 	windowManager.initCanvas();
@@ -194,14 +190,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 	setupTopToolbar();
 	setupCodexEntryHandler(desktop, windowManager);
 	setupChapterHandler(desktop, windowManager);
-	setupPromptEditorHandler(desktop, windowManager); // MODIFIED: This now sets up the modal opener.
+	setupPromptEditorHandler(desktop, windowManager);
 	setupChapterEditor(desktop);
 	setupContentEditor(desktop);
 	setupOpenWindowsMenu(windowManager);
 	setupCanvasControls(windowManager);
+	setupChapterPovEditor(desktop);
 	
 	
-	// MODIFIED: Initialize the prompt editor modal which is now part of the main document.
+	// Initialize the prompt editor modal which is now part of the main document.
 	const promptEditorModal = document.getElementById('prompt-editor-modal');
 	if (promptEditorModal) {
 		setupPromptEditor(promptEditorModal);

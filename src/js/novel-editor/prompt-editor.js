@@ -1,5 +1,5 @@
 /**
- * NEW: Manages the AI Prompt Editor window.
+ * Manages the AI Prompt Editor window.
  * @param {HTMLElement} windowEl - The root element of the prompt editor window.
  */
 export function setupPromptEditor(windowEl) {
@@ -10,11 +10,9 @@ export function setupPromptEditor(windowEl) {
 	const form = contentEl.querySelector('.js-prompt-form');
 	const saveBtn = contentEl.querySelector('.js-save-prompt-btn');
 	const resetBtn = contentEl.querySelector('.js-reset-prompt-btn');
-	// NEW: Get the modal and the new close button
 	const modal = document.getElementById('prompt-editor-modal');
 	const closeBtn = windowEl.querySelector('.js-close-prompt-modal');
 	
-	// MODIFIED: Store the entire prompt object instead of just the ID.
 	let currentPrompt = null;
 	
 	const setButtonLoadingState = (button, isLoading) => {
@@ -143,7 +141,6 @@ export function setupPromptEditor(windowEl) {
 		}
 	});
 	
-	// NEW: Add event listener for the new close button.
 	if (closeBtn && modal) {
 		closeBtn.addEventListener('click', () => {
 			modal.close();

@@ -83,16 +83,13 @@
 			</form>
 		</div>
 	</div>
-	<!-- MODIFIED: Removed modal-backdrop form to prevent closing on outside click -->
 </dialog>
 
 <!-- Meta Settings Modal -->
 <dialog id="meta-settings-modal" class="modal">
-	<!-- MODIFIED: Increased max-width for two-column layout -->
 	<div class="modal-box w-11/12 max-w-4xl">
 		<h3 class="font-bold text-lg">Edit Novel Details</h3>
 		
-		<!-- MODIFIED: Added grid for two-column layout -->
 		<div class="grid grid-cols-1 md:grid-cols-2 gap-8 py-4">
 			<!-- Left Column: Details -->
 			<form id="meta-settings-form" class="space-y-4">
@@ -159,22 +156,17 @@
 			</form>
 		</div>
 	</div>
-	<!-- MODIFIED: Removed modal-backdrop form to prevent closing on outside click -->
 </dialog>
 
-<!-- NEW: Added a new modal for the AI cover generation flow -->
 <dialog id="generate-cover-modal" class="modal">
-	<!-- MODIFIED: Increased max-width for two-column layout -->
 	<div class="modal-box w-11/12 max-w-4xl">
 		<h3 class="font-bold text-lg">Generate AI Cover Art</h3>
 		
-		<!-- MODIFIED: Added grid for two-column layout -->
 		<div class="grid grid-cols-1 md:grid-cols-2 gap-8 py-4">
 			<!-- Left Column: Controls -->
 			<form id="generate-cover-form" class="space-y-4">
 				<div class="form-control">
 					<label for="generate-cover-prompt" class="label"><span class="label-text">Image Prompt</span></label>
-					<!-- MODIFIED: Increased textarea height for better layout balance -->
 					<textarea id="generate-cover-prompt" class="textarea textarea-bordered h-48" placeholder="A lone astronaut on a red planet..."></textarea>
 				</div>
 				

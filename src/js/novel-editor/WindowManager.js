@@ -2,13 +2,12 @@
  * Manages the creation, state, and interaction of windows in the novel editor desktop environment.
  */
 export default class WindowManager {
-	// MODIFIED: Constructor now accepts novelData to be used for arranging windows.
 	constructor(desktop, taskbar, novelId, viewport, novelData) {
 		this.desktop = desktop;
 		this.taskbar = taskbar;
 		this.novelId = novelId;
 		this.viewport = viewport;
-		this.novelData = novelData; // NEW: Store novel data.
+		this.novelData = novelData;
 		this.minimizedContainer = document.getElementById('minimized-windows-container');
 		this.windows = new Map();
 		this.activeWindow = null;
@@ -46,7 +45,6 @@ export default class WindowManager {
 		win.style.left = `${x}px`;
 		win.style.top = `${y}px`;
 		
-		// NEW: Add a double-click listener to the main window area.
 		// This resets zoom and centers the window, same as the title bar, unless an interactive element is clicked.
 		win.addEventListener('dblclick', (e) => {
 			// A list of selectors for elements that should not trigger the window-wide double-click action.
@@ -65,7 +63,6 @@ export default class WindowManager {
 		const titleBar = document.createElement('div');
 		titleBar.className = 'window-title-bar card-title flex items-center justify-between h-10 bg-base-200/70 px-3 cursor-move border-b border-base-300 flex-shrink-0';
 		
-		// MODIFIED: The window-wide double-click makes this redundant, but it's kept for discoverability.
 		titleBar.addEventListener('dblclick', () => {
 			this.zoomTo(1);
 			this.scrollIntoView(windowId);
@@ -157,7 +154,7 @@ export default class WindowManager {
 	}
 	
 	/**
-	 * NEW: Sets the interactive state of a window's content area.
+	 * Sets the interactive state of a window's content area.
 	 * @param {HTMLElement} windowElement The window element.
 	 * @param {boolean} isInteractive True to enable controls, false to disable.
 	 */
@@ -277,14 +274,12 @@ export default class WindowManager {
 		
 		this.isShiftPressed = isShiftPressed;
 		
-		// MODIFIED: Deactivate controls in the previously active window.
 		if (this.activeWindow && this.windows.has(this.activeWindow)) {
 			const oldWin = this.windows.get(this.activeWindow);
 			oldWin.element.classList.remove('active');
 			this._setWindowInteractive(oldWin.element, false);
 		}
 		
-		// MODIFIED: Activate controls in the new window.
 		win.element.style.zIndex = this.highestZIndex++;
 		win.element.classList.add('active');
 		this._setWindowInteractive(win.element, true);
@@ -401,7 +396,7 @@ export default class WindowManager {
 	}
 	
 	/**
-	 * MODIFIED: This method now includes logic to auto-pan the viewport when a window is dragged to the edge.
+	 * This method now includes logic to auto-pan the viewport when a window is dragged to the edge.
 	 * It uses requestAnimationFrame for smooth, continuous panning and a unified positioning logic
 	 * to keep the window attached to the cursor during both drag and pan operations.
 	 * @param {HTMLElement} win - The window element to make draggable.
@@ -671,7 +666,6 @@ export default class WindowManager {
 					} else if (state.id.startsWith('chapter-')) {
 						const chapterId = state.id.replace('chapter-', '');
 						content = await window.api.getChapterHtml(chapterId);
-						// MODIFIED: Removed logic for loading 'prompt-editor-window' as it is now a modal dialog.
 					}
 				} catch (e) {
 					console.error(`Error loading content for window ${state.id}:`, e);
@@ -903,7 +897,6 @@ export default class WindowManager {
 	
 	handlePanStart(event) {
 		if (event.target === this.desktop) {
-			// MODIFIED: Deactivate the active window when clicking the desktop.
 			if (this.activeWindow && this.windows.has(this.activeWindow)) {
 				const oldWin = this.windows.get(this.activeWindow);
 				oldWin.element.classList.remove('active');
@@ -1008,8 +1001,6 @@ export default class WindowManager {
 			}
 		});
 		this.selectedWindows.clear();
-		// MODIFIED: The active window is no longer cleared here; this is handled by the caller.
-		// this.activeWindow = null;
 		this.updateTaskbar();
 	}
 	
@@ -1044,7 +1035,6 @@ export default class WindowManager {
 		}
 	}
 	
-	// NEW: Method to arrange all open windows in a structured layout.
 	arrangeWindows() {
 		if (!this.novelData) {
 			console.error('Cannot arrange windows: novel data is not available.');

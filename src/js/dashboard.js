@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	const uploadCoverBtn = document.getElementById('upload-cover-btn');
 	const deleteNovelBtn = document.getElementById('delete-novel-btn');
 	
-	// NEW: AI Cover Generation Modal Elements
+	// AI Cover Generation Modal Elements
 	const genCoverModal = document.getElementById('generate-cover-modal');
 	const genCoverPrompt = document.getElementById('generate-cover-prompt');
 	const runGenCoverBtn = document.getElementById('run-generate-cover-btn');
@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	
 	let novelsData = [];
 	let seriesData = [];
-	let stagedCover = null; // NEW: To hold cover changes before saving
+	let stagedCover = null; // To hold cover changes before saving
 	
 	const languages = [
 		"English", "Spanish", "French", "German", "Mandarin Chinese", "Hindi", "Arabic", "Bengali", "Russian", "Portuguese", "Indonesian", "Urdu", "Japanese", "Swahili", "Marathi", "Telugu", "Turkish", "Korean", "Tamil", "Vietnamese", "Italian", "Javanese", "Thai", "Gujarati", "Polish", "Ukrainian", "Malayalam", "Kannada", "Oriya", "Burmese"
@@ -56,13 +56,13 @@ document.addEventListener('DOMContentLoaded', () => {
 	}
 	
 	function openMetaSettingsModal(novel) {
-		stagedCover = null; // NEW: Reset staged cover on modal open
+		stagedCover = null; // Reset staged cover on modal open
 		metaNovelIdInput.value = novel.id;
 		metaForm.querySelector('#meta-title').value = novel.title;
 		metaForm.querySelector('#meta-author').value = novel.author || '';
 		metaForm.querySelector('#meta-series-index').value = novel.order_in_series || '';
 		
-		// NEW: Set initial preview to the current cover or placeholder
+		// Set initial preview to the current cover or placeholder
 		const currentNovel = novelsData.find(n => n.id === novel.id);
 		if (currentNovel && currentNovel.cover_path) {
 			metaCoverPreview.innerHTML = `<img src="file://${currentNovel.cover_path}?t=${Date.now()}" alt="Current cover" class="w-full h-auto">`;
@@ -193,7 +193,6 @@ document.addEventListener('DOMContentLoaded', () => {
 			if (novelIndex !== -1) Object.assign(novelsData[novelIndex], data);
 			updateNovelCardUI(novelId);
 			
-			// NEW: If a cover was staged, save it now.
 			if (stagedCover) {
 				await window.api.updateNovelCover({ novelId, coverInfo: stagedCover });
 			}
@@ -205,7 +204,6 @@ document.addEventListener('DOMContentLoaded', () => {
 		}
 	});
 	
-	// MODIFIED: Generate cover button now opens the new AI modal.
 	generateCoverBtn.addEventListener('click', async () => {
 		const novelId = parseInt(metaNovelIdInput.value, 10);
 		genCoverPrompt.value = '';
@@ -228,7 +226,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	uploadCoverBtn.addEventListener('click', async () => {
 		const filePath = await window.api.showOpenImageDialog();
 		if (filePath) {
-			// NEW: Stage the file path instead of uploading immediately.
 			stagedCover = { type: 'local', data: filePath };
 			metaCoverPreview.innerHTML = `<img src="file://${filePath}" alt="Staged cover" class="w-full h-auto">`;
 		}
@@ -253,7 +250,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		}
 	});
 	
-	// --- NEW: Event Listeners for AI Cover Modal ---
+	// --- Event Listeners for AI Cover Modal ---
 	
 	runGenCoverBtn.addEventListener('click', async () => {
 		const prompt = genCoverPrompt.value.trim();
@@ -282,7 +279,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	acceptGenCoverBtn.addEventListener('click', () => {
 		const img = genCoverPreview.querySelector('img');
 		if (img && img.src) {
-			// NEW: Stage the remote URL for saving later.
+			// Stage the remote URL for saving later.
 			stagedCover = { type: 'remote', data: img.src };
 			metaCoverPreview.innerHTML = `<img src="${img.src}" alt="Staged cover" class="w-full h-auto">`;
 			genCoverModal.close();

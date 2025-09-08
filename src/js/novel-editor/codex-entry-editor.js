@@ -10,7 +10,7 @@
 function createElementFromHTML(htmlString) {
 	const div = document.createElement('div');
 	div.innerHTML = htmlString.trim();
-	// MODIFIED: Use firstElementChild to correctly handle templates that may start with comment nodes.
+	// Use firstElementChild to correctly handle templates that may start with comment nodes.
 	return div.firstElementChild;
 }
 
@@ -289,7 +289,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	
 	const newCodexModal = document.getElementById('new-codex-entry-modal');
 	const newCodexForm = document.getElementById('new-codex-entry-form');
-	// MODIFIED: Removed novelId from this scope to prevent race condition.
+	// Removed novelId from this scope to prevent race condition.
 	
 	document.body.addEventListener('click', (event) => {
 		if (event.target.closest('.js-open-new-codex-modal')) {
@@ -338,7 +338,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			delete data.image; // Remove the file object itself
 			
 			try {
-				// MODIFIED: Get novelId just-in-time from the body dataset to avoid race conditions.
+				// Get novelId just-in-time from the body dataset to avoid race conditions.
 				const novelId = document.body.dataset.novelId;
 				if (!novelId) {
 					throw new Error('Could not determine the Novel ID for this operation.');
@@ -418,7 +418,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		template = template.replace(/{{ENTRY_ID}}/g, entryData.id);
 		template = template.replace(/{{ENTRY_TITLE}}/g, entryData.title);
 		template = template.replace(/{{THUMBNAIL_URL}}/g, entryData.thumbnail_url);
-		// MODIFIED: Removed the description replacement as the field is gone.
+		// Removed the description replacement as the field is gone.
 		
 		const button = createElementFromHTML(template);
 		if (!button) return null;

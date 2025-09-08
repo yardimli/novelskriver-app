@@ -13,11 +13,9 @@ contextBridge.exposeInMainWorld('api', {
 	updateProseSettings: (data) => ipcRenderer.invoke('novels:updateProseSettings', data),
 	
 	updateNovelMeta: (data) => ipcRenderer.invoke('novels:updateMeta', data),
-	// MODIFIED: Replaced specific cover actions with a generic update handler and new AI helpers.
 	updateNovelCover: (data) => ipcRenderer.invoke('novels:updateCover', data),
 	deleteNovel: (novelId) => ipcRenderer.invoke('novels:delete', novelId),
 	
-	// NEW: Added API points for the new AI cover generation flow.
 	aiGenerateCoverPrompt: (novelId) => ipcRenderer.invoke('ai:generateCoverPrompt', novelId),
 	aiGenerateImageFromPrompt: (prompt) => ipcRenderer.invoke('ai:generateImageFromPrompt', prompt),
 	
@@ -43,6 +41,11 @@ contextBridge.exposeInMainWorld('api', {
 	
 	updateChapterContent: (chapterId, data) => ipcRenderer.invoke('chapters:updateContent', chapterId, data),
 	createChapter: (novelId, data) => ipcRenderer.invoke('chapters:store', novelId, data),
+	
+	// NEW: Chapter POV APIs
+	getPovDataForChapter: (chapterId) => ipcRenderer.invoke('chapters:getPovData', chapterId),
+	updateChapterPov: (data) => ipcRenderer.invoke('chapters:updatePov', data),
+	deleteChapterPovOverride: (chapterId) => ipcRenderer.invoke('chapters:deletePovOverride', chapterId),
 	
 	// Codex Entry Management
 	createCodexEntry: (novelId, formData) => ipcRenderer.invoke('codex-entries:store', novelId, formData),
@@ -72,8 +75,6 @@ contextBridge.exposeInMainWorld('api', {
 		};
 	},
 	getModels: () => ipcRenderer.invoke('ai:getModels'),
-	
-	// NEW: AI Prompt Template APIs
 	listPrompts: () => ipcRenderer.invoke('prompts:list'),
 	getPrompt: (promptId) => ipcRenderer.invoke('prompts:get', promptId),
 	savePrompt: (promptId, data) => ipcRenderer.invoke('prompts:save', promptId, data),

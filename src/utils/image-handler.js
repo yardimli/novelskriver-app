@@ -45,7 +45,7 @@ async function storeImageFromUrl(url, novelId, filenameBase) {
 }
 
 /**
- * MODIFIED: Copies an image from a local file path to the application's storage.
+ * Copies an image from a local file path to the application's storage.
  * This is used for user uploads. Now handles null codexEntryId for novel covers.
  * @param {string} sourcePath - The absolute path of the file to copy.
  * @param {string} novelId - The ID of the novel.
@@ -61,7 +61,7 @@ async function storeImageFromPath(sourcePath, novelId, codexEntryId, filenameBas
 		
 		const buffer = fs.readFileSync(sourcePath);
 		
-		// MODIFIED: Build target directory path conditionally.
+		// Build target directory path conditionally.
 		let targetDir = path.join(IMAGES_DIR, 'novels', String(novelId));
 		if (codexEntryId) {
 			targetDir = path.join(targetDir, String(codexEntryId));
@@ -76,7 +76,7 @@ async function storeImageFromPath(sourcePath, novelId, codexEntryId, filenameBas
 		
 		fs.writeFileSync(localPath, buffer);
 		
-		// MODIFIED: Build relative path for DB storage conditionally.
+		// Build relative path for DB storage conditionally.
 		let relativePath = path.join('novels', String(novelId));
 		if (codexEntryId) {
 			relativePath = path.join(relativePath, String(codexEntryId));

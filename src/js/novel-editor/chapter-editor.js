@@ -97,7 +97,7 @@ export function setupChapterEditor(desktop) {
 }
 
 /**
- * MODIFIED: Helper function to create the HTML for a new codex tag using a template.
+ * Helper function to create the HTML for a new codex tag using a template.
  * @param {string} chapterId
  * @param {object} codexEntry
  * @returns {Promise<HTMLElement>}
@@ -112,6 +112,5 @@ async function createCodexTagElement(chapterId, codexEntry) {
 	
 	const div = document.createElement('div');
 	div.innerHTML = template.trim();
-	// MODIFIED: Use firstElementChild to skip any comment nodes at the start of the template file.
 	return div.firstElementChild;
 }

@@ -73,7 +73,7 @@ async function callOpenRouter(payload) {
 }
 
 /**
- * NEW: A generic function to call the OpenRouter API with streaming.
+ * A generic function to call the OpenRouter API with streaming.
  * @param {object} payload - The request body for the OpenRouter API.
  * @param {function(string): void} onChunk - Callback function to handle each received text chunk.
  * @returns {Promise<void>} A promise that resolves when the stream is complete.
@@ -247,7 +247,6 @@ Ensure the entire output is a single, valid JSON object. Do not include any text
  * @returns {Promise<object>} The parsed JSON codex data.
  */
 async function generateNovelCodex({ outlineJson, language, model }) {
-	// MODIFIED: Prompt no longer asks for a 'description' field, only 'name' and 'content'.
 	const prompt = `
 You are a world-building assistant. Based on the provided novel outline, your task is to identify and create encyclopedia-style entries (a codex) for the key characters and locations.
 
@@ -308,7 +307,7 @@ Please provide only the modified text as your response. The output must be a sin
 }
 
 /**
- * NEW: Processes a text selection using an LLM with streaming for actions like rephrasing.
+ * Processes a text selection using an LLM with streaming for actions like rephrasing.
  * @param {object} params - The parameters for the text processing.
  * @param {string} params.text - The text to process.
  * @param {string} params.action - The action to perform ('expand', 'rephrase', 'shorten').
@@ -342,7 +341,7 @@ Please provide only the modified text as your response. Do not include any expla
 }
 
 /**
- * NEW: Fetches the list of available models from the OpenRouter API.
+ * Fetches the list of available models from the OpenRouter API.
  * Caches the result for 24 hours to a file in the user's app data directory.
  * @returns {Promise<object>} The raw model data from the API or cache.
  * @throws {Error} If the API call fails.
@@ -390,7 +389,7 @@ async function getOpenRouterModels() {
 }
 
 /**
- * NEW: Processes the raw models list from OpenRouter to create a view-friendly array.
+ * Processes the raw models list from OpenRouter to create a view-friendly array.
  * @param {object} modelsData The raw JSON response from getOpenRouterModels().
  * @returns {Array<object>} A sorted array of models ready for a dropdown.
  */
@@ -436,7 +435,7 @@ function processModelsForView(modelsData) {
 }
 
 /**
- * NEW: Suggests a title and category for a new codex entry based on selected text.
+ * Suggests a title and category for a new codex entry based on selected text.
  * @param {object} params - The parameters for generation.
  * @param {string} params.text - The selected text to analyze.
  * @param {Array<string>} params.categories - A list of existing category names to choose from.

@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	const newSeriesTitleInput = document.getElementById('new_series_title');
 	const newSeriesError = document.getElementById('new-series-error');
 	
-	// --- NEW: Helper function to manage button loading state ---
+	// --- Helper function to manage button loading state ---
 	/**
 	 * Toggles the loading state of a button.
 	 * @param {HTMLButtonElement} button The button element.

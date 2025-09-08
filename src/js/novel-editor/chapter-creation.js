@@ -118,7 +118,6 @@ document.addEventListener('DOMContentLoaded', () => {
 		if (placeholder) placeholder.remove();
 		
 		if (type === 'section') {
-			// MODIFIED: Insert at the beginning of the section's chapter list.
 			chaptersList.prepend(newChapterElement);
 		} else if (type === 'chapter') {
 			// Insert after the specified chapter

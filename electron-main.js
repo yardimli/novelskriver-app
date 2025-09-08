@@ -14,10 +14,9 @@ let db;
 let mainWindow;
 let editorWindows = new Map();
 
-// NEW: Directory for user-customizable prompts
 const PROMPTS_DIR = path.join(app.getPath('userData'), 'prompts');
 
-// --- NEW: Template and HTML Helper Functions ---
+// --- Template and HTML Helper Functions ---
 
 /**
  * Reads an HTML template file from the public/templates directory.
@@ -50,7 +49,7 @@ function escapeAttr(text) {
 }
 
 /**
- * NEW: Ensures prompt templates exist in the user's data directory, copying defaults if necessary.
+ * Ensures prompt templates exist in the user's data directory, copying defaults if necessary.
  */
 function initializePromptTemplates() {
 	const defaultsDir = path.join(__dirname, 'src', 'prompts', 'defaults');
@@ -530,7 +529,7 @@ function setupIpcHandlers() {
 						charCategory = {id: result.lastInsertRowid};
 					}
 					for (const charData of codexResponse.characters) {
-						// MODIFIED: Removed 'description' from the INSERT query.
+						// Removed 'description' from the INSERT query.
 						db.prepare('INSERT INTO codex_entries (novel_id, codex_category_id, title, content) VALUES (?, ?, ?, ?)')
 							.run(novelId, charCategory.id, charData.name, charData.content || null);
 					}
@@ -543,7 +542,7 @@ function setupIpcHandlers() {
 						locCategory = {id: result.lastInsertRowid};
 					}
 					for (const locData of codexResponse.locations) {
-						// MODIFIED: Removed 'description' from the INSERT query.
+						// Removed 'description' from the INSERT query.
 						db.prepare('INSERT INTO codex_entries (novel_id, codex_category_id, title, content) VALUES (?, ?, ?, ?)')
 							.run(novelId, locCategory.id, locData.name, locData.content || null);
 					}
@@ -573,7 +572,7 @@ function setupIpcHandlers() {
 		
 		const transaction = db.transaction(() => {
 			if (type === 'section') {
-				// MODIFIED: Logic to insert a chapter at the beginning of a section.
+				// Logic to insert a chapter at the beginning of a section.
 				sectionId = targetId;
 				newOrder = 1; // This will be the first chapter.
 				
@@ -624,17 +623,23 @@ function setupIpcHandlers() {
 	
 	ipcMain.handle('chapters:getOneHtml', (event, chapterId) => {
 		const chapter = db.prepare(`
-        SELECT
-            c.*,
-            s.title as section_title,
-            s.section_order as section_order
-        FROM
-            chapters c
-        LEFT JOIN
-            sections s ON c.section_id = s.id
-        WHERE
-            c.id = ?
-    `).get(chapterId);
+			SELECT
+				c.*,
+				s.title as section_title,
+				s.section_order as section_order,
+				n.prose_pov as novel_default_pov,
+				pov_char.title as pov_character_name
+			FROM
+				chapters c
+			LEFT JOIN
+				sections s ON c.section_id = s.id
+			LEFT JOIN
+				novels n ON c.novel_id = n.id
+			LEFT JOIN
+				codex_entries pov_char ON c.pov_character_id = pov_char.id
+			WHERE
+				c.id = ?
+		`).get(chapterId);
 		
 		if (!chapter) throw new Error('Chapter not found');
 		
@@ -665,6 +670,27 @@ function setupIpcHandlers() {
 		
 		const sectionInfoHtml = chapter.section_order ? `<h3 class="text-sm font-semibold uppercase tracking-wider text-indigo-500 dark:text-indigo-400">${chapter.section_order}. ${escapeAttr(chapter.section_title)} &ndash; Chapter ${chapter.chapter_order}</h3>` : '';
 		
+		// NEW: Prepare POV display data.
+		const povDisplayMap = {
+			'first_person': '1st Person',
+			'second_person': '2nd Person',
+			'third_person': '3rd Person',
+			'third_person_limited': '3rd Person (Limited)',
+			'third_person_omniscient': '3rd Person (Omniscient)',
+		};
+		
+		const povType = chapter.pov || chapter.novel_default_pov;
+		const povTypeDisplay = povDisplayMap[povType] || 'Not Set';
+		const povCharacterHtml = chapter.pov_character_name ? ` &ndash; <span class="italic">${escapeAttr(chapter.pov_character_name)}</span>` : '';
+		const povSourceText = chapter.pov ? 'This chapter has a custom POV.' : ""; // "Using novel's default POV setting.";
+		
+		const povDisplayTemplate = getTemplate('chapter-pov-display');
+		const povSettingsHtml = povDisplayTemplate
+			.replace('{{POV_TYPE_DISPLAY}}', povTypeDisplay)
+			.replace('{{POV_CHARACTER_HTML}}', povCharacterHtml)
+			.replace('{{POV_SOURCE_TEXT}}', povSourceText)
+			.replace('{{CHAPTER_ID}}', chapter.id);
+		
 		let template = getTemplate('chapter-window');
 		template = template.replace('{{CHAPTER_ID}}', chapter.id);
 		template = template.replace('{{SECTION_INFO_HTML}}', sectionInfoHtml);
@@ -673,19 +699,93 @@ function setupIpcHandlers() {
 		// REMOVED: The content placeholder is no longer in the template.
 		template = template.replace('{{TAGS_WRAPPER_HIDDEN}}', chapter.codexEntries.length === 0 ? 'hidden' : '');
 		template = template.replace('{{CODEX_TAGS_HTML}}', codexTagsHtml);
+		template = template.replace('{{POV_SETTINGS_HTML}}', povSettingsHtml); // NEW: Add POV HTML.
 		
 		return template;
 	});
 	
 	ipcMain.handle('chapters:updateContent', (event, chapterId, data) => {
 		try {
-			// MODIFIED: The SQL query no longer updates the 'content' field.
+			// The SQL query no longer updates the 'content' field.
 			db.prepare('UPDATE chapters SET title = ?, summary = ? WHERE id = ?')
 				.run(data.title, data.summary, chapterId);
 			return {success: true, message: 'Chapter content updated.'};
 		} catch (error) {
 			console.error(`Failed to update chapter ${chapterId}:`, error);
 			return {success: false, message: 'Failed to save chapter content.'};
+		}
+	});
+	
+	// NEW: IPC handler to get data needed for the POV modal.
+	ipcMain.handle('chapters:getPovData', (event, chapterId) => {
+		const chapter = db.prepare('SELECT novel_id, pov, pov_character_id FROM chapters WHERE id = ?').get(chapterId);
+		if (!chapter) throw new Error('Chapter not found.');
+		
+		const novel = db.prepare('SELECT prose_pov FROM novels WHERE id = ?').get(chapter.novel_id);
+		
+		// Find the 'Characters' category ID, case-insensitively.
+		const charactersCategory = db.prepare(`
+            SELECT id FROM codex_categories
+            WHERE novel_id = ? AND lower(name) = 'characters'
+        `).get(chapter.novel_id);
+		
+		let characters = [];
+		if (charactersCategory) {
+			characters = db.prepare(`
+                SELECT id, title FROM codex_entries
+                WHERE codex_category_id = ? ORDER BY title
+            `).all(charactersCategory.id);
+		}
+		
+		return {
+			currentPov: chapter.pov || novel.prose_pov,
+			currentCharacterId: chapter.pov_character_id,
+			isOverride: !!chapter.pov,
+			characters: characters
+		};
+	});
+	
+	// NEW: IPC handler to update a chapter's POV settings.
+	ipcMain.handle('chapters:updatePov', (event, {chapterId, pov, pov_character_id}) => {
+		try {
+			db.prepare('UPDATE chapters SET pov = ?, pov_character_id = ? WHERE id = ?')
+				.run(pov, pov_character_id || null, chapterId);
+			
+			// Fetch the updated display info to send back to the renderer for UI updates.
+			const updatedChapter = db.prepare(`
+                SELECT c.pov, pov_char.title as pov_character_name, n.prose_pov as novel_default_pov
+                FROM chapters c
+                LEFT JOIN novels n ON c.novel_id = n.id
+                LEFT JOIN codex_entries pov_char ON c.pov_character_id = pov_char.id
+                WHERE c.id = ?
+            `).get(chapterId);
+			
+			return {success: true, updatedChapter};
+		} catch (error) {
+			console.error('Failed to update chapter POV:', error);
+			return {success: false, message: error.message};
+		}
+	});
+	
+	// NEW: IPC handler to delete a chapter's POV override.
+	ipcMain.handle('chapters:deletePovOverride', (event, chapterId) => {
+		try {
+			db.prepare('UPDATE chapters SET pov = NULL, pov_character_id = NULL WHERE id = ?')
+				.run(chapterId);
+			
+			// Fetch the updated display info to send back.
+			const updatedChapter = db.prepare(`
+                SELECT c.pov, pov_char.title as pov_character_name, n.prose_pov as novel_default_pov
+                FROM chapters c
+                LEFT JOIN novels n ON c.novel_id = n.id
+                LEFT JOIN codex_entries pov_char ON c.pov_character_id = pov_char.id
+                WHERE c.id = ?
+            `).get(chapterId);
+			
+			return {success: true, updatedChapter};
+		} catch (error) {
+			console.error('Failed to delete chapter POV override:', error);
+			return {success: false, message: error.message};
 		}
 	});
 	
@@ -786,7 +886,6 @@ function setupIpcHandlers() {
 		template = template.replace(/{{ENTRY_ID}}/g, codexEntry.id);
 		template = template.replace(/{{ENTRY_TITLE_ATTR}}/g, escapeAttr(codexEntry.title));
 		template = template.replace('{{IMAGE_URL}}', escapeAttr(codexEntry.image_url));
-		// MODIFIED: Removed description replacement.
 		template = template.replace('{{CONTENT_HTML}}', codexEntry.content || '');
 		template = template.replace('{{LINKED_TAGS_WRAPPER_HIDDEN}}', codexEntry.linkedEntries.length === 0 ? 'hidden' : '');
 		template = template.replace('{{LINKED_TAGS_HTML}}', linkedTagsHtml);
@@ -915,7 +1014,6 @@ function setupIpcHandlers() {
 	});
 	
 	ipcMain.handle('codex-entries:update', (event, entryId, data) => {
-		// MODIFIED: UPDATE statement no longer includes 'description'.
 		db.prepare('UPDATE codex_entries SET title = ?, content = ? WHERE id = ?')
 			.run(data.title, data.content, entryId);
 		return {success: true, message: 'Codex entry updated successfully.'};
@@ -1049,7 +1147,7 @@ function setupIpcHandlers() {
 		return null;
 	});
 	
-	// --- NEW: AI Prompt Template Handlers ---
+	// --- AI Prompt Template Handlers ---
 	
 	ipcMain.handle('prompts:list', async () => {
 		try {

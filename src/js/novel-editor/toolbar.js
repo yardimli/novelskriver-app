@@ -22,8 +22,8 @@ function isNodeActive(state, type) {
 	return false;
 }
 
-// MODIFIED: Opens and populates the "New Codex Entry" modal, now with AI suggestions.
-async function handleCreateCodexFromSelection() { // MODIFIED: Make function async
+// Opens and populates the "New Codex Entry" modal, now with AI suggestions.
+async function handleCreateCodexFromSelection() {
 	if (!activeEditorView) return;
 	const { state } = activeEditorView;
 	if (state.selection.empty) return;
@@ -59,7 +59,7 @@ async function handleCreateCodexFromSelection() { // MODIFIED: Make function asy
 	
 	modal.showModal();
 	
-	// NEW: AI-powered suggestion logic
+	// AI-powered suggestion logic
 	if (spinner) spinner.classList.remove('hidden');
 	try {
 		const novelId = document.body.dataset.novelId;
@@ -110,7 +110,6 @@ export function updateToolbarState(view) {
 			switch (cmd) {
 				case 'undo': btn.disabled = !undo(state); return;
 				case 'redo': btn.disabled = !redo(state); return;
-				// NEW: Enable/disable the "Create Codex" button based on text selection.
 				case 'create_codex':
 					btn.disabled = empty;
 					return;
@@ -239,7 +238,7 @@ function applyHighlight(color) {
 	activeEditorView.dispatch(tr);
 }
 
-// --- NEW: AI Action Review Workflow ---
+// --- AI Action Review Workflow ---
 
 /**
  * Toggles the editable state of the active ProseMirror editor.
@@ -530,7 +529,6 @@ async function handleToolbarAction(button) {
 			undo(activeEditorView.state, activeEditorView.dispatch);
 		} else if (command === 'redo') {
 			redo(activeEditorView.state, activeEditorView.dispatch);
-			// NEW: Handle the "Create Codex" button click.
 		} else if (command === 'create_codex') {
 			await handleCreateCodexFromSelection();
 		} else {
@@ -560,7 +558,7 @@ function closeAllDropdowns() {
 }
 
 /**
- * NEW: Fetches AI models and populates the dropdowns in the toolbar.
+ * Fetches AI models and populates the dropdowns in the toolbar.
  */
 async function populateModelDropdowns() {
 	const selects = toolbar.querySelectorAll('.js-llm-model-select');

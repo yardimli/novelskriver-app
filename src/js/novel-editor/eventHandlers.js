@@ -36,7 +36,7 @@ export function setupCodexEntryHandler(desktop, windowManager) {
 				throw new Error('Failed to load codex entry details.');
 			}
 			
-			// MODIFIED: Calculate position relative to the main codex window for better layout.
+			// Calculate position relative to the main codex window for better layout.
 			let offsetX = 850;
 			let offsetY = 120;
 			const codexWin = windowManager.windows.get('codex-window');
@@ -98,7 +98,7 @@ export function setupCodexEntryHandler(desktop, windowManager) {
 
 /**
  * Sets up the event listener for opening chapter windows.
- * MODIFIED: This now uses a double-click event.
+ * This now uses a double-click event.
  * @param {HTMLElement} desktop - The main desktop element to attach the listener to.
  * @param {WindowManager} windowManager - The window manager instance.
  */
@@ -130,7 +130,7 @@ export function setupChapterHandler(desktop, windowManager) {
 				throw new Error('Failed to load chapter details.');
 			}
 			
-			// MODIFIED: Calculate position relative to the outline window for better layout.
+			// Calculate position relative to the outline window for better layout.
 			let offsetX = 100;
 			let offsetY = 300;
 			const outlineWin = windowManager.windows.get('outline-window');
@@ -244,13 +244,12 @@ export function setupCanvasControls(windowManager) {
 	const zoomOutBtn = document.getElementById('zoom-out-btn');
 	const zoom100Btn = document.getElementById('zoom-100-btn');
 	const zoomFitBtn = document.getElementById('zoom-fit-btn');
-	const arrangeBtn = document.getElementById('arrange-windows-btn'); // NEW: Get the arrange button.
+	const arrangeBtn = document.getElementById('arrange-windows-btn');
 	
 	if (zoomInBtn) zoomInBtn.addEventListener('click', () => windowManager.zoomIn());
 	if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => windowManager.zoomOut());
 	if (zoom100Btn) zoom100Btn.addEventListener('click', () => windowManager.zoomTo(1));
 	if (zoomFitBtn) zoomFitBtn.addEventListener('click', () => windowManager.fitToView());
-	// NEW: Add event listener for the arrange button.
 	if (arrangeBtn) arrangeBtn.addEventListener('click', () => windowManager.arrangeWindows());
 }
 

@@ -131,10 +131,7 @@ async function saveWindowContent(windowContent) {
 		if (!instances) return;
 		
 		const titleInput = windowContent.querySelector('.js-codex-title-input');
-		// MODIFIED: Removed description serialization.
 		const content = serializeDocToHtml(instances.contentView);
-		
-		// MODIFIED: Removed description from the saved data object.
 		const data = { title: titleInput.value, content };
 		
 		try {
@@ -151,13 +148,9 @@ async function saveWindowContent(windowContent) {
 		
 		const titleInput = windowContent.querySelector('.js-chapter-title-input');
 		const summary = serializeDocToHtml(instances.summaryView);
-		// REMOVED: Content serialization is no longer needed for chapters.
-		
-		// MODIFIED: The data object now only contains title and summary.
 		const data = { title: titleInput.value, summary };
 		
 		try {
-			// MODIFIED: The backend API call now sends the simplified data object.
 			const response = await window.api.updateChapterContent(chapterId, data);
 			if (!response.success) throw new Error(response.message || 'Failed to save chapter.');
 		} catch (error) {
@@ -252,30 +245,20 @@ function initEditorsForWindow(windowContent) {
 	if (isCodex) {
 		const titleInput = windowContent.querySelector('.js-codex-title-input');
 		titleInput.addEventListener('input', () => triggerDebouncedSave(windowContent));
-		
-		// MODIFIED: Removed description editor initialization.
 		const contentMount = windowContent.querySelector('.js-codex-editable[data-name="content"]');
-		
 		if (!contentMount) return;
 		
 		const contentView = createEditor(contentMount, false);
 		
-		// MODIFIED: Storing only the content view for codex entries.
 		editorInstances.set(key, { contentView });
 	} else if (isChapter) {
 		const titleInput = windowContent.querySelector('.js-chapter-title-input');
 		titleInput.addEventListener('input', () => triggerDebouncedSave(windowContent));
 		
 		const summaryMount = windowContent.querySelector('.js-editable[data-name="summary"]');
-		// REMOVED: The content editor mount point is no longer looked for.
-		
-		// MODIFIED: Check only for the summary mount point.
 		if (!summaryMount) return;
-		
 		const summaryView = createEditor(summaryMount, false);
-		// REMOVED: The content editor view is no longer created.
 		
-		// MODIFIED: Only the summary view is stored for the chapter.
 		editorInstances.set(key, { summaryView });
 	}
 }
