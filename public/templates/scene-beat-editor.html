@@ -1,0 +1,72 @@
+<div class="p-6">
+	<form id="scene-beat-editor-form" class="space-y-6">
+		<div class="flex justify-between items-center">
+			<p class="text-sm text-base-content/70">
+				Use this form to see how the "Scene Beat" prompt is built.
+				<br>
+				This tool generates the next part of a scene.
+			</p>
+			<button type="button" class="js-reset-btn btn btn-error btn-sm">Reset to Default</button>
+		</div>
+		
+		<!-- Word Count -->
+		<div>
+			<label for="scene-beat-words" class="label"><span class="label-text text-lg font-semibold">Target Word Count</span></label>
+			<input type="number" id="scene-beat-words" name="words" class="input input-bordered w-full" value="250" step="50">
+			<p class="text-xs text-base-content/60 mt-1">Set a target for how many words the AI should generate.</p>
+		</div>
+		
+		<!-- Instructions -->
+		<div>
+			<label for="scene-beat-instructions" class="label"><span class="label-text text-lg font-semibold">Scene Beat Instructions</span></label>
+			<textarea id="scene-beat-instructions" name="instructions" class="textarea textarea-bordered w-full h-36 font-mono text-sm" placeholder="e.g., Sarah confronts Mark about the missing document. He denies everything, but his nervous gestures give him away."></textarea>
+			<p class="text-xs text-base-content/60 mt-1">Describe what should happen next in the scene.</p>
+		</div>
+		
+		<!-- Context Options -->
+		<div class="space-y-2">
+			<h3 class="text-lg font-semibold">Contextual Information</h3>
+			<p class="text-xs text-base-content/60 mb-2">These settings control what extra information is sent to the AI.</p>
+			<div class="form-control">
+				<label class="label cursor-pointer justify-start gap-4">
+					<input type="checkbox" name="use_codex" checked class="checkbox"/>
+					<span class="label-text">Use Codex Entries</span>
+					<span class="tooltip tooltip-right" data-tip="Provides relevant character, location, and lore information."><i class="bi bi-info-circle"></i></span>
+				</label>
+			</div>
+			<div class="form-control">
+				<label class="label cursor-pointer justify-start gap-4">
+					<input type="checkbox" name="use_story_so_far" checked class="checkbox"/>
+					<span class="label-text">Use Story So Far</span>
+					<span class="tooltip tooltip-right" data-tip="Provides summaries of previous scenes to the AI."><i class="bi bi-info-circle"></i></span>
+				</label>
+			</div>
+		</div>
+	</form>
+	
+	<div class="divider my-8"></div>
+	
+	<!-- Live Preview Section -->
+	<div>
+		<h2 class="text-xl font-bold">Live Prompt Preview</h2>
+		<p class="text-sm text-base-content/70 mb-4">This is the final prompt that will be sent to the AI, based on your settings above.</p>
+		
+		<!-- System Prompt Preview -->
+		<div>
+			<h3 class="text-lg font-semibold mt-4 font-mono text-success">System Prompt</h3>
+			<pre class="bg-base-200 p-4 rounded-md text-xs whitespace-pre-wrap font-mono"><code class="js-preview-system"></code></pre>
+		</div>
+		
+		<!-- User Prompt Preview -->
+		<div>
+			<h3 class="text-lg font-semibold mt-4 font-mono text-info">User Prompt</h3>
+			<pre class="bg-base-200 p-4 rounded-md text-xs whitespace-pre-wrap font-mono"><code class="js-preview-user"></code></pre>
+		</div>
+		
+		<!-- AI Prefix Preview -->
+		<div>
+			<h3 class="text-lg font-semibold mt-4 font-mono text-warning">AI Response Prefix</h3>
+			<pre class="bg-base-200 p-4 rounded-md text-xs whitespace-pre-wrap font-mono"><code class="js-preview-ai"></code></pre>
+		</div>
+	</div>
+</div>

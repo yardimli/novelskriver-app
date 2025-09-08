@@ -75,11 +75,10 @@ contextBridge.exposeInMainWorld('api', {
 		};
 	},
 	getModels: () => ipcRenderer.invoke('ai:getModels'),
-	openPromptEditor: () => ipcRenderer.send('prompts:openEditor'), // NEW: Expose the function to open the editor window
+	openPromptEditor: () => ipcRenderer.send('prompts:openEditor'),
+	// MODIFIED: Prompts are now built client-side, removing file-based operations.
 	listPrompts: () => ipcRenderer.invoke('prompts:list'),
-	getPrompt: (promptId) => ipcRenderer.invoke('prompts:get', promptId),
-	savePrompt: (promptId, data) => ipcRenderer.invoke('prompts:save', promptId, data),
-	resetPrompt: (promptId) => ipcRenderer.invoke('prompts:reset', promptId),
+	// REMOVED: getPrompt, savePrompt, and resetPrompt are no longer needed.
 	
 	generateCodexImage: (entryId, prompt) => ipcRenderer.invoke('codex-entries:generate-image', entryId, prompt),
 	uploadCodexImage: (entryId, filePath) => ipcRenderer.invoke('codex-entries:upload-image', entryId, filePath),

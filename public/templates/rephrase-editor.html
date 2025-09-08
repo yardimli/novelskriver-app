@@ -1,0 +1,72 @@
+<div class="p-6">
+	<form id="rephrase-editor-form" class="space-y-6">
+		<div class="flex justify-between items-center">
+			<p class="text-sm text-base-content/70">
+				Use this form to see how the "Rephrase" prompt is built.
+				<br>
+				The final prompt is generated based on your selections below.
+			</p>
+			<button type="button" class="js-reset-btn btn btn-error btn-sm">Reset to Default</button>
+		</div>
+		
+		<!-- Instructions -->
+		<div>
+			<label for="rephrase-instructions" class="label"><span class="label-text text-lg font-semibold">Instructions</span></label>
+			<textarea id="rephrase-instructions" name="instructions" class="textarea textarea-bordered w-full h-24 font-mono text-sm" placeholder="e.g., Make the tone more formal."></textarea>
+			<p class="text-xs text-base-content/60 mt-1">Provide the main instructions for rephrasing the text.</p>
+		</div>
+		
+		<!-- Context Options -->
+		<div class="space-y-2">
+			<h3 class="text-lg font-semibold">Contextual Information</h3>
+			<p class="text-xs text-base-content/60 mb-2">These settings control what extra information is sent to the AI. It's recommended to keep them enabled for better results.</p>
+			<div class="form-control">
+				<label class="label cursor-pointer justify-start gap-4">
+					<input type="checkbox" name="use_codex" checked class="checkbox"/>
+					<span class="label-text">Use Codex Entries</span>
+					<span class="tooltip tooltip-right" data-tip="Provides the AI with relevant character, location, and lore information."><i class="bi bi-info-circle"></i></span>
+				</label>
+			</div>
+			<div class="form-control">
+				<label class="label cursor-pointer justify-start gap-4">
+					<input type="checkbox" name="use_surrounding_text" checked class="checkbox"/>
+					<span class="label-text">Use Surrounding Text</span>
+					<span class="tooltip tooltip-right" data-tip="Provides the AI with the text immediately before and after the selection for context."><i class="bi bi-info-circle"></i></span>
+				</label>
+			</div>
+			<div class="form-control">
+				<label class="label cursor-pointer justify-start gap-4">
+					<input type="checkbox" name="use_pov" checked class="checkbox"/>
+					<span class="label-text">Use Point of View (POV)</span>
+					<span class="tooltip tooltip-right" data-tip="Tells the AI the current point of view (e.g., 1st Person, 3rd Person Limited)."><i class="bi bi-info-circle"></i></span>
+				</label>
+			</div>
+		</div>
+	</form>
+	
+	<div class="divider my-8"></div>
+	
+	<!-- Live Preview Section -->
+	<div>
+		<h2 class="text-xl font-bold">Live Prompt Preview</h2>
+		<p class="text-sm text-base-content/70 mb-4">This is the final prompt that will be sent to the AI, based on your settings above.</p>
+		
+		<!-- System Prompt Preview -->
+		<div>
+			<h3 class="text-lg font-semibold mt-4 font-mono text-success">System Prompt</h3>
+			<pre class="bg-base-200 p-4 rounded-md text-xs whitespace-pre-wrap font-mono"><code class="js-preview-system"></code></pre>
+		</div>
+		
+		<!-- User Prompt Preview -->
+		<div>
+			<h3 class="text-lg font-semibold mt-4 font-mono text-info">User Prompt</h3>
+			<pre class="bg-base-200 p-4 rounded-md text-xs whitespace-pre-wrap font-mono"><code class="js-preview-user"></code></pre>
+		</div>
+		
+		<!-- AI Prefix Preview -->
+		<div>
+			<h3 class="text-lg font-semibold mt-4 font-mono text-warning">AI Response Prefix</h3>
+			<pre class="bg-base-200 p-4 rounded-md text-xs whitespace-pre-wrap font-mono"><code class="js-preview-ai">(Empty)</code></pre>
+		</div>
+	</div>
+</div>

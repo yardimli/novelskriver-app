@@ -13,9 +13,10 @@ const imageHandler = require('./src/utils/image-handler.js');
 let db;
 let mainWindow;
 let editorWindows = new Map();
-let promptEditorWindow = null; // MODIFIED: Add a variable to track the prompt editor window
+let promptEditorWindow = null;
 
-const PROMPTS_DIR = path.join(app.getPath('userData'), 'prompts');
+// MODIFIED: PROMPTS_DIR is no longer needed as prompts are not stored as user-editable files.
+// const PROMPTS_DIR = path.join(app.getPath('userData'), 'prompts');
 
 // --- Template and HTML Helper Functions ---
 
@@ -49,29 +50,10 @@ function escapeAttr(text) {
 		.replace(/'/g, '&#039;');
 }
 
-/**
- * Ensures prompt templates exist in the user's data directory, copying defaults if necessary.
- */
-function initializePromptTemplates() {
-	const defaultsDir = path.join(__dirname, 'src', 'prompts', 'defaults');
-	
-	if (!fs.existsSync(PROMPTS_DIR)) {
-		fs.mkdirSync(PROMPTS_DIR, {recursive: true});
-	}
-	
-	try {
-		const defaultFiles = fs.readdirSync(defaultsDir);
-		for (const file of defaultFiles) {
-			const sourcePath = path.join(defaultsDir, file);
-			const destPath = path.join(PROMPTS_DIR, file);
-			if (!fs.existsSync(destPath)) {
-				fs.copyFileSync(sourcePath, destPath);
-			}
-		}
-	} catch (error) {
-		console.error('Failed to initialize prompt templates:', error);
-	}
-}
+// REMOVED: This function is no longer needed as prompts are not file-based.
+/*
+function initializePromptTemplates() { ... }
+*/
 
 // --- Window Creation Functions ---
 
@@ -228,7 +210,7 @@ function createEditorWindow(novelId) {
 }
 
 /**
- * NEW: Creates the AI Prompt Editor window. Manages a single instance.
+ * Creates the AI Prompt Editor window. Manages a single instance.
  */
 function createPromptEditorWindow() {
 	if (promptEditorWindow) {
@@ -237,8 +219,10 @@ function createPromptEditorWindow() {
 	}
 	
 	promptEditorWindow = new BrowserWindow({
-		width: 900,
-		height: 700,
+		width: 1000, // MODIFIED: Increased width for better layout
+		height: 800, // MODIFIED: Increased height for better layout
+		minWidth: 800,
+		minHeight: 600,
 		icon: path.join(__dirname, 'assets/icon.png'),
 		title: 'AI Prompt Editor',
 		autoHideMenuBar: true,
@@ -253,8 +237,7 @@ function createPromptEditorWindow() {
 		callback({
 			responseHeaders: {
 				...details.responseHeaders,
-				// MODIFIED: Added img-src directive to allow data URIs for loading spinners.
-				'Content-Security-Policy': ["default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"]
+				'Content-Security-Policy': ["default-src 'self'; script-src 'self' 'unsafe-inline'; img-src 'self' data:;"]
 			}
 		});
 	});
@@ -1191,74 +1174,36 @@ function setupIpcHandlers() {
 	
 	// --- AI Prompt Template Handlers ---
 	
-	// NEW: IPC handler to open the dedicated prompt editor window.
 	ipcMain.on('prompts:openEditor', () => {
 		createPromptEditorWindow();
 	});
 	
+	// MODIFIED: This handler now returns a static, hardcoded list of prompts.
 	ipcMain.handle('prompts:list', async () => {
-		try {
-			const files = fs.readdirSync(PROMPTS_DIR).filter(f => f.endsWith('.json'));
-			const prompts = files.map(file => {
-				const content = fs.readFileSync(path.join(PROMPTS_DIR, file), 'utf-8');
-				const data = JSON.parse(content);
-				return {id: path.basename(file, '.json'), name: data.name};
-			});
-			return prompts.sort((a, b) => a.name.localeCompare(b.name));
-		} catch (error) {
-			console.error('Failed to list prompts:', error);
-			throw new Error('Could not load prompt templates.');
-		}
+		// The prompts are now built-in features, not user-editable files.
+		return [
+			{ id: 'expand', name: 'Expand' },
+			{ id: 'rephrase', name: 'Rephrase' },
+			{ id: 'shorten', name: 'Shorten' },
+			{ id: 'scene-beat', name: 'Scene Beat' },
+			{ id: 'scene-summarization', name: 'Scene Summarization' }
+		].sort((a, b) => a.name.localeCompare(b.name));
 	});
 	
-	ipcMain.handle('prompts:get', async (event, promptId) => {
-		try {
-			const filePath = path.join(PROMPTS_DIR, `${promptId}.json`);
-			const content = fs.readFileSync(filePath, 'utf-8');
-			return JSON.parse(content);
-		} catch (error) {
-			console.error(`Failed to get prompt ${promptId}:`, error);
-			throw new Error(`Could not load prompt: ${promptId}.`);
-		}
-	});
-	
-	ipcMain.handle('prompts:save', async (event, promptId, data) => {
-		try {
-			const filePath = path.join(PROMPTS_DIR, `${promptId}.json`);
-			fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
-			return {success: true};
-		} catch (error) {
-			console.error(`Failed to save prompt ${promptId}:`, error);
-			throw new Error(`Could not save prompt: ${promptId}.`);
-		}
-	});
-	
-	ipcMain.handle('prompts:reset', async (event, promptId) => {
-		try {
-			const defaultsDir = path.join(__dirname, 'src', 'prompts', 'defaults');
-			const sourcePath = path.join(defaultsDir, `${promptId}.json`);
-			const destPath = path.join(PROMPTS_DIR, `${promptId}.json`);
-			
-			if (fs.existsSync(sourcePath)) {
-				fs.copyFileSync(sourcePath, destPath);
-				const content = fs.readFileSync(destPath, 'utf-8');
-				return {success: true, data: JSON.parse(content)};
-			} else {
-				throw new Error('Default prompt file not found.');
-			}
-		} catch (error) {
-			console.error(`Failed to reset prompt ${promptId}:`, error);
-			throw new Error(`Could not reset prompt: ${promptId}.`);
-		}
-	});
-	
+	// REMOVED: The following handlers are no longer necessary because prompt templates
+	// are no longer stored as user-editable JSON files. The logic is now built
+	// into the client-side JavaScript for each prompt builder.
+	// ipcMain.handle('prompts:get', ...);
+	// ipcMain.handle('prompts:save', ...);
+	// ipcMain.handle('prompts:reset', ...);
 	
 }
 
 // --- App Lifecycle Events ---
 app.on('ready', () => {
 	db = initializeDatabase();
-	initializePromptTemplates();
+	// REMOVED: No longer need to initialize prompt templates from files.
+	// initializePromptTemplates();
 	setupIpcHandlers();
 	createMainWindow();
 });
