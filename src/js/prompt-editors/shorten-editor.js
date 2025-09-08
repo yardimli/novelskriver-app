@@ -49,7 +49,7 @@ const updateLengthPreviews = (container, wordCount) => {
 
 // MODIFIED: Builds the final prompt JSON based on form data and editor context.
 const buildPromptJson = (formData, context) => {
-	const { selectedText, wordCount } = context;
+	const { selectedText, wordCount, allCodexEntries } = context; // MODIFIED: Destructure allCodexEntries.
 	
 	let lengthInstruction = '';
 	// MODIFIED: Use actual word count for a more accurate preview.
@@ -81,18 +81,33 @@ ${formData.instructions}
 ` : ''}
 Only return the condensed text, nothing else.`;
 	
-	const useCodex = formData.selectedCodexIds.length > 0;
+	// NEW: Build the codex block for the preview.
+	let codexBlock = '';
+	if (formData.selectedCodexIds && formData.selectedCodexIds.length > 0) {
+		const selectedEntries = allCodexEntries.filter(entry => formData.selectedCodexIds.includes(String(entry.id)));
+		if (selectedEntries.length > 0) {
+			const codexContent = selectedEntries.map(entry => {
+				// Strip HTML from content for a cleaner preview.
+				const tempDiv = document.createElement('div');
+				tempDiv.innerHTML = entry.content || '';
+				const plainContent = tempDiv.textContent || tempDiv.innerText || '';
+				return `Title: ${entry.title}\nContent: ${plainContent.trim()}`;
+			}).join('\n\n');
+			
+			codexBlock = `Take into account the following glossary of characters/locations/items/lore... when writing your response:
+<codex>
+${codexContent}
+</codex>
+
+`;
+		}
+	}
+	
 	const truncatedText = selectedText.length > 300 ? selectedText.substring(0, 300) + '...' : selectedText;
 	
-	// NEW: Added codex block to user prompt.
-	const user = `${useCodex ? `{#if codex.context}
-Take into account the following glossary of characters/locations/items/lore... when writing your response:
-<codex>
-{codex.context}
-</codex>
-{#endif}
+	const user = `${codexBlock}
 
-` : ''}${formData.use_pov ? `{pov}\n\n` : ''}${formData.use_surrounding_text ? `{#if either(hasTextAfter, hasTextBefore)}
+${formData.use_pov ? `{pov}\n\n` : ''}${formData.use_surrounding_text ? `{#if either(hasTextAfter, hasTextBefore)}
  For contextual information, refer to surrounding words in the scene, DO NOT REPEAT THEM:
  {#if hasTextBefore}
  <textBefore>
@@ -126,7 +141,8 @@ const updatePreview = (container, context) => {
 	const formData = {
 		shorten_length: form.elements.shorten_length.value,
 		instructions: form.elements.instructions.value.trim(),
-		selectedCodexIds: Array.from(form.elements.codex_entry).filter(cb => cb.checked).map(cb => cb.value),
+		// MODIFIED: Handle cases where no codex entries exist.
+		selectedCodexIds: form.elements.codex_entry ? Array.from(form.elements.codex_entry).filter(cb => cb.checked).map(cb => cb.value) : [],
 		use_surrounding_text: form.elements.use_surrounding_text.checked,
 		use_pov: form.elements.use_pov.checked,
 	};

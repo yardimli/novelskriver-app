@@ -37,7 +37,7 @@ const renderCodexList = (container, context) => {
 
 // MODIFIED: Builds the final prompt JSON based on form data and editor context.
 const buildPromptJson = (formData, context) => {
-	const { selectedText } = context;
+	const { selectedText, allCodexEntries } = context; // MODIFIED: Destructure allCodexEntries.
 	
 	const system = `You are an expert novel summarizer.
 Whenever you're given text, summarize it into a concise, condensed version.
@@ -74,25 +74,42 @@ ${formData.instructions}
 </instructions>
 ` : ''}`;
 	
-	const useCodex = formData.selectedCodexIds.length > 0;
+	// NEW: Build the codex block for the preview.
+	let codexBlock = '';
+	if (formData.selectedCodexIds && formData.selectedCodexIds.length > 0) {
+		const selectedEntries = allCodexEntries.filter(entry => formData.selectedCodexIds.includes(String(entry.id)));
+		if (selectedEntries.length > 0) {
+			const codexContent = selectedEntries.map(entry => {
+				// Strip HTML from content for a cleaner preview.
+				const tempDiv = document.createElement('div');
+				tempDiv.innerHTML = entry.content || '';
+				const plainContent = tempDiv.textContent || tempDiv.innerText || '';
+				return `Title: ${entry.title}\nContent: ${plainContent.trim()}`;
+			}).join('\n\n');
+			
+			codexBlock = `Take into account the following glossary of characters/locations/items/lore... when writing your response:
+<codex>
+${codexContent}
+</codex>
+
+`;
+		}
+	}
+	
 	const truncatedText = selectedText.length > 300 ? selectedText.substring(0, 300) + '...' : selectedText;
 	
-	// NEW: Added codex block to user prompt.
-	const user = `${useCodex ? `{#if codex.context}
-Take into account the following glossary of characters/locations/items/lore... when writing your response:
-<codex>
-{codex.context}
-</codex>
-{#endif}
+	const user = `${codexBlock}
 
-` : ''}${formData.use_pov ? `{! Give a hint about the POV, if specified !}
+${formData.use_pov ? `{! Give a hint about the POV, if specified !}
 {#if pov}
  <scenePointOfView>
  This scene is written in {pov.type} point of view{ifs(pov.character, " from the perspective of " + pov.character)}.
  </scenePointOfView>
 {#endif}
 
-` : ''}{! Make sure that we don't get something like 'I walked...' !}
+` : ''}
+
+{! Make sure that we don't get something like 'I walked...' !}
 Write the summary in third person, and use present tense.
 
 Text to summarize:
@@ -115,7 +132,8 @@ const updatePreview = (container, context) => {
 	const formData = {
 		words: form.elements.words.value,
 		instructions: form.elements.instructions.value.trim(),
-		selectedCodexIds: Array.from(form.elements.codex_entry).filter(cb => cb.checked).map(cb => cb.value),
+		// MODIFIED: Handle cases where no codex entries exist.
+		selectedCodexIds: form.elements.codex_entry ? Array.from(form.elements.codex_entry).filter(cb => cb.checked).map(cb => cb.value) : [],
 		use_pov: form.elements.use_pov.checked,
 	};
 	

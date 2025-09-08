@@ -37,6 +37,8 @@ const renderCodexList = (container, context) => {
 
 // MODIFIED: Builds the final prompt JSON based on form data and editor context.
 const buildPromptJson = (formData, context) => {
+	const { allCodexEntries } = context; // MODIFIED: Destructure allCodexEntries.
+	
 	const system = `You are an expert fiction writer.
 
 Always keep the following rules in mind:
@@ -58,16 +60,30 @@ When writing text:
 - AVOID imagining possible endings, NEVER deviate from the instructions.
 - STOP EARLY if the continuation contains what was required in the instructions. You do not need to fill out the full amount of words possible.`;
 	
-	const useCodex = formData.selectedCodexIds.length > 0;
-	
-	const user = `${useCodex ? `{#if codex.context}
-Take into account the following glossary of characters/locations/items/lore... when writing your response:
+	// NEW: Build the codex block for the preview.
+	let codexBlock = '';
+	if (formData.selectedCodexIds && formData.selectedCodexIds.length > 0) {
+		const selectedEntries = allCodexEntries.filter(entry => formData.selectedCodexIds.includes(String(entry.id)));
+		if (selectedEntries.length > 0) {
+			const codexContent = selectedEntries.map(entry => {
+				// Strip HTML from content for a cleaner preview.
+				const tempDiv = document.createElement('div');
+				tempDiv.innerHTML = entry.content || '';
+				const plainContent = tempDiv.textContent || tempDiv.innerText || '';
+				return `Title: ${entry.title}\nContent: ${plainContent.trim()}`;
+			}).join('\n\n');
+			
+			codexBlock = `Take into account the following glossary of characters/locations/items/lore... when writing your response:
 <codex>
-{codex.context}
+${codexContent}
 </codex>
-{#endif}
 
-` : ''}${formData.use_story_so_far ? `{! Include all scene summaries up until, but excluding, this scene !}
+`;
+		}
+	}
+	
+	const user = `${codexBlock}
+	${formData.use_story_so_far ? `{! Include all scene summaries up until, but excluding, this scene !}
 {#if storySoFar}
  The story so far:
  {storySoFar}
@@ -75,7 +91,7 @@ Take into account the following glossary of characters/locations/items/lore... w
 
 ` : ''}`;
 	
-	const ai = `{! This message has been set to "AI", so it can mimic your writing style because it thinks it wrote this. !}
+	const ai = `
 
 {! If no text is before this beat, include text from the previous scene, but only if told from the same character. This helps with matching your writing style across scenes. !}
 {#if and(
@@ -97,16 +113,7 @@ Write ${formData.words || 250} words that continue the story, using the followin
  ${formData.instructions || 'Continue the story.'}
 </instructions>
 
-{! We don't want to include codex entries twice in the additional context !}
-{! As such, we store this in the local context and use it here !}
-{local('context', without(input("Additional Context"), codex.context))}
-
-{#if local('context')}
-Here is some additional information to help you with your answer:
-<additionalContext>
-{asXml(local('context'))}
-</additionalContext>
-{#endif}`;
+`;
 	
 	return {
 		system: system.replace(/\n\n\n/g, '\n\n'),
@@ -123,7 +130,8 @@ const updatePreview = (container, context) => {
 	const formData = {
 		words: form.elements.words.value,
 		instructions: form.elements.instructions.value.trim(),
-		selectedCodexIds: Array.from(form.elements.codex_entry).filter(cb => cb.checked).map(cb => cb.value),
+		// MODIFIED: Handle cases where no codex entries exist.
+		selectedCodexIds: form.elements.codex_entry ? Array.from(form.elements.codex_entry).filter(cb => cb.checked).map(cb => cb.value) : [],
 		use_story_so_far: form.elements.use_story_so_far.checked,
 	};
 	

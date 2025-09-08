@@ -927,7 +927,8 @@ function setupIpcHandlers() {
 	// NEW: Get all codex entries for a novel, used by the prompt editor.
 	ipcMain.handle('codex:getAllForNovel', (event, novelId) => {
 		try {
-			return db.prepare('SELECT id, title FROM codex_entries WHERE novel_id = ? ORDER BY title ASC').all(novelId);
+			// MODIFIED: Also select the 'content' field for the prompt builder.
+			return db.prepare('SELECT id, title, content FROM codex_entries WHERE novel_id = ? ORDER BY title ASC').all(novelId);
 		} catch (error) {
 			console.error('Failed to get all codex entries for novel:', error);
 			return [];
