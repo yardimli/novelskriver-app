@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	const metaForm = document.getElementById('meta-settings-form');
 	const metaNovelIdInput = document.getElementById('meta-novel-id');
 	const metaSeriesSelect = document.getElementById('meta-series-id');
-	const metaCoverPreview = document.getElementById('meta-cover-preview'); // NEW
+	const metaCoverPreview = document.getElementById('meta-cover-preview');
 	const saveMetaBtn = document.getElementById('save-meta-settings-btn');
 	const generateCoverBtn = document.getElementById('generate-cover-btn');
 	const uploadCoverBtn = document.getElementById('upload-cover-btn');
@@ -151,9 +151,9 @@ document.addEventListener('DOMContentLoaded', () => {
 		});
 	}
 	
-	// --- Event Listeners for Modals ---
+	// --- Event Listeners ---
 	
-	// MODIFIED: Add listener for the new prompt editor window button
+	// MODIFIED: Add listener for the prompt editor window button
 	if (openPromptsBtn) {
 		openPromptsBtn.addEventListener('click', () => {
 			window.api.openPromptEditor();

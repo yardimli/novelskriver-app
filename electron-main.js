@@ -253,7 +253,8 @@ function createPromptEditorWindow() {
 		callback({
 			responseHeaders: {
 				...details.responseHeaders,
-				'Content-Security-Policy': ["default-src 'self'; style-src 'self' 'unsafe-inline';"]
+				// MODIFIED: Added img-src directive to allow data URIs for loading spinners.
+				'Content-Security-Policy': ["default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"]
 			}
 		});
 	});

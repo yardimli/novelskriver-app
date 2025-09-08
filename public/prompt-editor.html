@@ -3,7 +3,8 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';">
+	<meta http-equiv="Content-Security-Policy"
+	      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;">
 	<title>AI Prompt Editor</title>
 	<link rel="stylesheet" href="../node_modules/bootstrap-icons/font/bootstrap-icons.css">
 	<link rel="stylesheet" href="../dist/styles.css">
@@ -31,36 +32,49 @@
 			<p class="text-base-content/60">Select a prompt from the list to edit.</p>
 		</div>
 		
-		<!-- Editor Form -->
-		<div class="js-prompt-editor-pane hidden flex-grow flex flex-col">
-			<form class="js-prompt-form flex-grow flex flex-col overflow-hidden">
+		<!-- MODIFIED: The form is now the primary container for the editor pane -->
+		<!-- This simplifies the flexbox structure and fixes the scrolling issue. -->
+		<div class="js-prompt-editor-pane hidden flex-grow flex flex-col min-h-0">
+			<form class="js-prompt-form flex-grow flex flex-col overflow-hidden min-h-0">
 				<div class="p-4 border-b border-base-300 flex-shrink-0">
 					<h3 class="js-prompt-title text-lg font-bold">Editing Prompt</h3>
 				</div>
 				
-				<div class="flex-grow overflow-y-auto p-6 space-y-6">
+				<!-- Scrollable content -->
+				<div class="flex-grow overflow-y-auto p-6 space-y-6 min-h-0">
 					<!-- System Prompt -->
 					<div>
 						<label for="prompt-system" class="label"><span class="label-text text-lg font-semibold">System Prompt</span></label>
-						<textarea id="prompt-system" name="system" class="js-autosize textarea textarea-bordered w-full h-24 font-mono text-sm" placeholder="e.g., You are a helpful assistant for a novelist..."></textarea>
-						<p class="text-xs text-base-content/60 mt-1">Instructions that define the AI's personality, context, and rules.</p>
+						<textarea id="prompt-system" name="system"
+						          class="js-autosize textarea textarea-bordered w-full h-24 font-mono text-sm"
+						          placeholder="e.g., You are a helpful assistant for a novelist..."></textarea>
+						<p class="text-xs text-base-content/60 mt-1">Instructions that define the AI's personality, context, and
+							rules.</p>
 					</div>
 					
 					<!-- User Prompt -->
 					<div>
-						<label for="prompt-user" class="label"><span class="label-text text-lg font-semibold">User Prompt</span></label>
-						<textarea id="prompt-user" name="user" class="js-autosize textarea textarea-bordered w-full h-24 font-mono text-sm" placeholder="e.g., Based on the following text..."></textarea>
-						<p class="text-xs text-base-content/60 mt-1">The main instruction or question from the user. Use placeholders like {{TEXT}}.</p>
+						<label for="prompt-user" class="label"><span
+							class="label-text text-lg font-semibold">User Prompt</span></label>
+						<textarea id="prompt-user" name="user"
+						          class="js-autosize textarea textarea-bordered w-full h-24 font-mono text-sm"
+						          placeholder="e.g., Based on the following text..."></textarea>
+						<p class="text-xs text-base-content/60 mt-1">The main instruction or question from the user. Use
+							placeholders like {{TEXT}}.</p>
 					</div>
 					
 					<!-- AI Response Prefix -->
 					<div>
 						<label for="prompt-ai" class="label"><span class="label-text text-lg font-semibold">AI Response Prefix (Optional)</span></label>
-						<textarea id="prompt-ai" name="ai" class="js-autosize textarea textarea-bordered w-full h-24 font-mono text-sm" placeholder="e.g., Here is the rephrased version..."></textarea>
-						<p class="text-xs text-base-content/60 mt-1">Text to prime the AI's response, forcing it to start a certain way.</p>
+						<textarea id="prompt-ai" name="ai"
+						          class="js-autosize textarea textarea-bordered w-full h-24 font-mono text-sm"
+						          placeholder="e.g., Here is the rephrased version..."></textarea>
+						<p class="text-xs text-base-content/60 mt-1">Text to prime the AI's response, forcing it to start a certain
+							way.</p>
 					</div>
 				</div>
 				
+				<!-- Footer -->
 				<div class="p-4 bg-base-200 border-t border-base-300 flex justify-between items-center flex-shrink-0">
 					<button type="button" class="js-reset-prompt-btn btn btn-error btn-sm">Reset to Default</button>
 					<button type="button" class="js-save-prompt-btn btn btn-primary w-28">
@@ -69,11 +83,10 @@
 					</button>
 				</div>
 			</form>
-		</div>
 	</main>
 </div>
 
 
-<script src="../dist/prompt-editor-bundle.js"></script>
+<script src="../src/js/prompt-editor.js"></script>
 </body>
 </html>
