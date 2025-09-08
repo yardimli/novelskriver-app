@@ -3,10 +3,42 @@
 const defaultState = {
 	words: 100,
 	instructions: '',
+	// NEW: Added selectedCodexIds to default state.
+	selectedCodexIds: [],
 	use_pov: true,
 };
 
-const buildPromptJson = (formData) => {
+// NEW: Renders the list of codex entries as checkboxes.
+const renderCodexList = (container, context) => {
+	const codexContainer = container.querySelector('.js-codex-selection-container');
+	if (!codexContainer) return;
+	
+	const { allCodexEntries, linkedCodexEntryIds } = context;
+	
+	if (!allCodexEntries || allCodexEntries.length === 0) {
+		codexContainer.innerHTML = '<p class="text-sm text-base-content/60">No codex entries found for this novel.</p>';
+		return;
+	}
+	
+	const listHtml = allCodexEntries.map(entry => {
+		const isChecked = linkedCodexEntryIds.includes(entry.id);
+		return `
+            <div class="form-control">
+                <label class="label cursor-pointer justify-start gap-4 py-1">
+                    <input type="checkbox" name="codex_entry" value="${entry.id}" ${isChecked ? 'checked' : ''} class="checkbox checkbox-sm" />
+                    <span class="label-text">${entry.title}</span>
+                </label>
+            </div>
+        `;
+	}).join('');
+	
+	codexContainer.innerHTML = `<h4 class="label-text font-semibold mb-1">Use Codex Entries</h4>${listHtml}`;
+};
+
+// MODIFIED: Builds the final prompt JSON based on form data and editor context.
+const buildPromptJson = (formData, context) => {
+	const { selectedText } = context;
+	
 	const system = `You are an expert novel summarizer.
 Whenever you're given text, summarize it into a concise, condensed version.
 
@@ -42,7 +74,18 @@ ${formData.instructions}
 </instructions>
 ` : ''}`;
 	
-	const user = `${formData.use_pov ? `{! Give a hint about the POV, if specified !}
+	const useCodex = formData.selectedCodexIds.length > 0;
+	const truncatedText = selectedText.length > 300 ? selectedText.substring(0, 300) + '...' : selectedText;
+	
+	// NEW: Added codex block to user prompt.
+	const user = `${useCodex ? `{#if codex.context}
+Take into account the following glossary of characters/locations/items/lore... when writing your response:
+<codex>
+{codex.context}
+</codex>
+{#endif}
+
+` : ''}${formData.use_pov ? `{! Give a hint about the POV, if specified !}
 {#if pov}
  <scenePointOfView>
  This scene is written in {pov.type} point of view{ifs(pov.character, " from the perspective of " + pov.character)}.
@@ -54,7 +97,7 @@ Write the summary in third person, and use present tense.
 
 Text to summarize:
 <scene>
-{removeWhitespace(scene.fullText)}
+${selectedText ? truncatedText : '{removeWhitespace(scene.fullText)}'}
 </scene>`;
 	
 	return {
@@ -64,13 +107,15 @@ Text to summarize:
 	};
 };
 
-const updatePreview = (container) => {
+// MODIFIED: Updates the live preview area in the UI using context.
+const updatePreview = (container, context) => {
 	const form = container.querySelector('#scene-summarization-editor-form');
 	if (!form) return;
 	
 	const formData = {
 		words: form.elements.words.value,
 		instructions: form.elements.instructions.value.trim(),
+		selectedCodexIds: Array.from(form.elements.codex_entry).filter(cb => cb.checked).map(cb => cb.value),
 		use_pov: form.elements.use_pov.checked,
 	};
 	
@@ -81,7 +126,7 @@ const updatePreview = (container) => {
 	if (!systemPreview || !userPreview || !aiPreview) return;
 	
 	try {
-		const promptJson = buildPromptJson(formData);
+		const promptJson = buildPromptJson(formData, context);
 		systemPreview.textContent = promptJson.system;
 		userPreview.textContent = promptJson.user;
 		aiPreview.textContent = promptJson.ai || '(Empty)';
@@ -92,39 +137,48 @@ const updatePreview = (container) => {
 	}
 };
 
+// MODIFIED: Populates the form with a given state.
 const populateForm = (container, state) => {
 	const form = container.querySelector('#scene-summarization-editor-form');
 	if (!form) return;
 	
 	form.elements.words.value = state.words;
 	form.elements.instructions.value = state.instructions;
+	// Note: Codex checkboxes are populated by renderCodexList, not here.
 	form.elements.use_pov.checked = state.use_pov;
 };
 
-export const init = async (container) => {
+// MODIFIED: Main initialization function now accepts context.
+export const init = async (container, context) => {
 	try {
 		const templateHtml = await window.api.getTemplate('scene-summarization-editor');
 		container.innerHTML = templateHtml;
 		
+		const wordCount = context.selectedText ? context.selectedText.trim().split(/\s+/).filter(Boolean).length : 0;
+		const fullContext = { ...context, wordCount };
+		
 		populateForm(container, defaultState);
+		renderCodexList(container, fullContext);
 		
 		const form = container.querySelector('#scene-summarization-editor-form');
 		const resetButton = container.querySelector('.js-reset-btn');
 		
 		if (form) {
-			form.addEventListener('input', () => updatePreview(container));
+			form.addEventListener('input', () => updatePreview(container, fullContext));
 		}
 		
 		if (resetButton) {
 			resetButton.addEventListener('click', () => {
 				if (confirm('Are you sure you want to reset the form to its default settings?')) {
 					populateForm(container, defaultState);
-					updatePreview(container);
+					// Uncheck all codex entries on reset
+					container.querySelectorAll('input[name="codex_entry"]').forEach(cb => cb.checked = false);
+					updatePreview(container, fullContext);
 				}
 			});
 		}
 		
-		updatePreview(container);
+		updatePreview(container, fullContext);
 	} catch (error) {
 		container.innerHTML = `<p class="p-4 text-error">Could not load editor form.</p>`;
 		console.error(error);

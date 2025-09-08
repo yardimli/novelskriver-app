@@ -5,13 +5,55 @@ const defaultState = {
 	focus: 'generic',
 	expand_length: 'default',
 	instructions: '',
-	use_codex: true,
+	// MODIFIED: use_codex is no longer a single boolean.
+	selectedCodexIds: [],
 	use_surrounding_text: true,
 	use_pov: true,
 };
 
-// Builds the final prompt JSON based on form data.
-const buildPromptJson = (formData) => {
+// NEW: Renders the list of codex entries as checkboxes.
+const renderCodexList = (container, context) => {
+	const codexContainer = container.querySelector('.js-codex-selection-container');
+	if (!codexContainer) return;
+	
+	const { allCodexEntries, linkedCodexEntryIds } = context;
+	
+	if (!allCodexEntries || allCodexEntries.length === 0) {
+		codexContainer.innerHTML = '<p class="text-sm text-base-content/60">No codex entries found for this novel.</p>';
+		return;
+	}
+	
+	const listHtml = allCodexEntries.map(entry => {
+		const isChecked = linkedCodexEntryIds.includes(entry.id);
+		return `
+            <div class="form-control">
+                <label class="label cursor-pointer justify-start gap-4 py-1">
+                    <input type="checkbox" name="codex_entry" value="${entry.id}" ${isChecked ? 'checked' : ''} class="checkbox checkbox-sm" />
+                    <span class="label-text">${entry.title}</span>
+                </label>
+            </div>
+        `;
+	}).join('');
+	
+	codexContainer.innerHTML = `<h4 class="label-text font-semibold mb-1">Use Codex Entries</h4>${listHtml}`;
+};
+
+// NEW: Updates the word count previews in the length dropdown.
+const updateLengthPreviews = (container, wordCount) => {
+	if (wordCount === 0) return;
+	
+	const doubleOption = container.querySelector('select[name="expand_length"] option[value="double"] span');
+	const tripleOption = container.querySelector('select[name="expand_length"] option[value="triple"] span');
+	
+	if (doubleOption) doubleOption.textContent = `(approx. ${wordCount * 2} words)`;
+	if (tripleOption) tripleOption.textContent = `(approx. ${wordCount * 3} words)`;
+};
+
+
+// MODIFIED: Builds the final prompt JSON based on form data and editor context.
+const buildPromptJson = (formData, context) => {
+	const { selectedText, wordCount } = context;
+	
 	// Build Instructions Block
 	let instructionsBlock = '';
 	const mainInstruction = {
@@ -30,9 +72,10 @@ const buildPromptJson = (formData) => {
 	// Build Length Block
 	let lengthBlock = '';
 	if (formData.expand_length !== 'default') {
+		// MODIFIED: Use the actual word count for a more accurate preview.
 		const lengthInstruction = {
-			'double': `Double the length of the given prose. Your current word target is {multiply(wordCount(message), 2)} words.`,
-			'triple': `Triple the length of the given prose. Your current word target is {multiply(wordCount(message), 3)} words.`
+			'double': `Double the length of the given prose. Your current word target is ${wordCount * 2} words.`,
+			'triple': `Triple the length of the given prose. Your current word target is ${wordCount * 3} words.`
 		}[formData.expand_length];
 		lengthBlock = `\n\n<targetWordCount>\n ${lengthInstruction}\n</targetWordCount>`;
 	}
@@ -54,7 +97,11 @@ If needed, split the expanded text into more paragraphs (add new ones as needed)
 
 Only return the expanded text, nothing else.`;
 	
-	const user = `${formData.use_codex ? `{#if codex.context}
+	// MODIFIED: Use selectedCodexIds to determine if the codex block should be included.
+	const useCodex = formData.selectedCodexIds.length > 0;
+	const truncatedText = selectedText.length > 300 ? selectedText.substring(0, 300) + '...' : selectedText;
+	
+	const user = `${useCodex ? `{#if codex.context}
 Take into account the following glossary of characters/locations/items/lore... when writing your response:
 <codex>
 {codex.context}
@@ -87,8 +134,8 @@ ${formData.use_pov ? `{pov}\n\n` : ''}${formData.use_surrounding_text ? `{#if ei
 {#endif}
 
 ` : ''}Text to rewrite:
-<text words="{wordCount(message)}">
-{message}
+<text words="${wordCount}">
+${wordCount > 0 ? truncatedText : '{message}'}
 </text>`;
 	
 	return {
@@ -98,8 +145,8 @@ ${formData.use_pov ? `{pov}\n\n` : ''}${formData.use_surrounding_text ? `{#if ei
 	};
 };
 
-// Updates the live preview area in the UI.
-const updatePreview = (container) => {
+// MODIFIED: Updates the live preview area in the UI using context.
+const updatePreview = (container, context) => {
 	const form = container.querySelector('#expand-editor-form');
 	if (!form) return;
 	
@@ -107,7 +154,7 @@ const updatePreview = (container) => {
 		focus: form.elements.focus.value,
 		expand_length: form.elements.expand_length.value,
 		instructions: form.elements.instructions.value.trim(),
-		use_codex: form.elements.use_codex.checked,
+		selectedCodexIds: Array.from(form.elements.codex_entry).filter(cb => cb.checked).map(cb => cb.value),
 		use_surrounding_text: form.elements.use_surrounding_text.checked,
 		use_pov: form.elements.use_pov.checked,
 	};
@@ -119,7 +166,7 @@ const updatePreview = (container) => {
 	if (!systemPreview || !userPreview || !aiPreview) return;
 	
 	try {
-		const promptJson = buildPromptJson(formData);
+		const promptJson = buildPromptJson(formData, context);
 		systemPreview.textContent = promptJson.system;
 		userPreview.textContent = promptJson.user;
 		aiPreview.textContent = promptJson.ai || '(Empty)';
@@ -130,46 +177,51 @@ const updatePreview = (container) => {
 	}
 };
 
-// Populates the form with a given state.
+// MODIFIED: Populates the form with a given state.
 const populateForm = (container, state) => {
 	const form = container.querySelector('#expand-editor-form');
 	if (!form) return;
 	
 	form.elements.focus.value = state.focus;
-	// MODIFIED: Use bracket notation here as well to prevent the error.
-	console.log(state);
 	form.elements.expand_length.value = state.expand_length;
 	form.elements.instructions.value = state.instructions;
-	form.elements.use_codex.checked = state.use_codex;
+	// Note: Codex checkboxes are populated by renderCodexList, not here.
 	form.elements.use_surrounding_text.checked = state.use_surrounding_text;
 	form.elements.use_pov.checked = state.use_pov;
 };
 
-// Main initialization function for this editor.
-export const init = async (container) => {
+// MODIFIED: Main initialization function now accepts context.
+export const init = async (container, context) => {
 	try {
 		const templateHtml = await window.api.getTemplate('expand-editor');
 		container.innerHTML = templateHtml;
 		
+		const wordCount = context.selectedText ? context.selectedText.trim().split(/\s+/).filter(Boolean).length : 0;
+		const fullContext = { ...context, wordCount };
+		
 		populateForm(container, defaultState);
+		renderCodexList(container, fullContext);
+		updateLengthPreviews(container, wordCount);
 		
 		const form = container.querySelector('#expand-editor-form');
 		const resetButton = container.querySelector('.js-reset-expand-btn');
 		
 		if (form) {
-			form.addEventListener('input', () => updatePreview(container));
+			form.addEventListener('input', () => updatePreview(container, fullContext));
 		}
 		
 		if (resetButton) {
 			resetButton.addEventListener('click', () => {
 				if (confirm('Are you sure you want to reset the form to its default settings?')) {
 					populateForm(container, defaultState);
-					updatePreview(container);
+					// Uncheck all codex entries on reset
+					container.querySelectorAll('input[name="codex_entry"]').forEach(cb => cb.checked = false);
+					updatePreview(container, fullContext);
 				}
 			});
 		}
 		
-		updatePreview(container);
+		updatePreview(container, fullContext);
 	} catch (error) {
 		container.innerHTML = `<p class="p-4 text-error">Could not load editor form.</p>`;
 		console.error(error);

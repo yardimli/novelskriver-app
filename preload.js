@@ -46,11 +46,15 @@ contextBridge.exposeInMainWorld('api', {
 	getPovDataForChapter: (chapterId) => ipcRenderer.invoke('chapters:getPovData', chapterId),
 	updateChapterPov: (data) => ipcRenderer.invoke('chapters:updatePov', data),
 	deleteChapterPovOverride: (chapterId) => ipcRenderer.invoke('chapters:deletePovOverride', chapterId),
+	// NEW: API to get linked codex entry IDs for a chapter.
+	getLinkedCodexIdsForChapter: (chapterId) => ipcRenderer.invoke('chapters:getLinkedCodexIds', chapterId),
 	
 	// Codex Entry Management
 	createCodexEntry: (novelId, formData) => ipcRenderer.invoke('codex-entries:store', novelId, formData),
 	suggestCodexDetails: (novelId, text) => ipcRenderer.invoke('codex-entries:suggest-details', { novelId, text }), // NEW
 	updateCodexEntry: (entryId, data) => ipcRenderer.invoke('codex-entries:update', entryId, data),
+	// NEW: API to get all codex entries for a novel.
+	getAllCodexEntriesForNovel: (novelId) => ipcRenderer.invoke('codex:getAllForNovel', novelId),
 	
 	// Codex <-> Codex Linking
 	attachCodexToCodex: (parentEntryId, linkedEntryId) => ipcRenderer.invoke('codex-entries:link:attach', parentEntryId, linkedEntryId),
@@ -75,10 +79,11 @@ contextBridge.exposeInMainWorld('api', {
 		};
 	},
 	getModels: () => ipcRenderer.invoke('ai:getModels'),
-	openPromptEditor: () => ipcRenderer.send('prompts:openEditor'),
-	// MODIFIED: Prompts are now built client-side, removing file-based operations.
+	// MODIFIED: openPromptEditor now sends context to the main process.
+	openPromptEditor: (context) => ipcRenderer.send('prompts:openEditor', context),
+	// NEW: API for the prompt editor window to retrieve its context.
+	getPromptContext: () => ipcRenderer.invoke('prompts:getContext'),
 	listPrompts: () => ipcRenderer.invoke('prompts:list'),
-	// REMOVED: getPrompt, savePrompt, and resetPrompt are no longer needed.
 	
 	generateCodexImage: (entryId, prompt) => ipcRenderer.invoke('codex-entries:generate-image', entryId, prompt),
 	uploadCodexImage: (entryId, filePath) => ipcRenderer.invoke('codex-entries:upload-image', entryId, filePath),

@@ -14,9 +14,9 @@ let db;
 let mainWindow;
 let editorWindows = new Map();
 let promptEditorWindow = null;
+// NEW: This variable will temporarily hold the context for the prompt editor window.
+let promptEditorContext = null;
 
-// MODIFIED: PROMPTS_DIR is no longer needed as prompts are not stored as user-editable files.
-// const PROMPTS_DIR = path.join(app.getPath('userData'), 'prompts');
 
 // --- Template and HTML Helper Functions ---
 
@@ -49,11 +49,6 @@ function escapeAttr(text) {
 		.replace(/"/g, '&quot;')
 		.replace(/'/g, '&#039;');
 }
-
-// REMOVED: This function is no longer needed as prompts are not file-based.
-/*
-function initializePromptTemplates() { ... }
-*/
 
 // --- Window Creation Functions ---
 
@@ -814,6 +809,17 @@ function setupIpcHandlers() {
 		}
 	});
 	
+	// NEW: Get all linked codex entry IDs for a given chapter.
+	ipcMain.handle('chapters:getLinkedCodexIds', (event, chapterId) => {
+		try {
+			const results = db.prepare('SELECT codex_entry_id FROM chapter_codex_entry WHERE chapter_id = ?').all(chapterId);
+			return results.map(row => row.codex_entry_id);
+		} catch (error) {
+			console.error('Failed to get linked codex IDs:', error);
+			return [];
+		}
+	});
+	
 	
 	// --- File System Handlers ---
 	ipcMain.handle('files:getStructureFiles', () => {
@@ -916,6 +922,16 @@ function setupIpcHandlers() {
 		template = template.replace('{{LINKED_TAGS_HTML}}', linkedTagsHtml);
 		
 		return template;
+	});
+	
+	// NEW: Get all codex entries for a novel, used by the prompt editor.
+	ipcMain.handle('codex:getAllForNovel', (event, novelId) => {
+		try {
+			return db.prepare('SELECT id, title FROM codex_entries WHERE novel_id = ? ORDER BY title ASC').all(novelId);
+		} catch (error) {
+			console.error('Failed to get all codex entries for novel:', error);
+			return [];
+		}
 	});
 	
 	ipcMain.handle('chapters:codex:attach', (event, chapterId, codexEntryId) => {
@@ -1174,8 +1190,17 @@ function setupIpcHandlers() {
 	
 	// --- AI Prompt Template Handlers ---
 	
-	ipcMain.on('prompts:openEditor', () => {
+	// MODIFIED: This handler now accepts context from the renderer process.
+	ipcMain.on('prompts:openEditor', (event, context) => {
+		promptEditorContext = context; // Store context for the new window.
 		createPromptEditorWindow();
+	});
+	
+	// NEW: This handler allows the new prompt editor window to retrieve its context.
+	ipcMain.handle('prompts:getContext', () => {
+		const context = promptEditorContext;
+		promptEditorContext = null; // Clear context after it's been retrieved once.
+		return context;
 	});
 	
 	// MODIFIED: This handler now returns a static, hardcoded list of prompts.
@@ -1190,20 +1215,11 @@ function setupIpcHandlers() {
 		].sort((a, b) => a.name.localeCompare(b.name));
 	});
 	
-	// REMOVED: The following handlers are no longer necessary because prompt templates
-	// are no longer stored as user-editable JSON files. The logic is now built
-	// into the client-side JavaScript for each prompt builder.
-	// ipcMain.handle('prompts:get', ...);
-	// ipcMain.handle('prompts:save', ...);
-	// ipcMain.handle('prompts:reset', ...);
-	
 }
 
 // --- App Lifecycle Events ---
 app.on('ready', () => {
 	db = initializeDatabase();
-	// REMOVED: No longer need to initialize prompt templates from files.
-	// initializePromptTemplates();
 	setupIpcHandlers();
 	createMainWindow();
 });

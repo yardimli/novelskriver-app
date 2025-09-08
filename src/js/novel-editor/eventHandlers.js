@@ -1,6 +1,8 @@
 /**
  * This module contains functions to set up various event listeners for the novel editor UI.
  */
+// NEW: Import getActiveEditor to access the current editor state.
+import { getActiveEditor } from './content-editor.js';
 
 /**
  * Sets up the event listener for opening codex entry windows.
@@ -253,13 +255,45 @@ export function setupCanvasControls(windowManager) {
 	if (arrangeBtn) arrangeBtn.addEventListener('click', () => windowManager.arrangeWindows());
 }
 
-// MODIFIED: This function now calls the main process to open a dedicated window.
-export function setupPromptEditorHandler() {
+// MODIFIED: This function now gathers context from the editor before opening the prompt window.
+export function setupPromptEditorHandler(windowManager) {
 	const taskbarBtn = document.getElementById('open-prompts-btn');
 	
 	if (taskbarBtn) {
-		taskbarBtn.addEventListener('click', () => {
-			window.api.openPromptEditor();
+		taskbarBtn.addEventListener('click', async () => {
+			const novelId = document.body.dataset.novelId;
+			if (!novelId) {
+				alert('Could not determine the current novel.');
+				return;
+			}
+			
+			// 1. Get selected text from the active editor
+			let selectedText = '';
+			const activeEditor = getActiveEditor();
+			if (activeEditor && !activeEditor.state.selection.empty) {
+				const { from, to } = activeEditor.state.selection;
+				selectedText = activeEditor.state.doc.textBetween(from, to, ' ');
+			}
+			
+			// 2. Get all codex entries for the novel
+			const allCodexEntries = await window.api.getAllCodexEntriesForNovel(novelId);
+			
+			// 3. Get linked codex entries if the active window is a chapter
+			let linkedCodexEntryIds = [];
+			const activeWindowId = windowManager.activeWindow;
+			if (activeWindowId && activeWindowId.startsWith('chapter-')) {
+				const chapterId = activeWindowId.replace('chapter-', '');
+				linkedCodexEntryIds = await window.api.getLinkedCodexIdsForChapter(chapterId);
+			}
+			
+			// 4. Bundle the context and open the editor window
+			const context = {
+				selectedText,
+				allCodexEntries,
+				linkedCodexEntryIds
+			};
+			
+			window.api.openPromptEditor(context);
 		});
 	}
 }

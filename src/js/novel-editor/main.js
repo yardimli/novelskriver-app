@@ -190,7 +190,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 	setupTopToolbar();
 	setupCodexEntryHandler(desktop, windowManager);
 	setupChapterHandler(desktop, windowManager);
-	setupPromptEditorHandler(); // MODIFIED: Call updated handler, no params needed
+	// MODIFIED: Pass the windowManager instance to the handler to access context.
+	setupPromptEditorHandler(windowManager);
 	setupChapterEditor(desktop);
 	setupContentEditor(desktop);
 	setupOpenWindowsMenu(windowManager);

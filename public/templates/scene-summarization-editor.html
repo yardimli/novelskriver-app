@@ -24,8 +24,14 @@
 		</div>
 		
 		<!-- Context Options -->
+		<!-- MODIFIED: Added a dynamic codex selection list container. -->
 		<div class="space-y-2">
 			<h3 class="text-lg font-semibold">Contextual Information</h3>
+			
+			<div class="js-codex-selection-container max-h-48 overflow-y-auto space-y-1 rounded-md border border-base-300 p-3">
+				<p class="text-sm text-base-content/60">Loading codex entries...</p>
+			</div>
+			
 			<div class="form-control">
 				<label class="label cursor-pointer justify-start gap-4">
 					<input type="checkbox" name="use_pov" checked class="checkbox"/>

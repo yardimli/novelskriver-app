@@ -15,7 +15,10 @@ const editors = {
 	'scene-summarization': { name: 'Scene Summarization', init: initSceneSummarizationEditor },
 };
 
-document.addEventListener('DOMContentLoaded', () => {
+// NEW: This will hold the context passed from the novel editor window.
+let promptBuilderContext = null;
+
+document.addEventListener('DOMContentLoaded', async () => {
 	const listContainer = document.querySelector('.js-prompt-list-container');
 	const placeholder = document.querySelector('.js-prompt-placeholder');
 	
@@ -23,6 +26,14 @@ document.addEventListener('DOMContentLoaded', () => {
 	const customEditorPane = document.querySelector('.js-custom-editor-pane');
 	const customPromptTitle = customEditorPane.querySelector('.js-custom-prompt-title');
 	const customFormContainer = customEditorPane.querySelector('.js-custom-form-container');
+	
+	// NEW: Fetch the context from the main process when the window loads.
+	try {
+		promptBuilderContext = await window.api.getPromptContext();
+	} catch (error) {
+		console.error('Failed to get prompt builder context:', error);
+		placeholder.innerHTML = `<p class="text-error">Could not load context from the editor.</p>`;
+	}
 	
 	const loadPromptList = async () => {
 		try {
@@ -70,8 +81,9 @@ document.addEventListener('DOMContentLoaded', () => {
 		customPromptTitle.textContent = `Prompt Builder: ${editorConfig.name}`;
 		customFormContainer.innerHTML = `<div class="p-4 text-center"><span class="loading loading-spinner"></span></div>`;
 		
-		// The init function from the module will load its template and set up logic.
-		await editorConfig.init(customFormContainer);
+		// MODIFIED: The init function from the module will load its template and set up logic,
+		// now with the context from the novel editor.
+		await editorConfig.init(customFormContainer, promptBuilderContext);
 	};
 	
 	listContainer.addEventListener('click', (event) => {
