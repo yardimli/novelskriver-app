@@ -984,7 +984,12 @@ function setupIpcHandlers() {
 	
 	ipcMain.handle('codex:getAllForNovel', (event, novelId) => {
 		try {
-			return db.prepare('SELECT id, title, content FROM codex_entries WHERE novel_id = ? ORDER BY title ASC').all(novelId);
+			// MODIFIED: Fetch categories first, then fetch all entries belonging to each category.
+			const categories = db.prepare('SELECT id, name FROM codex_categories WHERE novel_id = ? ORDER BY name ASC').all(novelId);
+			categories.forEach(category => {
+				category.entries = db.prepare('SELECT id, title, content FROM codex_entries WHERE codex_category_id = ? ORDER BY title ASC').all(category.id);
+			});
+			return categories;
 		} catch (error) {
 			console.error('Failed to get all codex entries for novel:', error);
 			return [];

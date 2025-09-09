@@ -7,35 +7,54 @@ const defaultState = {
 	use_pov: true,
 };
 
-// MODIFIED: Accept initialState to restore checkbox state.
+// MODIFIED: Renders codex entries grouped by category into a multi-column layout.
 const renderCodexList = (container, context, initialState = null) => {
 	const codexContainer = container.querySelector('.js-codex-selection-container');
 	if (!codexContainer) return;
 	
-	const { allCodexEntries, linkedCodexEntryIds } = context;
+	const { allCodexEntries, linkedCodexEntryIds } = context; // allCodexEntries is now categories
 	
 	if (!allCodexEntries || allCodexEntries.length === 0) {
 		codexContainer.innerHTML = '<p class="text-sm text-base-content/60">No codex entries found for this novel.</p>';
 		return;
 	}
 	
-	// NEW: Use selected IDs from initial state if available, otherwise default to linked chapter IDs.
 	const selectedIds = initialState ? initialState.selectedCodexIds : linkedCodexEntryIds.map(String);
 	
-	const listHtml = allCodexEntries.map(entry => {
-		// MODIFIED: Check against the determined selectedIds list.
-		const isChecked = selectedIds.includes(String(entry.id));
+	const categoriesHtml = allCodexEntries.map(category => {
+		if (!category.entries || category.entries.length === 0) {
+			return '';
+		}
+		
+		const entriesHtml = category.entries.map(entry => {
+			const isChecked = selectedIds.includes(String(entry.id));
+			return `
+                <div class="form-control">
+                    <label class="label cursor-pointer justify-start gap-2 py-0.5">
+                        <input type="checkbox" name="codex_entry" value="${entry.id}" ${isChecked ? 'checked' : ''} class="checkbox checkbox-xs" />
+                        <span class="label-text text-sm">${entry.title}</span>
+                    </label>
+                </div>
+            `;
+		}).join('');
+		
 		return `
-            <div class="form-control">
-                <label class="label cursor-pointer justify-start gap-4 py-1">
-                    <input type="checkbox" name="codex_entry" value="${entry.id}" ${isChecked ? 'checked' : ''} class="checkbox checkbox-sm" />
-                    <span class="label-text">${entry.title}</span>
-                </label>
+            <div class="break-inside-avoid mb-4">
+                <h4 class="label-text font-semibold mb-1 text-base-content/80 border-b border-base-300 pb-1">${category.name}</h4>
+                <div class="space-y-1 pt-1">
+                    ${entriesHtml}
+                </div>
             </div>
         `;
 	}).join('');
 	
-	codexContainer.innerHTML = `<h4 class="label-text font-semibold mb-1">Use Codex Entries</h4>${listHtml}`;
+	// NEW: Renders a heading and a multi-column, scrollable container for the categories.
+	codexContainer.innerHTML = `
+        <h4 class="label-text font-semibold mb-2">Use Codex Entries</h4>
+        <div class="max-h-72 overflow-y-auto pr-2" style="column-count: 2; column-gap: 1.5rem;">
+            ${categoriesHtml}
+        </div>
+    `;
 };
 
 const buildSurroundingTextBlock = (use, wordsBefore, wordsAfter) => {
@@ -66,8 +85,10 @@ You are free to remove redundant lines of speech. Keep the same tense and stylis
 Only return the rephrased text, nothing else.`;
 	
 	let codexBlock = '';
+	// MODIFIED: Flatten the categorized codex entries to search for selected ones.
+	const allEntriesFlat = allCodexEntries.flatMap(category => category.entries);
 	if (formData.selectedCodexIds && formData.selectedCodexIds.length > 0) {
-		const selectedEntries = allCodexEntries.filter(entry => formData.selectedCodexIds.includes(String(entry.id)));
+		const selectedEntries = allEntriesFlat.filter(entry => formData.selectedCodexIds.includes(String(entry.id)));
 		if (selectedEntries.length > 0) {
 			const codexContent = selectedEntries.map(entry => {
 				// Strip HTML from content for a cleaner preview.
