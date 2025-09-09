@@ -13,8 +13,6 @@ const imageHandler = require('./src/utils/image-handler.js');
 let db;
 let mainWindow;
 let editorWindows = new Map();
-// REMOVED: The prompt editor window and its context are no longer managed in the main process.
-
 
 // --- Template and HTML Helper Functions ---
 
@@ -201,9 +199,6 @@ function createEditorWindow(novelId) {
 	// editorWindow.webContents.openDevTools();
 	
 }
-
-// REMOVED: The createPromptEditorWindow function has been removed as it's now a modal.
-
 
 /**
  * Wraps all IPC handler registrations in a single function.
@@ -507,7 +502,6 @@ function setupIpcHandlers() {
 						charCategory = {id: result.lastInsertRowid};
 					}
 					for (const charData of codexResponse.characters) {
-						// Removed 'description' from the INSERT query.
 						db.prepare('INSERT INTO codex_entries (novel_id, codex_category_id, title, content) VALUES (?, ?, ?, ?)')
 							.run(novelId, charCategory.id, charData.name, charData.content || null);
 					}
@@ -520,7 +514,6 @@ function setupIpcHandlers() {
 						locCategory = {id: result.lastInsertRowid};
 					}
 					for (const locData of codexResponse.locations) {
-						// Removed 'description' from the INSERT query.
 						db.prepare('INSERT INTO codex_entries (novel_id, codex_category_id, title, content) VALUES (?, ?, ?, ?)')
 							.run(novelId, locCategory.id, locData.name, locData.content || null);
 					}
@@ -648,7 +641,7 @@ function setupIpcHandlers() {
 		
 		const sectionInfoHtml = chapter.section_order ? `<h3 class="text-sm font-semibold uppercase tracking-wider text-indigo-500 dark:text-indigo-400">${chapter.section_order}. ${escapeAttr(chapter.section_title)} &ndash; Chapter ${chapter.chapter_order}</h3>` : '';
 		
-		// NEW: Prepare POV display data.
+		// Prepare POV display data.
 		const povDisplayMap = {
 			'first_person': '1st Person',
 			'second_person': '2nd Person',
@@ -674,10 +667,9 @@ function setupIpcHandlers() {
 		template = template.replace('{{SECTION_INFO_HTML}}', sectionInfoHtml);
 		template = template.replace('{{CHAPTER_TITLE_ATTR}}', escapeAttr(chapter.title));
 		template = template.replace('{{CHAPTER_SUMMARY_HTML}}', chapter.summary || '');
-		// REMOVED: The content placeholder is no longer in the template.
 		template = template.replace('{{TAGS_WRAPPER_HIDDEN}}', chapter.codexEntries.length === 0 ? 'hidden' : '');
 		template = template.replace('{{CODEX_TAGS_HTML}}', codexTagsHtml);
-		template = template.replace('{{POV_SETTINGS_HTML}}', povSettingsHtml); // NEW: Add POV HTML.
+		template = template.replace('{{POV_SETTINGS_HTML}}', povSettingsHtml);
 		
 		return template;
 	});
@@ -694,7 +686,6 @@ function setupIpcHandlers() {
 		}
 	});
 	
-	// NEW: IPC handler to get data needed for the POV modal.
 	ipcMain.handle('chapters:getPovData', (event, chapterId) => {
 		const chapter = db.prepare('SELECT novel_id, pov, pov_character_id FROM chapters WHERE id = ?').get(chapterId);
 		if (!chapter) throw new Error('Chapter not found.');
@@ -723,7 +714,6 @@ function setupIpcHandlers() {
 		};
 	});
 	
-	// NEW: IPC handler to update a chapter's POV settings.
 	ipcMain.handle('chapters:updatePov', (event, {chapterId, pov, pov_character_id}) => {
 		try {
 			db.prepare('UPDATE chapters SET pov = ?, pov_character_id = ? WHERE id = ?')
@@ -745,7 +735,6 @@ function setupIpcHandlers() {
 		}
 	});
 	
-	// NEW: IPC handler to delete a chapter's POV override.
 	ipcMain.handle('chapters:deletePovOverride', (event, chapterId) => {
 		try {
 			db.prepare('UPDATE chapters SET pov = NULL, pov_character_id = NULL WHERE id = ?')
@@ -767,7 +756,6 @@ function setupIpcHandlers() {
 		}
 	});
 	
-	// NEW: Get all linked codex entry IDs for a given chapter.
 	ipcMain.handle('chapters:getLinkedCodexIds', (event, chapterId) => {
 		try {
 			const results = db.prepare('SELECT codex_entry_id FROM chapter_codex_entry WHERE chapter_id = ?').all(chapterId);
@@ -882,10 +870,8 @@ function setupIpcHandlers() {
 		return template;
 	});
 	
-	// NEW: Get all codex entries for a novel, used by the prompt editor.
 	ipcMain.handle('codex:getAllForNovel', (event, novelId) => {
 		try {
-			// MODIFIED: Also select the 'content' field for the prompt builder.
 			return db.prepare('SELECT id, title, content FROM codex_entries WHERE novel_id = ? ORDER BY title ASC').all(novelId);
 		} catch (error) {
 			console.error('Failed to get all codex entries for novel:', error);
@@ -1149,10 +1135,7 @@ function setupIpcHandlers() {
 	
 	// --- AI Prompt Template Handlers ---
 	
-	// REMOVED: These handlers are no longer needed as the prompt editor is now a modal
-	// and its logic is handled within the renderer process.
-	
-	// MODIFIED: This handler now returns a static, hardcoded list of prompts.
+	//This handler now returns a static, hardcoded list of prompts.
 	ipcMain.handle('prompts:list', async () => {
 		// The prompts are now built-in features, not user-editable files.
 		return [

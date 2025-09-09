@@ -1,17 +1,13 @@
 import { toggleMark, setBlockType, wrapIn, lift } from 'prosemirror-commands';
 import { history, undo, redo } from 'prosemirror-history';
 import { wrapInList, liftListItem } from 'prosemirror-schema-list';
-// NEW: Import the function to open the prompt editor modal.
 import { openPromptEditor } from '../prompt-editor.js';
-// NEW: Import getActiveEditor to access editor context.
 import { getActiveEditor } from './content-editor.js';
 
 
 let activeEditorView = null;
 const toolbar = document.getElementById('top-toolbar');
 const wordCountEl = document.getElementById('js-word-count');
-
-// REMOVED: State variables for the old AI workflow are no longer needed here.
 
 function isNodeActive(state, type) {
 	const { $from } = state.selection;
@@ -52,8 +48,8 @@ async function handleCreateCodexFromSelection() {
 	// Populate fields with selection as a fallback
 	const titleInput = form.querySelector('#new-codex-title');
 	const contentTextarea = form.querySelector('#new-codex-content');
-	const categorySelect = form.querySelector('#new-codex-category'); // NEW
-	const spinner = document.getElementById('new-codex-ai-spinner'); // NEW
+	const categorySelect = form.querySelector('#new-codex-category');
+	const spinner = document.getElementById('new-codex-ai-spinner');
 	
 	if (titleInput) titleInput.value = selectedText.trim();
 	if (contentTextarea) contentTextarea.value = selectedText;
@@ -105,7 +101,6 @@ export function updateToolbarState(view) {
 		const isTextSelected = !empty;
 		
 		allBtns.forEach(btn => {
-			// MODIFIED: AI action buttons are no longer dropdowns and have simpler logic.
 			if (btn.classList.contains('js-ai-action-btn')) {
 				const action = btn.dataset.action;
 				if (action === 'scene-summarization') {
@@ -253,10 +248,7 @@ function applyHighlight(color) {
 	activeEditorView.dispatch(tr);
 }
 
-// REMOVED: All AI action review workflow functions have been moved to prompt-editor.js
-
 async function handleToolbarAction(button) {
-	// MODIFIED: Added handler for the new AI action buttons.
 	if (button.classList.contains('js-ai-action-btn')) {
 		const action = button.dataset.action;
 		const novelId = document.body.dataset.novelId;

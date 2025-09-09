@@ -276,32 +276,32 @@ Focus on the most prominent elements mentioned in the synopsis and chapter summa
 /**
  * Processes a text selection using an LLM for actions like rephrasing.
  * @param {object} params - The parameters for the text processing.
- * @param {string} params.text - The text to process.
- * @param {string} params.action - The action to perform ('expand', 'rephrase', 'shorten').
+ * @param {object} params.prompt - An object with 'system', 'user', and 'ai' properties for the prompt.
  * @param {string} params.model - The LLM model to use.
  * @returns {Promise<object>} The parsed JSON response with the processed text.
  */
-async function processCodexText({ text, action, model }) {
-	const actionInstruction = {
-		'expand': 'Expand on the following text, adding more detail, description, and context. Make it about twice as long.',
-		'rephrase': 'Rephrase the following text to make it clearer, more engaging, or to have a different tone, while preserving the core meaning.',
-		'shorten': 'Shorten the following text, condensing it to its most essential points. Make it about half as long.',
-	}[action] || 'Process the following text.';
+async function processCodexText({ prompt, model }) {
+	const messages = [];
+	if (prompt.system) {
+		messages.push({ role: 'system', content: prompt.system });
+	}
+	if (prompt.user) {
+		messages.push({ role: 'user', content: prompt.user });
+	}
+	if (prompt.ai) {
+		messages.push({ role: 'assistant', content: prompt.ai });
+	}
 	
-	const prompt = `
-You are a writing assistant. Your task is to process a piece of text based on a specific instruction.
-
-**Instruction:** ${actionInstruction}
-
-**Original Text:**
-"${text}"
-
-Please provide only the modified text as your response. The output must be a single, valid JSON object with one key: "processed_text". Do not include any explanations or surrounding text.`;
+	if (messages.length === 0) {
+		throw new Error('Prompt is empty. Cannot call AI service.');
+	}
 	
+	// NOTE: This function relies on the prompt instructing the AI to return a valid JSON object.
+	// The `callOpenRouter` function will attempt to parse the response as JSON.
 	return callOpenRouter({
 		model: model,
-		messages: [{ role: 'user', content: prompt }],
-		response_format: { type: 'json_object' },
+		messages: messages,
+		response_format: { type: 'json_object' }, // Assuming JSON is still desired for this non-streaming version.
 		temperature: 0.7,
 	});
 }
@@ -309,36 +309,34 @@ Please provide only the modified text as your response. The output must be a sin
 /**
  * Processes a text selection using an LLM with streaming for actions like rephrasing.
  * @param {object} params - The parameters for the text processing.
- * @param {string} params.text - The text to process.
- * @param {string} params.action - The action to perform ('expand', 'rephrase', 'shorten').
+ * @param {object} params.prompt - An object with 'system', 'user', and 'ai' properties for the prompt.
  * @param {string} params.model - The LLM model to use.
  * @param {function(string): void} onChunk - Callback function to handle each received text chunk.
  * @returns {Promise<void>} A promise that resolves when the stream is complete.
  */
-async function streamProcessCodexText({ text, action, model }, onChunk) {
-	const actionInstruction = {
-		'expand': 'Expand on the following text, adding more detail, description, and context. Make it about twice as long.',
-		'rephrase': 'Rephrase the following text to make it clearer, more engaging, or to have a different tone, while preserving the core meaning.',
-		'shorten': 'Shorten the following text, condensing it to its most essential points. Make it about half as long.',
-	}[action] || 'Process the following text.';
+async function streamProcessCodexText({ prompt, model }, onChunk) {
+	const messages = [];
+	if (prompt.system) {
+		messages.push({ role: 'system', content: prompt.system });
+	}
+	if (prompt.user) {
+		messages.push({ role: 'user', content: prompt.user });
+	}
+	if (prompt.ai) {
+		messages.push({ role: 'assistant', content: prompt.ai });
+	}
 	
-	// This prompt is specifically for streaming: it asks for raw text output, not JSON.
-	const prompt = `
-You are a writing assistant. Your task is to process a piece of text based on a specific instruction.
-
-**Instruction:** ${actionInstruction}
-
-**Original Text:**
-"${text}"
-
-Please provide only the modified text as your response. Do not include any explanations, apologies, or surrounding text. Begin writing the modified text directly.`;
+	if (messages.length === 0) {
+		throw new Error('Prompt is empty. Cannot call AI service.');
+	}
 	
 	await streamOpenRouter({
 		model: model,
-		messages: [{ role: 'user', content: prompt }],
+		messages: messages,
 		temperature: 0.7,
 	}, onChunk);
 }
+
 
 /**
  * Fetches the list of available models from the OpenRouter API.
@@ -483,5 +481,5 @@ module.exports = {
 	streamProcessCodexText,
 	getOpenRouterModels,
 	processModelsForView,
-	suggestCodexDetails, // NEW
+	suggestCodexDetails,
 };

@@ -42,18 +42,16 @@ contextBridge.exposeInMainWorld('api', {
 	updateChapterContent: (chapterId, data) => ipcRenderer.invoke('chapters:updateContent', chapterId, data),
 	createChapter: (novelId, data) => ipcRenderer.invoke('chapters:store', novelId, data),
 	
-	// NEW: Chapter POV APIs
+	// Chapter POV APIs
 	getPovDataForChapter: (chapterId) => ipcRenderer.invoke('chapters:getPovData', chapterId),
 	updateChapterPov: (data) => ipcRenderer.invoke('chapters:updatePov', data),
 	deleteChapterPovOverride: (chapterId) => ipcRenderer.invoke('chapters:deletePovOverride', chapterId),
-	// NEW: API to get linked codex entry IDs for a chapter.
 	getLinkedCodexIdsForChapter: (chapterId) => ipcRenderer.invoke('chapters:getLinkedCodexIds', chapterId),
 	
 	// Codex Entry Management
 	createCodexEntry: (novelId, formData) => ipcRenderer.invoke('codex-entries:store', novelId, formData),
-	suggestCodexDetails: (novelId, text) => ipcRenderer.invoke('codex-entries:suggest-details', { novelId, text }), // NEW
+	suggestCodexDetails: (novelId, text) => ipcRenderer.invoke('codex-entries:suggest-details', { novelId, text }),
 	updateCodexEntry: (entryId, data) => ipcRenderer.invoke('codex-entries:update', entryId, data),
-	// NEW: API to get all codex entries for a novel.
 	getAllCodexEntriesForNovel: (novelId) => ipcRenderer.invoke('codex:getAllForNovel', novelId),
 	
 	// Codex <-> Codex Linking
@@ -79,7 +77,6 @@ contextBridge.exposeInMainWorld('api', {
 		};
 	},
 	getModels: () => ipcRenderer.invoke('ai:getModels'),
-	// REMOVED: openPromptEditor and getPromptContext are no longer needed as the modal is handled in the renderer.
 	listPrompts: () => ipcRenderer.invoke('prompts:list'),
 	
 	generateCodexImage: (entryId, prompt) => ipcRenderer.invoke('codex-entries:generate-image', entryId, prompt),

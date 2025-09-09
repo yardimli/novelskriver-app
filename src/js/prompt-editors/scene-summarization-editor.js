@@ -1,14 +1,12 @@
-// NEW: This file contains the logic for the "Scene Summarization" prompt builder.
+// This file contains the logic for the "Scene Summarization" prompt builder.
 
 const defaultState = {
 	words: 100,
 	instructions: '',
-	// NEW: Added selectedCodexIds to default state.
 	selectedCodexIds: [],
 	use_pov: true,
 };
 
-// NEW: Renders the list of codex entries as checkboxes.
 const renderCodexList = (container, context) => {
 	const codexContainer = container.querySelector('.js-codex-selection-container');
 	if (!codexContainer) return;
@@ -35,9 +33,9 @@ const renderCodexList = (container, context) => {
 	codexContainer.innerHTML = `<h4 class="label-text font-semibold mb-1">Use Codex Entries</h4>${listHtml}`;
 };
 
-// MODIFIED: Builds the final prompt JSON based on form data and editor context.
-const buildPromptJson = (formData, context) => {
-	const { selectedText, allCodexEntries } = context; // MODIFIED: Destructure allCodexEntries.
+// Export this function for use in the main prompt editor module.
+export const buildPromptJson = (formData, context) => {
+	const { selectedText, allCodexEntries } = context;
 	
 	const system = `You are an expert novel summarizer.
 Whenever you're given text, summarize it into a concise, condensed version.
@@ -74,7 +72,6 @@ ${formData.instructions}
 </instructions>
 ` : ''}`;
 	
-	// NEW: Build the codex block for the preview.
 	let codexBlock = '';
 	if (formData.selectedCodexIds && formData.selectedCodexIds.length > 0) {
 		const selectedEntries = allCodexEntries.filter(entry => formData.selectedCodexIds.includes(String(entry.id)));
@@ -124,7 +121,6 @@ ${selectedText ? truncatedText : '{removeWhitespace(scene.fullText)}'}
 	};
 };
 
-// MODIFIED: Updates the live preview area in the UI using context.
 const updatePreview = (container, context) => {
 	const form = container.querySelector('#scene-summarization-editor-form');
 	if (!form) return;
@@ -132,7 +128,6 @@ const updatePreview = (container, context) => {
 	const formData = {
 		words: form.elements.words.value,
 		instructions: form.elements.instructions.value.trim(),
-		// MODIFIED: Handle cases where no codex entries exist.
 		selectedCodexIds: form.elements.codex_entry ? Array.from(form.elements.codex_entry).filter(cb => cb.checked).map(cb => cb.value) : [],
 		use_pov: form.elements.use_pov.checked,
 	};
@@ -155,7 +150,6 @@ const updatePreview = (container, context) => {
 	}
 };
 
-// MODIFIED: Populates the form with a given state.
 const populateForm = (container, state) => {
 	const form = container.querySelector('#scene-summarization-editor-form');
 	if (!form) return;
@@ -166,7 +160,6 @@ const populateForm = (container, state) => {
 	form.elements.use_pov.checked = state.use_pov;
 };
 
-// MODIFIED: Main initialization function now accepts context.
 export const init = async (container, context) => {
 	try {
 		const templateHtml = await window.api.getTemplate('scene-summarization-editor');

@@ -79,7 +79,6 @@ const descriptionSchema = new Schema({
 	marks: {},
 });
 
-// MODIFIED: Export this function so other modules can get the active editor.
 export function getActiveEditor() {
 	return activeEditorView;
 }

@@ -1,14 +1,12 @@
-// NEW: This file contains the logic for the "Scene Beat" prompt builder.
+// This file contains the logic for the "Scene Beat" prompt builder.
 
 const defaultState = {
 	words: 250,
 	instructions: '',
-	// MODIFIED: use_codex is no longer a single boolean.
 	selectedCodexIds: [],
 	use_story_so_far: true,
 };
 
-// NEW: Renders the list of codex entries as checkboxes.
 const renderCodexList = (container, context) => {
 	const codexContainer = container.querySelector('.js-codex-selection-container');
 	if (!codexContainer) return;
@@ -35,9 +33,9 @@ const renderCodexList = (container, context) => {
 	codexContainer.innerHTML = `<h4 class="label-text font-semibold mb-1">Use Codex Entries</h4>${listHtml}`;
 };
 
-// MODIFIED: Builds the final prompt JSON based on form data and editor context.
-const buildPromptJson = (formData, context) => {
-	const { allCodexEntries } = context; // MODIFIED: Destructure allCodexEntries.
+// Export this function for use in the main prompt editor module.
+export const buildPromptJson = (formData, context) => {
+	const { allCodexEntries } = context;
 	
 	const system = `You are an expert fiction writer.
 
@@ -60,7 +58,6 @@ When writing text:
 - AVOID imagining possible endings, NEVER deviate from the instructions.
 - STOP EARLY if the continuation contains what was required in the instructions. You do not need to fill out the full amount of words possible.`;
 	
-	// NEW: Build the codex block for the preview.
 	let codexBlock = '';
 	if (formData.selectedCodexIds && formData.selectedCodexIds.length > 0) {
 		const selectedEntries = allCodexEntries.filter(entry => formData.selectedCodexIds.includes(String(entry.id)));
@@ -122,7 +119,6 @@ Write ${formData.words || 250} words that continue the story, using the followin
 	};
 };
 
-// MODIFIED: Updates the live preview area in the UI using context.
 const updatePreview = (container, context) => {
 	const form = container.querySelector('#scene-beat-editor-form');
 	if (!form) return;
@@ -130,7 +126,6 @@ const updatePreview = (container, context) => {
 	const formData = {
 		words: form.elements.words.value,
 		instructions: form.elements.instructions.value.trim(),
-		// MODIFIED: Handle cases where no codex entries exist.
 		selectedCodexIds: form.elements.codex_entry ? Array.from(form.elements.codex_entry).filter(cb => cb.checked).map(cb => cb.value) : [],
 		use_story_so_far: form.elements.use_story_so_far.checked,
 	};
@@ -153,7 +148,6 @@ const updatePreview = (container, context) => {
 	}
 };
 
-// MODIFIED: Populates the form with a given state.
 const populateForm = (container, state) => {
 	const form = container.querySelector('#scene-beat-editor-form');
 	if (!form) return;
@@ -164,7 +158,6 @@ const populateForm = (container, state) => {
 	form.elements.use_story_so_far.checked = state.use_story_so_far;
 };
 
-// MODIFIED: Main initialization function now accepts context.
 export const init = async (container, context) => {
 	try {
 		const templateHtml = await window.api.getTemplate('scene-beat-editor');

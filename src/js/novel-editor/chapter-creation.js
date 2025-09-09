@@ -1,5 +1,5 @@
 /**
- * NEW: Manages the creation of new chapters via a modal dialog.
+ * Manages the creation of new chapters via a modal dialog.
  */
 
 document.addEventListener('DOMContentLoaded', () => {

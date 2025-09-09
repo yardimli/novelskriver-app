@@ -2,7 +2,6 @@
  * This module contains functions to set up various event listeners for the novel editor UI.
  */
 import { getActiveEditor } from './content-editor.js';
-// REMOVED: No longer need to import the prompt editor opener from here.
 
 /**
  * Sets up the event listener for opening codex entry windows.
@@ -254,6 +253,3 @@ export function setupCanvasControls(windowManager) {
 	if (zoomFitBtn) zoomFitBtn.addEventListener('click', () => windowManager.fitToView());
 	if (arrangeBtn) arrangeBtn.addEventListener('click', () => windowManager.arrangeWindows());
 }
-
-// REMOVED: setupPromptEditorHandler is no longer needed as the button it controlled has been removed.
-// The new AI buttons are handled by the toolbar's main event listener.

@@ -8,7 +8,6 @@ import {
 import {setupChapterEditor} from './chapter-editor.js';
 import {setupContentEditor} from './content-editor.js';
 import {setupTopToolbar} from './toolbar.js';
-// NEW: Import the setup function for the prompt editor modal.
 import { setupPromptEditor } from '../prompt-editor.js';
 import './codex-entry-editor.js'; // Import for side-effects (attaches event listeners)
 import './chapter-creation.js'; // Import for new chapter modal logic
@@ -190,12 +189,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 	setupTopToolbar();
 	setupCodexEntryHandler(desktop, windowManager);
 	setupChapterHandler(desktop, windowManager);
-	// REMOVED: The old setupPromptEditorHandler is no longer needed.
 	setupChapterEditor(desktop);
 	setupContentEditor(desktop);
 	setupOpenWindowsMenu(windowManager);
 	setupCanvasControls(windowManager);
 	setupChapterPovEditor(desktop);
-	// NEW: Initialize the prompt editor modal logic.
 	setupPromptEditor();
 });

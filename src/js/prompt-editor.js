@@ -1,12 +1,11 @@
-// MODIFIED: This file now controls the prompt editor modal within the novel editor.
+// This file now controls the prompt editor modal within the novel editor.
 
-import { init as initExpandEditor } from './prompt-editors/expand-editor.js';
-import { init as initRephraseEditor } from './prompt-editors/rephrase-editor.js';
-import { init as initShortenEditor } from './prompt-editors/shorten-editor.js';
-import { init as initSceneBeatEditor } from './prompt-editors/scene-beat-editor.js';
-import { init as initSceneSummarizationEditor } from './prompt-editors/scene-summarization-editor.js';
-
-// NEW: Import editor-related functions needed for the AI workflow.
+// Import init and buildPromptJson functions from all editor modules.
+import { init as initExpandEditor, buildPromptJson as buildExpandJson } from './prompt-editors/expand-editor.js';
+import { init as initRephraseEditor, buildPromptJson as buildRephraseJson } from './prompt-editors/rephrase-editor.js';
+import { init as initShortenEditor, buildPromptJson as buildShortenJson } from './prompt-editors/shorten-editor.js';
+import { init as initSceneBeatEditor, buildPromptJson as buildSceneBeatJson } from './prompt-editors/scene-beat-editor.js';
+import { init as initSceneSummarizationEditor, buildPromptJson as buildSceneSummarizationJson } from './prompt-editors/scene-summarization-editor.js';
 import { getActiveEditor } from './novel-editor/content-editor.js';
 import { updateToolbarState } from './novel-editor/toolbar.js';
 
@@ -19,10 +18,19 @@ const editors = {
 	'scene-summarization': { name: 'Scene Summarization', init: initSceneSummarizationEditor },
 };
 
+// Map of prompt builder functions for easy access.
+const promptBuilders = {
+	'expand': buildExpandJson,
+	'rephrase': buildRephraseJson,
+	'shorten': buildShortenJson,
+	'scene-beat': buildSceneBeatJson,
+	'scene-summarization': buildSceneSummarizationJson,
+};
+
 let modalEl;
 let currentContext;
 
-// NEW: State variables for the AI review workflow, moved from toolbar.js
+// State variables for the AI review workflow, moved from toolbar.js
 let isAiActionActive = false;
 let originalFragment = null;
 let aiActionRange = null;
@@ -128,18 +136,13 @@ function handleFloatyDiscard() {
 async function handleFloatyRetry() {
 	if (!isAiActionActive || !activeEditorView || !currentAiParams) return;
 	
-	const { state, dispatch } = activeEditorView;
+	const actionToRetry = currentAiParams.action;
+	const contextForRetry = currentAiParams.context;
 	
-	const tr = state.tr.replace(aiActionRange.from, aiActionRange.to, originalFragment);
-	dispatch(tr);
+	handleFloatyDiscard(); // This reverts text and cleans up all AI state.
 	
-	if (floatingToolbar) {
-		floatingToolbar.remove();
-		floatingToolbar = null;
-	}
-	
-	isAiActionActive = false;
-	await startAiStream(currentAiParams);
+	// Re-open the prompt editor modal with the original context.
+	openPromptEditor(contextForRetry, actionToRetry);
 }
 
 function createFloatingToolbar(view, from, to, model) {
@@ -192,7 +195,7 @@ function createFloatingToolbar(view, from, to, model) {
 }
 
 async function startAiStream(params) {
-	const { text, action, model, ...formData } = params;
+	const { prompt, model } = params;
 	
 	isAiActionActive = true;
 	updateToolbarState(activeEditorView);
@@ -239,8 +242,7 @@ async function startAiStream(params) {
 	};
 	
 	try {
-		// The payload for the API now includes the full formData from the prompt builder.
-		window.api.processCodexTextStream({ text, action, model, formData }, onData);
+		window.api.processCodexTextStream({ prompt, model }, onData);
 	} catch (error) {
 		console.error('AI Action Error:', error);
 		alert(`Error: ${error.message}`);
@@ -248,7 +250,6 @@ async function startAiStream(params) {
 	}
 }
 
-// NEW: Populates the model dropdown in the modal footer.
 async function populateModelDropdown() {
 	if (!modalEl) return;
 	const select = modalEl.querySelector('.js-llm-model-select');
@@ -280,15 +281,8 @@ async function populateModelDropdown() {
 	}
 }
 
-// NEW: Handles the main 'Apply' button click in the modal.
 async function handleModalApply() {
 	if (!modalEl || isAiActionActive) return;
-	
-	activeEditorView = getActiveEditor();
-	if (!activeEditorView) {
-		alert('No active editor to apply changes to.');
-		return;
-	}
 	
 	const model = modalEl.querySelector('.js-llm-model-select').value;
 	const activePromptItem = modalEl.querySelector('.js-prompt-item.btn-active');
@@ -300,7 +294,19 @@ async function handleModalApply() {
 		return;
 	}
 	
+	const builder = promptBuilders[action];
+	if (!builder) {
+		alert(`No prompt builder found for action: ${action}`);
+		return;
+	}
+	
 	modalEl.close();
+	
+	activeEditorView = getActiveEditor();
+	if (!activeEditorView) {
+		alert('No active editor to apply changes to.');
+		return;
+	}
 	
 	const { state } = activeEditorView;
 	const { from, to } = state.selection;
@@ -310,7 +316,7 @@ async function handleModalApply() {
 		text = state.doc.textContent;
 	}
 	
-	if ((action !== 'scene-summarization') && state.selection.empty) {
+	if ((action !== 'scene-summarization' && action !== 'scene-beat') && state.selection.empty) {
 		alert('Please select text to apply this action.');
 		return;
 	}
@@ -320,8 +326,13 @@ async function handleModalApply() {
 	
 	const formData = new FormData(form);
 	const formDataObj = Object.fromEntries(formData.entries());
+	formDataObj.selectedCodexIds = formData.getAll('codex_entry');
 	
-	currentAiParams = { text, action, model, ...formDataObj };
+	const wordCount = text ? text.trim().split(/\s+/).filter(Boolean).length : 0;
+	const promptContext = { ...currentContext, selectedText: text, wordCount };
+	const prompt = builder(formDataObj, promptContext);
+	
+	currentAiParams = { prompt, model, action, context: currentContext };
 	
 	await startAiStream(currentAiParams);
 }

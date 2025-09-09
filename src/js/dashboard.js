@@ -1,7 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
 	const novelList = document.getElementById('novel-list');
 	const loadingMessage = document.getElementById('loading-message');
-	// MODIFIED: Removed reference to the prompt editor button, which no longer exists on this page.
 	
 	// Prose Modal Elements
 	const proseModal = document.getElementById('prose-settings-modal');
@@ -152,9 +151,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	}
 	
 	// --- Event Listeners ---
-	
-	// MODIFIED: Removed event listener for the prompt editor button.
-	
 	saveProseBtn.addEventListener('click', async (e) => {
 		e.preventDefault();
 		const novelId = parseInt(proseNovelIdInput.value, 10);

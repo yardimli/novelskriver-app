@@ -1,17 +1,15 @@
-// NEW: This file contains the logic for the "Expand" prompt builder.
+// This file contains the logic for the "Expand" prompt builder.
 
 // Default state for the expand form.
 const defaultState = {
 	focus: 'generic',
 	expand_length: 'default',
 	instructions: '',
-	// MODIFIED: use_codex is no longer a single boolean.
 	selectedCodexIds: [],
 	use_surrounding_text: true,
 	use_pov: true,
 };
 
-// NEW: Renders the list of codex entries as checkboxes.
 const renderCodexList = (container, context) => {
 	const codexContainer = container.querySelector('.js-codex-selection-container');
 	if (!codexContainer) return;
@@ -38,7 +36,6 @@ const renderCodexList = (container, context) => {
 	codexContainer.innerHTML = `<h4 class="label-text font-semibold mb-1">Use Codex Entries</h4>${listHtml}`;
 };
 
-// NEW: Updates the word count previews in the length dropdown.
 const updateLengthPreviews = (container, wordCount) => {
 	if (wordCount === 0) return;
 	
@@ -50,9 +47,9 @@ const updateLengthPreviews = (container, wordCount) => {
 };
 
 
-// MODIFIED: Builds the final prompt JSON based on form data and editor context.
-const buildPromptJson = (formData, context) => {
-	const { selectedText, wordCount, allCodexEntries } = context; // MODIFIED: Destructure allCodexEntries.
+// Export this function for use in the main prompt editor module.
+export const buildPromptJson = (formData, context) => {
+	const { selectedText, wordCount, allCodexEntries } = context;
 	
 	// Build Instructions Block
 	let instructionsBlock = '';
@@ -72,7 +69,6 @@ const buildPromptJson = (formData, context) => {
 	// Build Length Block
 	let lengthBlock = '';
 	if (formData.expand_length !== 'default') {
-		// MODIFIED: Use the actual word count for a more accurate preview.
 		const lengthInstruction = {
 			'double': `Double the length of the given prose. Your current word target is ${wordCount * 2} words.`,
 			'triple': `Triple the length of the given prose. Your current word target is ${wordCount * 3} words.`
@@ -97,7 +93,6 @@ If needed, split the expanded text into more paragraphs (add new ones as needed)
 
 Only return the expanded text, nothing else.`;
 	
-	// NEW: Build the codex block for the preview.
 	let codexBlock = '';
 	if (formData.selectedCodexIds && formData.selectedCodexIds.length > 0) {
 		const selectedEntries = allCodexEntries.filter(entry => formData.selectedCodexIds.includes(String(entry.id)));
@@ -149,7 +144,6 @@ ${wordCount > 0 ? truncatedText : '{message}'}
 	};
 };
 
-// MODIFIED: Updates the live preview area in the UI using context.
 const updatePreview = (container, context) => {
 	const form = container.querySelector('#expand-editor-form');
 	if (!form) return;
@@ -158,7 +152,6 @@ const updatePreview = (container, context) => {
 		focus: form.elements.focus.value,
 		expand_length: form.elements.expand_length.value,
 		instructions: form.elements.instructions.value.trim(),
-		// MODIFIED: Handle cases where no codex entries exist.
 		selectedCodexIds: form.elements.codex_entry ? Array.from(form.elements.codex_entry).filter(cb => cb.checked).map(cb => cb.value) : [],
 		use_surrounding_text: form.elements.use_surrounding_text.checked,
 		use_pov: form.elements.use_pov.checked,
@@ -182,7 +175,6 @@ const updatePreview = (container, context) => {
 	}
 };
 
-// MODIFIED: Populates the form with a given state.
 const populateForm = (container, state) => {
 	const form = container.querySelector('#expand-editor-form');
 	if (!form) return;
@@ -195,7 +187,6 @@ const populateForm = (container, state) => {
 	form.elements.use_pov.checked = state.use_pov;
 };
 
-// MODIFIED: Main initialization function now accepts context.
 export const init = async (container, context) => {
 	try {
 		const templateHtml = await window.api.getTemplate('expand-editor');

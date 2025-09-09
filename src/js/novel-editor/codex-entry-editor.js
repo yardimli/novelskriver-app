@@ -289,7 +289,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	
 	const newCodexModal = document.getElementById('new-codex-entry-modal');
 	const newCodexForm = document.getElementById('new-codex-entry-form');
-	// Removed novelId from this scope to prevent race condition.
 	
 	document.body.addEventListener('click', (event) => {
 		if (event.target.closest('.js-open-new-codex-modal')) {
@@ -418,7 +417,6 @@ document.addEventListener('DOMContentLoaded', () => {
 		template = template.replace(/{{ENTRY_ID}}/g, entryData.id);
 		template = template.replace(/{{ENTRY_TITLE}}/g, entryData.title);
 		template = template.replace(/{{THUMBNAIL_URL}}/g, entryData.thumbnail_url);
-		// Removed the description replacement as the field is gone.
 		
 		const button = createElementFromHTML(template);
 		if (!button) return null;

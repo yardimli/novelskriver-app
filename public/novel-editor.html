@@ -117,13 +117,12 @@
 	</div>
 	<div class="divider divider-horizontal mx-0"></div>
 	
-	<!-- MODIFIED: AI Tools Section has been replaced with direct-action buttons. -->
 	<div class="flex items-center gap-1">
 		<button type="button" class="js-toolbar-btn js-ai-action-btn btn btn-ghost btn-sm" data-action="expand" title="Expand Selection" disabled>Expand</button>
 		<button type="button" class="js-toolbar-btn js-ai-action-btn btn btn-ghost btn-sm" data-action="rephrase" title="Rephrase Selection" disabled>Rephrase</button>
 		<button type="button" class="js-toolbar-btn js-ai-action-btn btn btn-ghost btn-sm" data-action="shorten" title="Shorten Selection" disabled>Shorten</button>
-		<button type="button" class="js-toolbar-btn js-ai-action-btn btn btn-ghost btn-sm" data-action="scene-beat" title="Generate Next Scene Beat" disabled>Scene Beat</button>
-		<button type="button" class="js-toolbar-btn js-ai-action-btn btn btn-ghost btn-sm" data-action="scene-summarization" title="Summarize Chapter" disabled>Summarize</button>
+		<button type="button" class="js-toolbar-btn js-ai-action-btn btn btn-ghost btn-sm" data-action="scene-beat" title="Generate Next Scene Beat">Scene Beat</button>
+		<button type="button" class="js-toolbar-btn js-ai-action-btn btn btn-ghost btn-sm" data-action="scene-summarization" title="Summarize Chapter">Summarize</button>
 	</div>
 	
 	<div class="flex-grow"></div>
@@ -154,8 +153,6 @@
 	<div id="minimized-windows-container" class="flex items-center gap-2 flex-grow min-w-0">
 		<!-- Minimized windows will be dynamically inserted here -->
 	</div>
-	
-	<!-- REMOVED: The AI Prompt Editor button (robot icon) has been removed from the taskbar. -->
 	
 	<div class="ml-auto flex items-center gap-1">
 		<button id="zoom-out-btn" type="button" title="Zoom Out" class="btn btn-ghost btn-sm btn-square">
@@ -215,7 +212,6 @@
 					<input type="text" id="new-category-name" name="new_category_name" class="input input-bordered">
 					<p class="js-error-message mt-1 text-xs text-error hidden"></p>
 				</div>
-				<!-- REMOVED: Description textarea has been removed from the modal -->
 				<div class="form-control">
 					<label for="new-codex-content" class="label"><span
 						class="label-text">Content (Detailed Information)</span></label>
@@ -242,7 +238,6 @@
 	</div>
 </dialog>
 
-<!-- NEW: AI Prompt Editor Modal -->
 <dialog id="prompt-editor-modal" class="modal">
 	<div class="modal-box w-11/12 max-w-5xl h-[90vh] flex flex-col p-0">
 		<div class="flex flex-grow overflow-hidden">
@@ -281,7 +276,6 @@
 				</div>
 			</main>
 		</div>
-		<!-- MODIFIED: Modal footer now contains LLM selector and Apply button -->
 		<div class="modal-action px-6 py-4 border-t border-base-300 flex-shrink-0 flex justify-between items-center">
 			<div class="flex items-center gap-4">
 				<select class="js-llm-model-select select select-bordered select-sm w-full max-w-xs">
