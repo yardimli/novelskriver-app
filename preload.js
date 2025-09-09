@@ -79,8 +79,7 @@ contextBridge.exposeInMainWorld('api', {
 		};
 	},
 	getModels: () => ipcRenderer.invoke('ai:getModels'),
-	// REMOVED: openPromptEditor is no longer needed. The modal is handled in the renderer.
-	// REMOVED: getPromptContext is no longer needed.
+	// REMOVED: openPromptEditor and getPromptContext are no longer needed as the modal is handled in the renderer.
 	listPrompts: () => ipcRenderer.invoke('prompts:list'),
 	
 	generateCodexImage: (entryId, prompt) => ipcRenderer.invoke('codex-entries:generate-image', entryId, prompt),

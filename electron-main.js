@@ -1149,9 +1149,8 @@ function setupIpcHandlers() {
 	
 	// --- AI Prompt Template Handlers ---
 	
-	// REMOVED: This handler is no longer needed as the prompt editor is now a modal.
-	
-	// REMOVED: This handler is no longer needed. Context is passed directly in the renderer process.
+	// REMOVED: These handlers are no longer needed as the prompt editor is now a modal
+	// and its logic is handled within the renderer process.
 	
 	// MODIFIED: This handler now returns a static, hardcoded list of prompts.
 	ipcMain.handle('prompts:list', async () => {

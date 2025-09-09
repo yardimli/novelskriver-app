@@ -6,6 +6,10 @@ import { init as initShortenEditor } from './prompt-editors/shorten-editor.js';
 import { init as initSceneBeatEditor } from './prompt-editors/scene-beat-editor.js';
 import { init as initSceneSummarizationEditor } from './prompt-editors/scene-summarization-editor.js';
 
+// NEW: Import editor-related functions needed for the AI workflow.
+import { getActiveEditor } from './novel-editor/content-editor.js';
+import { updateToolbarState } from './novel-editor/toolbar.js';
+
 // Configuration mapping prompt IDs to their respective builder modules.
 const editors = {
 	'expand': { name: 'Expand', init: initExpandEditor },
@@ -17,6 +21,14 @@ const editors = {
 
 let modalEl;
 let currentContext;
+
+// NEW: State variables for the AI review workflow, moved from toolbar.js
+let isAiActionActive = false;
+let originalFragment = null;
+let aiActionRange = null;
+let floatingToolbar = null;
+let currentAiParams = null; // For the retry functionality
+let activeEditorView = null;
 
 /**
  * Loads a specific prompt builder into the editor pane.
@@ -67,6 +79,254 @@ const handleListClick = (event) => {
 	}
 };
 
+
+// --- AI Action Review Workflow (Moved from toolbar.js) ---
+
+function setEditorEditable(view, isEditable) {
+	view.setProps({
+		editable: () => isEditable,
+	});
+}
+
+function cleanupAiAction() {
+	if (floatingToolbar) {
+		floatingToolbar.remove();
+		floatingToolbar = null;
+	}
+	
+	if (activeEditorView) {
+		setEditorEditable(activeEditorView, true);
+		const { state, dispatch } = activeEditorView;
+		const { schema } = state;
+		const tr = state.tr.removeMark(0, state.doc.content.size, schema.marks.ai_suggestion);
+		dispatch(tr);
+		activeEditorView.focus();
+	}
+	
+	isAiActionActive = false;
+	originalFragment = null;
+	aiActionRange = null;
+	currentAiParams = null;
+	updateToolbarState(activeEditorView);
+}
+
+function handleFloatyApply() {
+	if (!isAiActionActive || !activeEditorView) return;
+	cleanupAiAction();
+}
+
+function handleFloatyDiscard() {
+	if (!isAiActionActive || !activeEditorView || !originalFragment) return;
+	
+	const { state, dispatch } = activeEditorView;
+	const tr = state.tr.replace(aiActionRange.from, aiActionRange.to, originalFragment);
+	dispatch(tr);
+	
+	cleanupAiAction();
+}
+
+async function handleFloatyRetry() {
+	if (!isAiActionActive || !activeEditorView || !currentAiParams) return;
+	
+	const { state, dispatch } = activeEditorView;
+	
+	const tr = state.tr.replace(aiActionRange.from, aiActionRange.to, originalFragment);
+	dispatch(tr);
+	
+	if (floatingToolbar) {
+		floatingToolbar.remove();
+		floatingToolbar = null;
+	}
+	
+	isAiActionActive = false;
+	await startAiStream(currentAiParams);
+}
+
+function createFloatingToolbar(view, from, to, model) {
+	if (floatingToolbar) floatingToolbar.remove();
+	
+	const text = view.state.doc.textBetween(from, to, ' ');
+	const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
+	const modelName = model.split('/').pop() || model;
+	
+	const toolbarEl = document.createElement('div');
+	toolbarEl.id = 'ai-floating-toolbar';
+	toolbarEl.innerHTML = `
+        <button data-action="apply" title="Apply"><i class="bi bi-check-lg"></i> Apply</button>
+        <button data-action="retry" title="Retry"><i class="bi bi-arrow-repeat"></i> Retry</button>
+        <button data-action="discard" title="Discard"><i class="bi bi-x-lg"></i> Discard</button>
+        <div class="divider-vertical"></div>
+        <span class="text-gray-400">${wordCount} Words, ${modelName}</span>
+    `;
+	
+	const viewport = document.getElementById('viewport');
+	viewport.appendChild(toolbarEl);
+	floatingToolbar = toolbarEl;
+	
+	const toolbarWidth = toolbarEl.offsetWidth;
+	const toolbarHeight = toolbarEl.offsetHeight;
+	const viewportRect = viewport.getBoundingClientRect();
+	const startCoords = view.coordsAtPos(from);
+	
+	let desiredLeft = startCoords.left - viewportRect.left;
+	const finalLeft = Math.max(10, Math.min(desiredLeft, viewport.clientWidth - toolbarWidth - 10));
+	
+	let desiredTop = startCoords.top - viewportRect.top - toolbarHeight - 5;
+	if (desiredTop < 10) {
+		desiredTop = startCoords.bottom - viewportRect.top + 5;
+	}
+	const finalTop = Math.max(10, Math.min(desiredTop, viewport.clientHeight - toolbarHeight - 10));
+	
+	toolbarEl.style.left = `${finalLeft}px`;
+	toolbarEl.style.top = `${finalTop}px`;
+	
+	toolbarEl.addEventListener('mousedown', (e) => e.preventDefault());
+	toolbarEl.addEventListener('click', (e) => {
+		const button = e.target.closest('button');
+		if (!button) return;
+		const action = button.dataset.action;
+		if (action === 'apply') handleFloatyApply();
+		if (action === 'discard') handleFloatyDiscard();
+		if (action === 'retry') handleFloatyRetry();
+	});
+}
+
+async function startAiStream(params) {
+	const { text, action, model, ...formData } = params;
+	
+	isAiActionActive = true;
+	updateToolbarState(activeEditorView);
+	setEditorEditable(activeEditorView, false);
+	
+	let isFirstChunk = true;
+	let currentInsertionPos = aiActionRange.from;
+	
+	const onData = (payload) => {
+		if (payload.chunk) {
+			const { schema } = activeEditorView.state;
+			const mark = schema.marks.ai_suggestion.create();
+			let tr = activeEditorView.state.tr;
+			
+			if (isFirstChunk) {
+				tr.replaceWith(aiActionRange.from, aiActionRange.to, []);
+				isFirstChunk = false;
+			}
+			
+			const parts = payload.chunk.split('\n');
+			parts.forEach((part, index) => {
+				if (part) {
+					const textNode = schema.text(part, [mark]);
+					tr.insert(currentInsertionPos, textNode);
+					currentInsertionPos += part.length;
+				}
+				if (index < parts.length - 1) {
+					tr.split(currentInsertionPos);
+					currentInsertionPos += 2;
+				}
+			});
+			
+			aiActionRange.to = currentInsertionPos;
+			activeEditorView.dispatch(tr);
+			
+		} else if (payload.done) {
+			createFloatingToolbar(activeEditorView, aiActionRange.from, aiActionRange.to, model);
+			
+		} else if (payload.error) {
+			console.error('AI Action Error:', payload.error);
+			alert(`Error: ${payload.error}`);
+			handleFloatyDiscard();
+		}
+	};
+	
+	try {
+		// The payload for the API now includes the full formData from the prompt builder.
+		window.api.processCodexTextStream({ text, action, model, formData }, onData);
+	} catch (error) {
+		console.error('AI Action Error:', error);
+		alert(`Error: ${error.message}`);
+		handleFloatyDiscard();
+	}
+}
+
+// NEW: Populates the model dropdown in the modal footer.
+async function populateModelDropdown() {
+	if (!modalEl) return;
+	const select = modalEl.querySelector('.js-llm-model-select');
+	if (!select) return;
+	
+	try {
+		const result = await window.api.getModels();
+		if (!result.success || !result.models || result.models.length === 0) {
+			throw new Error(result.message || 'No models returned from API.');
+		}
+		
+		const models = result.models;
+		const defaultModel = 'openai/gpt-4o-mini';
+		
+		select.innerHTML = '';
+		models.forEach(model => {
+			const option = new Option(model.name, model.id);
+			select.appendChild(option);
+		});
+		
+		if (models.some(m => m.id === defaultModel)) {
+			select.value = defaultModel;
+		} else if (models.length > 0) {
+			select.value = models[0].id;
+		}
+	} catch (error) {
+		console.error('Failed to populate AI model dropdowns:', error);
+		select.innerHTML = '<option value="" disabled selected>Error loading</option>';
+	}
+}
+
+// NEW: Handles the main 'Apply' button click in the modal.
+async function handleModalApply() {
+	if (!modalEl || isAiActionActive) return;
+	
+	activeEditorView = getActiveEditor();
+	if (!activeEditorView) {
+		alert('No active editor to apply changes to.');
+		return;
+	}
+	
+	const model = modalEl.querySelector('.js-llm-model-select').value;
+	const activePromptItem = modalEl.querySelector('.js-prompt-item.btn-active');
+	const action = activePromptItem ? activePromptItem.dataset.promptId : null;
+	const form = modalEl.querySelector('.js-custom-editor-pane form');
+	
+	if (!model || !action || !form) {
+		alert('Could not apply action. Missing model, action, or form.');
+		return;
+	}
+	
+	modalEl.close();
+	
+	const { state } = activeEditorView;
+	const { from, to } = state.selection;
+	
+	let text = state.doc.textBetween(from, to, ' ');
+	if (action === 'scene-summarization' && state.selection.empty) {
+		text = state.doc.textContent;
+	}
+	
+	if ((action !== 'scene-summarization') && state.selection.empty) {
+		alert('Please select text to apply this action.');
+		return;
+	}
+	
+	originalFragment = state.doc.slice(from, to);
+	aiActionRange = { from, to };
+	
+	const formData = new FormData(form);
+	const formDataObj = Object.fromEntries(formData.entries());
+	
+	currentAiParams = { text, action, model, ...formDataObj };
+	
+	await startAiStream(currentAiParams);
+}
+
+
 /**
  * Initializes the prompt editor modal logic once, attaching the necessary event listener.
  */
@@ -75,17 +335,22 @@ export function setupPromptEditor() {
 	if (!modalEl) return;
 	
 	const listContainer = modalEl.querySelector('.js-prompt-list-container');
+	const applyBtn = modalEl.querySelector('.js-prompt-apply-btn');
+	
 	if (listContainer) {
-		// Attach a single, delegated event listener for the lifetime of the app.
 		listContainer.addEventListener('click', handleListClick);
+	}
+	if (applyBtn) {
+		applyBtn.addEventListener('click', handleModalApply);
 	}
 }
 
 /**
  * Opens the prompt editor modal with fresh context.
  * @param {object} context
+ * @param {string} promptId The ID of the prompt to open.
  */
-export async function openPromptEditor(context) {
+export async function openPromptEditor(context, promptId) {
 	if (!modalEl) {
 		console.error('Prompt editor modal element not found.');
 		return;
@@ -96,12 +361,10 @@ export async function openPromptEditor(context) {
 	const placeholder = modalEl.querySelector('.js-prompt-placeholder');
 	const customEditorPane = modalEl.querySelector('.js-custom-editor-pane');
 	
-	// Reset view to its initial state
-	placeholder.classList.remove('hidden');
-	customEditorPane.classList.add('hidden');
+	placeholder.classList.add('hidden');
+	customEditorPane.classList.remove('hidden');
 	listContainer.innerHTML = `<div class="p-4 text-center"><span class="loading loading-spinner"></span></div>`;
 	
-	// Load the list of available prompts
 	try {
 		const prompts = await window.api.listPrompts();
 		listContainer.innerHTML = '';
@@ -117,10 +380,14 @@ export async function openPromptEditor(context) {
 			button.textContent = prompt.name;
 			listContainer.appendChild(button);
 		});
+		
+		await populateModelDropdown();
+		await loadPrompt(promptId);
+		modalEl.showModal();
+		
 	} catch (error) {
 		console.error('Failed to load prompt list:', error);
 		listContainer.innerHTML = `<div class="alert alert-error m-2">${error.message}</div>`;
+		modalEl.showModal();
 	}
-	
-	modalEl.showModal();
 }

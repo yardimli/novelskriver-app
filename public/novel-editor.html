@@ -117,45 +117,15 @@
 	</div>
 	<div class="divider divider-horizontal mx-0"></div>
 	
-	<!-- AI Tools Section -->
+	<!-- MODIFIED: AI Tools Section has been replaced with direct-action buttons. -->
 	<div class="flex items-center gap-1">
-		<div class="dropdown js-dropdown-container">
-			<button type="button" tabindex="0" role="button" class="js-toolbar-btn js-ai-action-btn btn btn-ghost btn-sm"
-			        disabled>Expand
-			</button>
-			<div tabindex="0" class="js-dropdown dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-48">
-				<!-- MODIFIED: Options will be populated dynamically -->
-				<select class="js-llm-model-select select select-xs w-full">
-					<option value="" disabled selected>Loading models...</option>
-				</select>
-				<button class="js-ai-apply-btn btn btn-accent btn-xs mt-2" data-action="expand">Apply</button>
-			</div>
-		</div>
-		<div class="dropdown js-dropdown-container">
-			<button type="button" tabindex="0" role="button" class="js-toolbar-btn js-ai-action-btn btn btn-ghost btn-sm"
-			        disabled>Rephrase
-			</button>
-			<div tabindex="0" class="js-dropdown dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-48">
-				<!-- MODIFIED: Options will be populated dynamically -->
-				<select class="js-llm-model-select select select-xs w-full">
-					<option value="" disabled selected>Loading models...</option>
-				</select>
-				<button class="js-ai-apply-btn btn btn-accent btn-xs mt-2" data-action="rephrase">Apply</button>
-			</div>
-		</div>
-		<div class="dropdown js-dropdown-container">
-			<button type="button" tabindex="0" role="button" class="js-toolbar-btn js-ai-action-btn btn btn-ghost btn-sm"
-			        disabled>Shorten
-			</button>
-			<div tabindex="0" class="js-dropdown dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-48">
-				<!-- MODIFIED: Options will be populated dynamically -->
-				<select class="js-llm-model-select select select-xs w-full">
-					<option value="" disabled selected>Loading models...</option>
-				</select>
-				<button class="js-ai-apply-btn btn btn-accent btn-xs mt-2" data-action="shorten">Apply</button>
-			</div>
-		</div>
+		<button type="button" class="js-toolbar-btn js-ai-action-btn btn btn-ghost btn-sm" data-action="expand" title="Expand Selection" disabled>Expand</button>
+		<button type="button" class="js-toolbar-btn js-ai-action-btn btn btn-ghost btn-sm" data-action="rephrase" title="Rephrase Selection" disabled>Rephrase</button>
+		<button type="button" class="js-toolbar-btn js-ai-action-btn btn btn-ghost btn-sm" data-action="shorten" title="Shorten Selection" disabled>Shorten</button>
+		<button type="button" class="js-toolbar-btn js-ai-action-btn btn btn-ghost btn-sm" data-action="scene-beat" title="Generate Next Scene Beat" disabled>Scene Beat</button>
+		<button type="button" class="js-toolbar-btn js-ai-action-btn btn btn-ghost btn-sm" data-action="scene-summarization" title="Summarize Chapter" disabled>Summarize</button>
 	</div>
+	
 	<div class="flex-grow"></div>
 	<div class="flex items-center text-sm text-base-content/70">
 		<span id="js-word-count">No text selected</span>
@@ -185,11 +155,7 @@
 		<!-- Minimized windows will be dynamically inserted here -->
 	</div>
 	
-	<div class="divider divider-horizontal mx-0"></div>
-	<button id="open-prompts-btn" type="button" title="AI Prompt Editor" class="btn btn-ghost btn-sm btn-square">
-		<i class="bi bi-robot text-lg"></i>
-	</button>
-	
+	<!-- REMOVED: The AI Prompt Editor button (robot icon) has been removed from the taskbar. -->
 	
 	<div class="ml-auto flex items-center gap-1">
 		<button id="zoom-out-btn" type="button" title="Zoom Out" class="btn btn-ghost btn-sm btn-square">
@@ -315,7 +281,14 @@
 				</div>
 			</main>
 		</div>
-		<div class="modal-action px-6 py-4 border-t border-base-300 flex-shrink-0">
+		<!-- MODIFIED: Modal footer now contains LLM selector and Apply button -->
+		<div class="modal-action px-6 py-4 border-t border-base-300 flex-shrink-0 flex justify-between items-center">
+			<div class="flex items-center gap-4">
+				<select class="js-llm-model-select select select-bordered select-sm w-full max-w-xs">
+					<option disabled selected>Loading models...</option>
+				</select>
+				<button type="button" class="js-prompt-apply-btn btn btn-accent">Apply Changes</button>
+			</div>
 			<form method="dialog">
 				<button class="btn">Close</button>
 			</form>

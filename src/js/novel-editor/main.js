@@ -4,7 +4,6 @@ import {
 	setupChapterHandler,
 	setupOpenWindowsMenu,
 	setupCanvasControls,
-	setupPromptEditorHandler
 } from './eventHandlers.js';
 import {setupChapterEditor} from './chapter-editor.js';
 import {setupContentEditor} from './content-editor.js';
@@ -191,7 +190,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 	setupTopToolbar();
 	setupCodexEntryHandler(desktop, windowManager);
 	setupChapterHandler(desktop, windowManager);
-	setupPromptEditorHandler(windowManager);
+	// REMOVED: The old setupPromptEditorHandler is no longer needed.
 	setupChapterEditor(desktop);
 	setupContentEditor(desktop);
 	setupOpenWindowsMenu(windowManager);

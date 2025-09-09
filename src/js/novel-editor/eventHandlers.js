@@ -2,8 +2,7 @@
  * This module contains functions to set up various event listeners for the novel editor UI.
  */
 import { getActiveEditor } from './content-editor.js';
-// NEW: Import the function to open the modal from the prompt editor controller.
-import { openPromptEditor } from '../prompt-editor.js';
+// REMOVED: No longer need to import the prompt editor opener from here.
 
 /**
  * Sets up the event listener for opening codex entry windows.
@@ -256,46 +255,5 @@ export function setupCanvasControls(windowManager) {
 	if (arrangeBtn) arrangeBtn.addEventListener('click', () => windowManager.arrangeWindows());
 }
 
-// MODIFIED: This function now gathers context and opens the prompt editor modal.
-export function setupPromptEditorHandler(windowManager) {
-	const taskbarBtn = document.getElementById('open-prompts-btn');
-	
-	if (taskbarBtn) {
-		taskbarBtn.addEventListener('click', async () => {
-			const novelId = document.body.dataset.novelId;
-			if (!novelId) {
-				alert('Could not determine the current novel.');
-				return;
-			}
-			
-			// 1. Get selected text from the active editor
-			let selectedText = '';
-			const activeEditor = getActiveEditor();
-			if (activeEditor && !activeEditor.state.selection.empty) {
-				const { from, to } = activeEditor.state.selection;
-				selectedText = activeEditor.state.doc.textBetween(from, to, ' ');
-			}
-			
-			// 2. Get all codex entries for the novel
-			const allCodexEntries = await window.api.getAllCodexEntriesForNovel(novelId);
-			
-			// 3. Get linked codex entries if the active window is a chapter
-			let linkedCodexEntryIds = [];
-			const activeWindowId = windowManager.activeWindow;
-			if (activeWindowId && activeWindowId.startsWith('chapter-')) {
-				const chapterId = activeWindowId.replace('chapter-', '');
-				linkedCodexEntryIds = await window.api.getLinkedCodexIdsForChapter(chapterId);
-			}
-			
-			// 4. Bundle the context and open the editor modal
-			const context = {
-				selectedText,
-				allCodexEntries,
-				linkedCodexEntryIds
-			};
-			
-			// MODIFIED: Call the local function to open the modal instead of an IPC call.
-			openPromptEditor(context);
-		});
-	}
-}
+// REMOVED: setupPromptEditorHandler is no longer needed as the button it controlled has been removed.
+// The new AI buttons are handled by the toolbar's main event listener.
