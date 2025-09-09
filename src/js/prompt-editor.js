@@ -8,6 +8,7 @@ import { init as initSceneBeatEditor, buildPromptJson as buildSceneBeatJson } fr
 import { init as initSceneSummarizationEditor, buildPromptJson as buildSceneSummarizationJson } from './prompt-editors/scene-summarization-editor.js';
 import { getActiveEditor } from './novel-editor/content-editor.js';
 import { updateToolbarState } from './novel-editor/toolbar.js';
+import { TextSelection } from 'prosemirror-state'; // NEW: Import TextSelection for re-selecting text.
 
 // Configuration mapping prompt IDs to their respective builder modules.
 const editors = {
@@ -123,15 +124,41 @@ function handleFloatyDiscard() {
 	cleanupAiAction();
 }
 
+// MODIFIED: This function now reverts the text, re-selects it, and re-opens the prompt editor modal.
 async function handleFloatyRetry() {
 	if (!isAiActionActive || !activeEditorView || !currentAiParams) return;
 	
 	const actionToRetry = currentAiParams.action;
 	const contextForRetry = currentAiParams.context;
 	
-	handleFloatyDiscard(); // This reverts text and cleans up all AI state.
+	// 1. Remove the floating toolbar.
+	if (floatingToolbar) {
+		floatingToolbar.remove();
+		floatingToolbar = null;
+	}
 	
-	// Re-open the prompt editor modal with the original context.
+	// 2. Revert the text to its original state.
+	const { state, dispatch } = activeEditorView;
+	let tr = state.tr.replace(aiActionRange.from, aiActionRange.to, originalFragment);
+	
+	// 3. Calculate the new 'to' position after replacing the text.
+	// This is important because the original fragment's length might be different from the AI-generated text.
+	const newTo = aiActionRange.from + originalFragment.size;
+	
+	// 4. Create and apply a new selection transaction.
+	tr = tr.setSelection(TextSelection.create(tr.doc, aiActionRange.from, newTo));
+	dispatch(tr);
+	
+	// 5. Make the editor editable again.
+	setEditorEditable(activeEditorView, true);
+	
+	// 6. Clean up remaining AI state flags.
+	isAiActionActive = false;
+	originalFragment = null;
+	// aiActionRange is still valid and needed for the next step.
+	updateToolbarState(activeEditorView);
+	
+	// 7. Re-open the prompt editor modal with the original context, allowing the user to make changes.
 	openPromptEditor(contextForRetry, actionToRetry);
 }
 
@@ -152,25 +179,23 @@ function createFloatingToolbar(view, from, to, model) {
         <span class="text-gray-400">${wordCount} Words, ${modelName}</span>
     `;
 	
-	// MODIFIED: Use document.body as a fallback container if #viewport is not found.
-	// This makes the function compatible with both the main novel editor and the dedicated chapter editor.
 	const container = document.getElementById('viewport') || document.body;
 	container.appendChild(toolbarEl);
 	floatingToolbar = toolbarEl;
 	
 	const toolbarWidth = toolbarEl.offsetWidth;
 	const toolbarHeight = toolbarEl.offsetHeight;
-	const containerRect = container.getBoundingClientRect(); // MODIFIED: Use container's rect
+	const containerRect = container.getBoundingClientRect();
 	const startCoords = view.coordsAtPos(from);
 	
-	let desiredLeft = startCoords.left - containerRect.left; // MODIFIED: Use container's rect
-	const finalLeft = Math.max(10, Math.min(desiredLeft, container.clientWidth - toolbarWidth - 10)); // MODIFIED: Use container's width
+	let desiredLeft = startCoords.left - containerRect.left;
+	const finalLeft = Math.max(10, Math.min(desiredLeft, container.clientWidth - toolbarWidth - 10));
 	
-	let desiredTop = startCoords.top - containerRect.top - toolbarHeight - 5; // MODIFIED: Use container's rect
+	let desiredTop = startCoords.top - containerRect.top - toolbarHeight - 5;
 	if (desiredTop < 10) {
-		desiredTop = startCoords.bottom - containerRect.top + 5; // MODIFIED: Use container's rect
+		desiredTop = startCoords.bottom - containerRect.top + 5;
 	}
-	const finalTop = Math.max(10, Math.min(desiredTop, container.clientHeight - toolbarHeight - 10)); // MODIFIED: Use container's height
+	const finalTop = Math.max(10, Math.min(desiredTop, container.clientHeight - toolbarHeight - 10));
 	
 	toolbarEl.style.left = `${finalLeft}px`;
 	toolbarEl.style.top = `${finalTop}px`;
@@ -295,7 +320,6 @@ async function handleModalApply() {
 	
 	modalEl.close();
 	
-	// MODIFIED: Use the editor instance passed in the context instead of querying the global state.
 	activeEditorView = currentContext.activeEditorView;
 	if (!activeEditorView) {
 		alert('No active editor to apply changes to.');
