@@ -11,10 +11,25 @@ export function setupChapterEditor(desktop) {
 		if (draggable) {
 			event.dataTransfer.setData('application/x-codex-entry-id', draggable.dataset.entryId);
 			event.dataTransfer.effectAllowed = 'link';
+			// MODIFIED: Add a class to the desktop to signal that a drag operation is in progress.
+			// This is used by the CSS to re-enable pointer events on inactive windows so they can be drop targets.
+			desktop.classList.add('is-dragging');
 		}
 	});
 	
+	// NEW: Add a global dragend listener to clean up after a drag operation finishes.
+	desktop.addEventListener('dragend', () => {
+		// MODIFIED: Remove the dragging indicator class from the desktop.
+		desktop.classList.remove('is-dragging');
+		
+		// MODIFIED: As a safety measure, remove any lingering drop-zone highlight styles from all potential drop zones.
+		desktop.querySelectorAll('.js-chapter-drop-zone, .js-codex-drop-zone').forEach(zone => {
+			zone.classList.remove('bg-blue-100', 'dark:bg-blue-900/50');
+		});
+	});
+	
 	desktop.addEventListener('dragover', (event) => {
+		// MODIFIED: This check should now work correctly due to the CSS fix that re-enables pointer events during a drag.
 		const dropZone = event.target.closest('.js-chapter-drop-zone');
 		if (dropZone) {
 			event.preventDefault();

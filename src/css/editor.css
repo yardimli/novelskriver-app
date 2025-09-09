@@ -33,6 +33,13 @@
     @apply pointer-events-none opacity-75;
 }
 
+/* MODIFIED: Re-enable pointer events on inactive windows when a drag operation is in progress.
+   This is crucial to allow them to act as drop targets. The is-dragging class
+   is added to the #desktop element via JavaScript on dragstart. */
+#desktop.is-dragging .window-inactive-content {
+    @apply pointer-events-auto;
+}
+
 /* Fix for Bootstrap Icon vertical alignment within flex containers like buttons. */
 /* This ensures the icon itself is centered, preventing cropping or misalignment. */
 i[class^="bi-"], i[class*=" bi-"] {
