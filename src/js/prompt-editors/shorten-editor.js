@@ -44,9 +44,25 @@ const updateLengthPreviews = (container, wordCount) => {
 	if (quarterOption) quarterOption.textContent = `(approx. ${Math.round(wordCount / 4)} words)`;
 };
 
+// NEW: Helper function to build the surrounding text block for prompts.
+const buildSurroundingTextBlock = (use, wordsBefore, wordsAfter) => {
+	if (!use || (!wordsBefore && !wordsAfter)) {
+		return '';
+	}
+	let block = 'For contextual information, refer to surrounding words in the scene, DO NOT REPEAT THEM:\n';
+	if (wordsBefore) {
+		block += `<textBefore>\n${wordsBefore}\n</textBefore>\n`;
+	}
+	if (wordsAfter) {
+		block += `<textAfter>\n${wordsAfter}\n</textAfter>\n`;
+	}
+	return block;
+};
+
 // Export this function for use in the main prompt editor module.
 export const buildPromptJson = (formData, context) => {
-	const { selectedText, wordCount, allCodexEntries } = context;
+	// MODIFIED: Destructure new context properties.
+	const { selectedText, wordCount, allCodexEntries, novelLanguage, povString, wordsBefore, wordsAfter } = context;
 	
 	let lengthInstruction = '';
 	switch (formData.shorten_length) {
@@ -61,10 +77,11 @@ export const buildPromptJson = (formData, context) => {
 			break;
 	}
 	
+	// MODIFIED: System prompt now uses dynamic novel language.
 	const system = `You are an expert prose editor.
 
 Whenever you're given text, rewrite it to condense it into fewer words without losing meaning. Imitiate the current writing style perfectly, keeping mannerisms, word choice and sentence structure intact.
-You are free to remove redundant lines of speech. Keep the same tense and stylistic choices. Use {novel.language} spelling and grammar.
+You are free to remove redundant lines of speech. Keep the same tense and stylistic choices. Use ${novelLanguage || 'English'} spelling and grammar.
 
 ${lengthInstruction}
 
@@ -92,29 +109,30 @@ Only return the condensed text, nothing else.`;
 			codexBlock = `Take into account the following glossary of characters/locations/items/lore... when writing your response:
 <codex>
 ${codexContent}
-</codex>
-
-`;
+</codex>`;
 		}
 	}
 	
 	const truncatedText = selectedText.length > 300 ? selectedText.substring(0, 300) + '...' : selectedText;
 	
-	const user = `${codexBlock}
-
-${formData.use_pov ? `{pov}\n\n` : ''}${formData.use_surrounding_text ? `
- {wordsBefore(200)}
- {wordsAfter(200)}
-
-` : ''}Text to rewrite:
-<text words="${wordCount}">
-${wordCount > 0 ? truncatedText : '{message}'}
-</text>`;
+	// MODIFIED: User prompt is built dynamically with new context.
+	const surroundingText = buildSurroundingTextBlock(formData.use_surrounding_text, wordsBefore, wordsAfter);
+	
+	const userParts = [codexBlock];
+	if (formData.use_pov && povString) {
+		userParts.push(povString);
+	}
+	if (surroundingText) {
+		userParts.push(surroundingText);
+	}
+	userParts.push(`Text to rewrite:\n<text words="${wordCount}">\n${wordCount > 0 ? truncatedText : '{message}'}\n</text>`);
+	
+	const user = userParts.filter(Boolean).join('\n\n');
 	
 	return {
 		system: system.replace(/\n\n\n/g, '\n\n'),
-		user: user.replace(/\n\n\n/g, '\n\n'),
-		ai: ''
+		user: user,
+		ai: '',
 	};
 };
 

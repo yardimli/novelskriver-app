@@ -35,14 +35,16 @@ const renderCodexList = (container, context) => {
 
 // Export this function for use in the main prompt editor module.
 export const buildPromptJson = (formData, context) => {
-	const { selectedText, allCodexEntries } = context;
+	// MODIFIED: Destructure new context properties.
+	const { selectedText, allCodexEntries, novelLanguage, povString } = context;
 	
+	// MODIFIED: System prompt now uses dynamic language.
 	const system = `You are an expert novel summarizer.
 Whenever you're given text, summarize it into a concise, condensed version.
 
 Keep the following rules in mind:
 - Don't write more than ${formData.words || 100} words.
-- Always write in {novel.language} spelling and grammar.
+- Always write in ${novelLanguage || 'English'} spelling and grammar.
 - Only return the summary in running text, don't abbreviate to bullet points.
 - Don't start with "In this scene..." or "Here is...". Only write the summary itself.
 - Mention characters by name and never by their role (e.g. protagonist, mentor, friend, author).
@@ -87,24 +89,24 @@ ${formData.instructions}
 			codexBlock = `Take into account the following glossary of characters/locations/items/lore... when writing your response:
 <codex>
 ${codexContent}
-</codex>
-
-`;
+</codex>`;
 		}
 	}
 	
 	const truncatedText = selectedText.length > 300 ? selectedText.substring(0, 300) + '...' : selectedText;
 	
+	// MODIFIED: The placeholder POV block is replaced with a dynamically generated one.
+	let povBlock = '';
+	if (formData.use_pov && povString) {
+		povBlock = `{! Give a hint about the POV, if specified !}
+<scenePointOfView>
+${povString}
+</scenePointOfView>`;
+	}
+	
 	const user = `${codexBlock}
 
-${formData.use_pov ? `{! Give a hint about the POV, if specified !}
-{#if pov}
- <scenePointOfView>
- This scene is written in {pov.type} point of view{ifs(pov.character, " from the perspective of " + pov.character)}.
- </scenePointOfView>
-{#endif}
-
-` : ''}
+${povBlock}
 
 {! Make sure that we don't get something like 'I walked...' !}
 Write the summary in third person, and use present tense.
@@ -117,7 +119,7 @@ ${selectedText ? truncatedText : '{removeWhitespace(scene.fullText)}'}
 	return {
 		system: system.replace(/\n\n\n/g, '\n\n'),
 		user: user.replace(/\n\n\n/g, '\n\n'),
-		ai: ''
+		ai: '',
 	};
 };
 

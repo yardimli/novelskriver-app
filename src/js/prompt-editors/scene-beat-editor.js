@@ -35,12 +35,14 @@ const renderCodexList = (container, context) => {
 
 // Export this function for use in the main prompt editor module.
 export const buildPromptJson = (formData, context) => {
-	const { allCodexEntries } = context;
+	// MODIFIED: Destructure new context properties.
+	const { allCodexEntries, novelLanguage, novelTense, povString, wordsBefore } = context;
 	
+	// MODIFIED: System prompt now uses dynamic tense and language.
 	const system = `You are an expert fiction writer.
 
 Always keep the following rules in mind:
-- Write in {novel.tense} and use {novel.language} spelling, grammar, and colloquialisms/slang.
+- Write in ${novelTense || 'past tense'} and use ${novelLanguage || 'English'} spelling, grammar, and colloquialisms/slang.
 - Write in active voice
 - Always follow the "show, don't tell" principle.
 - Avoid adverbs and cliches and overused/commonly used phrases. Aim for fresh and original descriptions.
@@ -88,6 +90,7 @@ ${codexContent}
 
 ` : ''}`;
 	
+	// MODIFIED: The AI "prefix" now includes the actual text before the cursor and the formatted POV string.
 	const ai = `
 
 {! If no text is before this beat, include text from the previous scene, but only if told from the same character. This helps with matching your writing style across scenes. !}
@@ -99,13 +102,13 @@ ${codexContent}
 {#endif}
 
 {! Otherwise, include recent text before this beat within this scene !}
-{textBefore}
+${wordsBefore || ''}
 
 User
 Write ${formData.words || 250} words that continue the story, using the following instructions:
 <instructions>
  {! This will use the novel's POV, or any scene override !}
- {pov}
+ ${povString || ''}
 
  ${formData.instructions || 'Continue the story.'}
 </instructions>
@@ -115,7 +118,7 @@ Write ${formData.words || 250} words that continue the story, using the followin
 	return {
 		system: system.replace(/\n\n\n/g, '\n\n'),
 		user: user.replace(/\n\n\n/g, '\n\n'),
-		ai: ai.replace(/\n\n\n/g, '\n\n')
+		ai: ai.replace(/\n\n\n/g, '\n\n'),
 	};
 };
 

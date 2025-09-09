@@ -33,16 +33,33 @@ const renderCodexList = (container, context) => {
 	codexContainer.innerHTML = `<h4 class="label-text font-semibold mb-1">Use Codex Entries</h4>${listHtml}`;
 };
 
+// NEW: Helper function to build the surrounding text block for prompts.
+const buildSurroundingTextBlock = (use, wordsBefore, wordsAfter) => {
+	if (!use || (!wordsBefore && !wordsAfter)) {
+		return '';
+	}
+	let block = 'For contextual information, refer to surrounding words in the scene, DO NOT REPEAT THEM:\n';
+	if (wordsBefore) {
+		block += `<textBefore>\n${wordsBefore}\n</textBefore>\n`;
+	}
+	if (wordsAfter) {
+		block += `<textAfter>\n${wordsAfter}\n</textAfter>\n`;
+	}
+	return block;
+};
+
 // Export this function for use in the main prompt editor module.
 export const buildPromptJson = (formData, context) => {
-	const { selectedText, wordCount, allCodexEntries } = context;
+	// MODIFIED: Destructure new context properties.
+	const { selectedText, wordCount, allCodexEntries, novelLanguage, povString, wordsBefore, wordsAfter } = context;
 	
+	// MODIFIED: System prompt now uses the dynamic novel language.
 	const system = `You are an expert prose editor.
 
 Whenever you're given text, rephrase it using the following instructions: <instructions>${formData.instructions || 'Rephrase the given text.'}</instructions>
 
 Imitiate and keep the current writing style, and leave mannerisms, word choice and sentence structure intact.
-You are free to remove redundant lines of speech. Keep the same tense and stylistic choices. Use {novel.language} spelling and grammar.
+You are free to remove redundant lines of speech. Keep the same tense and stylistic choices. Use ${novelLanguage || 'English'} spelling and grammar.
 
 Only return the rephrased text, nothing else.`;
 	
@@ -61,30 +78,30 @@ Only return the rephrased text, nothing else.`;
 			codexBlock = `Take into account the following glossary of characters/locations/items/lore... when writing your response:
 <codex>
 ${codexContent}
-</codex>
-
-`;
+</codex>`;
 		}
 	}
 	
 	const truncatedText = selectedText.length > 300 ? selectedText.substring(0, 300) + '...' : selectedText;
 	
-	const user = `${codexBlock}
-
-${formData.use_pov ? `{pov}\n\n` : ''}${formData.use_surrounding_text ? `
- For contextual information, refer to surrounding words in the scene, DO NOT REPEAT THEM:
- {wordsBefore(200)}
- {wordsAfter(200)}
-
-` : ''}Text to rewrite:
-<text words="${wordCount}">
-${wordCount > 0 ? truncatedText : '{message}'}
-</text>`;
+	// MODIFIED: User prompt is built dynamically with new context.
+	const surroundingText = buildSurroundingTextBlock(formData.use_surrounding_text, wordsBefore, wordsAfter);
+	
+	const userParts = [codexBlock];
+	if (formData.use_pov && povString) {
+		userParts.push(povString);
+	}
+	if (surroundingText) {
+		userParts.push(surroundingText);
+	}
+	userParts.push(`Text to rewrite:\n<text words="${wordCount}">\n${wordCount > 0 ? truncatedText : '{message}'}\n</text>`);
+	
+	const user = userParts.filter(Boolean).join('\n\n');
 	
 	return {
 		system: system.replace(/\n\n\n/g, '\n\n'),
-		user: user.replace(/\n\n\n/g, '\n\n'),
-		ai: ''
+		user: user,
+		ai: '',
 	};
 };
 

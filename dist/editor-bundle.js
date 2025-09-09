@@ -13721,8 +13721,27 @@
     if (doubleOption) doubleOption.textContent = `(approx. ${wordCount * 2} words)`;
     if (tripleOption) tripleOption.textContent = `(approx. ${wordCount * 3} words)`;
   };
+  var buildSurroundingTextBlock = (use, wordsBefore, wordsAfter) => {
+    if (!use || !wordsBefore && !wordsAfter) {
+      return "";
+    }
+    let block = "For contextual information, refer to surrounding words in the scene, DO NOT REPEAT THEM:\n";
+    if (wordsBefore) {
+      block += `<textBefore>
+${wordsBefore}
+</textBefore>
+`;
+    }
+    if (wordsAfter) {
+      block += `<textAfter>
+${wordsAfter}
+</textAfter>
+`;
+    }
+    return block;
+  };
   var buildPromptJson = (formData, context) => {
-    const { selectedText, wordCount, allCodexEntries } = context;
+    const { selectedText, wordCount, allCodexEntries, novelLanguage, povString, wordsBefore, wordsAfter } = context;
     let instructionsBlock = "";
     const mainInstruction = {
       "sensory": "Expand the text by adding/highlighting sensory details (e.g. smell, touch, sound, ...) that fit the context.",
@@ -13755,7 +13774,7 @@
     const system = `You are an expert prose editor.
 
 Whenever you're given text, expand it according to the instructions. Imitiate the current writing style perfectly, keeping mannerisms, word choice and sentence structure intact.
-Keep the same tense and stylistic choices. Use {novel.language} spelling and grammar.
+Keep the same tense and stylistic choices. Use ${novelLanguage || "English"} spelling and grammar.
 
 ${instructionsBlock}
 ${lengthBlock}
@@ -13782,28 +13801,26 @@ Content: ${plainContent.trim()}`;
         codexBlock = `Take into account the following glossary of characters/locations/items/lore... when writing your response:
 <codex>
 ${codexContent}
-</codex>
-
-`;
+</codex>`;
       }
     }
     const truncatedText = selectedText.length > 300 ? selectedText.substring(0, 300) + "..." : selectedText;
-    const user = `${codexBlock}
-
-${formData.use_pov ? `{pov}
-
-` : ""}${formData.use_surrounding_text ? `
- For contextual information, refer to surrounding words in the scene, DO NOT REPEAT THEM:
- {wordsBefore(200)}
- {wordsAfter(200)}
-
-` : ""}Text to rewrite:
+    const surroundingText = buildSurroundingTextBlock(formData.use_surrounding_text, wordsBefore, wordsAfter);
+    const userParts = [codexBlock];
+    if (formData.use_pov && povString) {
+      userParts.push(povString);
+    }
+    if (surroundingText) {
+      userParts.push(surroundingText);
+    }
+    userParts.push(`Text to rewrite:
 <text words="${wordCount}">
 ${wordCount > 0 ? truncatedText : "{message}"}
-</text>`;
+</text>`);
+    const user = userParts.filter(Boolean).join("\n\n");
     return {
       system: system.replace(/\n\n\n/g, "\n\n"),
-      user: user.replace(/\n\n\n/g, "\n\n"),
+      user,
       ai: ""
     };
   };
@@ -13890,14 +13907,33 @@ ${wordCount > 0 ? truncatedText : "{message}"}
     }).join("");
     codexContainer.innerHTML = `<h4 class="label-text font-semibold mb-1">Use Codex Entries</h4>${listHtml}`;
   };
+  var buildSurroundingTextBlock2 = (use, wordsBefore, wordsAfter) => {
+    if (!use || !wordsBefore && !wordsAfter) {
+      return "";
+    }
+    let block = "For contextual information, refer to surrounding words in the scene, DO NOT REPEAT THEM:\n";
+    if (wordsBefore) {
+      block += `<textBefore>
+${wordsBefore}
+</textBefore>
+`;
+    }
+    if (wordsAfter) {
+      block += `<textAfter>
+${wordsAfter}
+</textAfter>
+`;
+    }
+    return block;
+  };
   var buildPromptJson2 = (formData, context) => {
-    const { selectedText, wordCount, allCodexEntries } = context;
+    const { selectedText, wordCount, allCodexEntries, novelLanguage, povString, wordsBefore, wordsAfter } = context;
     const system = `You are an expert prose editor.
 
 Whenever you're given text, rephrase it using the following instructions: <instructions>${formData.instructions || "Rephrase the given text."}</instructions>
 
 Imitiate and keep the current writing style, and leave mannerisms, word choice and sentence structure intact.
-You are free to remove redundant lines of speech. Keep the same tense and stylistic choices. Use {novel.language} spelling and grammar.
+You are free to remove redundant lines of speech. Keep the same tense and stylistic choices. Use ${novelLanguage || "English"} spelling and grammar.
 
 Only return the rephrased text, nothing else.`;
     let codexBlock = "";
@@ -13914,28 +13950,26 @@ Content: ${plainContent.trim()}`;
         codexBlock = `Take into account the following glossary of characters/locations/items/lore... when writing your response:
 <codex>
 ${codexContent}
-</codex>
-
-`;
+</codex>`;
       }
     }
     const truncatedText = selectedText.length > 300 ? selectedText.substring(0, 300) + "..." : selectedText;
-    const user = `${codexBlock}
-
-${formData.use_pov ? `{pov}
-
-` : ""}${formData.use_surrounding_text ? `
- For contextual information, refer to surrounding words in the scene, DO NOT REPEAT THEM:
- {wordsBefore(200)}
- {wordsAfter(200)}
-
-` : ""}Text to rewrite:
+    const surroundingText = buildSurroundingTextBlock2(formData.use_surrounding_text, wordsBefore, wordsAfter);
+    const userParts = [codexBlock];
+    if (formData.use_pov && povString) {
+      userParts.push(povString);
+    }
+    if (surroundingText) {
+      userParts.push(surroundingText);
+    }
+    userParts.push(`Text to rewrite:
 <text words="${wordCount}">
 ${wordCount > 0 ? truncatedText : "{message}"}
-</text>`;
+</text>`);
+    const user = userParts.filter(Boolean).join("\n\n");
     return {
       system: system.replace(/\n\n\n/g, "\n\n"),
-      user: user.replace(/\n\n\n/g, "\n\n"),
+      user,
       ai: ""
     };
   };
@@ -14025,8 +14059,27 @@ ${wordCount > 0 ? truncatedText : "{message}"}
     if (halfOption) halfOption.textContent = `(approx. ${Math.round(wordCount / 2)} words)`;
     if (quarterOption) quarterOption.textContent = `(approx. ${Math.round(wordCount / 4)} words)`;
   };
+  var buildSurroundingTextBlock3 = (use, wordsBefore, wordsAfter) => {
+    if (!use || !wordsBefore && !wordsAfter) {
+      return "";
+    }
+    let block = "For contextual information, refer to surrounding words in the scene, DO NOT REPEAT THEM:\n";
+    if (wordsBefore) {
+      block += `<textBefore>
+${wordsBefore}
+</textBefore>
+`;
+    }
+    if (wordsAfter) {
+      block += `<textAfter>
+${wordsAfter}
+</textAfter>
+`;
+    }
+    return block;
+  };
   var buildPromptJson3 = (formData, context) => {
-    const { selectedText, wordCount, allCodexEntries } = context;
+    const { selectedText, wordCount, allCodexEntries, novelLanguage, povString, wordsBefore, wordsAfter } = context;
     let lengthInstruction = "";
     switch (formData.shorten_length) {
       case "half":
@@ -14042,7 +14095,7 @@ ${wordCount > 0 ? truncatedText : "{message}"}
     const system = `You are an expert prose editor.
 
 Whenever you're given text, rewrite it to condense it into fewer words without losing meaning. Imitiate the current writing style perfectly, keeping mannerisms, word choice and sentence structure intact.
-You are free to remove redundant lines of speech. Keep the same tense and stylistic choices. Use {novel.language} spelling and grammar.
+You are free to remove redundant lines of speech. Keep the same tense and stylistic choices. Use ${novelLanguage || "English"} spelling and grammar.
 
 ${lengthInstruction}
 
@@ -14068,27 +14121,26 @@ Content: ${plainContent.trim()}`;
         codexBlock = `Take into account the following glossary of characters/locations/items/lore... when writing your response:
 <codex>
 ${codexContent}
-</codex>
-
-`;
+</codex>`;
       }
     }
     const truncatedText = selectedText.length > 300 ? selectedText.substring(0, 300) + "..." : selectedText;
-    const user = `${codexBlock}
-
-${formData.use_pov ? `{pov}
-
-` : ""}${formData.use_surrounding_text ? `
- {wordsBefore(200)}
- {wordsAfter(200)}
-
-` : ""}Text to rewrite:
+    const surroundingText = buildSurroundingTextBlock3(formData.use_surrounding_text, wordsBefore, wordsAfter);
+    const userParts = [codexBlock];
+    if (formData.use_pov && povString) {
+      userParts.push(povString);
+    }
+    if (surroundingText) {
+      userParts.push(surroundingText);
+    }
+    userParts.push(`Text to rewrite:
 <text words="${wordCount}">
 ${wordCount > 0 ? truncatedText : "{message}"}
-</text>`;
+</text>`);
+    const user = userParts.filter(Boolean).join("\n\n");
     return {
       system: system.replace(/\n\n\n/g, "\n\n"),
-      user: user.replace(/\n\n\n/g, "\n\n"),
+      user,
       ai: ""
     };
   };
@@ -14174,11 +14226,11 @@ ${wordCount > 0 ? truncatedText : "{message}"}
     codexContainer.innerHTML = `<h4 class="label-text font-semibold mb-1">Use Codex Entries</h4>${listHtml}`;
   };
   var buildPromptJson4 = (formData, context) => {
-    const { allCodexEntries } = context;
+    const { allCodexEntries, novelLanguage, novelTense, povString, wordsBefore } = context;
     const system = `You are an expert fiction writer.
 
 Always keep the following rules in mind:
-- Write in {novel.tense} and use {novel.language} spelling, grammar, and colloquialisms/slang.
+- Write in ${novelTense || "past tense"} and use ${novelLanguage || "English"} spelling, grammar, and colloquialisms/slang.
 - Write in active voice
 - Always follow the "show, don't tell" principle.
 - Avoid adverbs and cliches and overused/commonly used phrases. Aim for fresh and original descriptions.
@@ -14233,13 +14285,13 @@ ${codexContent}
 {#endif}
 
 {! Otherwise, include recent text before this beat within this scene !}
-{textBefore}
+${wordsBefore || ""}
 
 User
 Write ${formData.words || 250} words that continue the story, using the following instructions:
 <instructions>
  {! This will use the novel's POV, or any scene override !}
- {pov}
+ ${povString || ""}
 
  ${formData.instructions || "Continue the story."}
 </instructions>
@@ -14330,13 +14382,13 @@ Write ${formData.words || 250} words that continue the story, using the followin
     codexContainer.innerHTML = `<h4 class="label-text font-semibold mb-1">Use Codex Entries</h4>${listHtml}`;
   };
   var buildPromptJson5 = (formData, context) => {
-    const { selectedText, allCodexEntries } = context;
+    const { selectedText, allCodexEntries, novelLanguage, povString } = context;
     const system = `You are an expert novel summarizer.
 Whenever you're given text, summarize it into a concise, condensed version.
 
 Keep the following rules in mind:
 - Don't write more than ${formData.words || 100} words.
-- Always write in {novel.language} spelling and grammar.
+- Always write in ${novelLanguage || "English"} spelling and grammar.
 - Only return the summary in running text, don't abbreviate to bullet points.
 - Don't start with "In this scene..." or "Here is...". Only write the summary itself.
 - Mention characters by name and never by their role (e.g. protagonist, mentor, friend, author).
@@ -14379,22 +14431,20 @@ Content: ${plainContent.trim()}`;
         codexBlock = `Take into account the following glossary of characters/locations/items/lore... when writing your response:
 <codex>
 ${codexContent}
-</codex>
-
-`;
+</codex>`;
       }
     }
     const truncatedText = selectedText.length > 300 ? selectedText.substring(0, 300) + "..." : selectedText;
+    let povBlock = "";
+    if (formData.use_pov && povString) {
+      povBlock = `{! Give a hint about the POV, if specified !}
+<scenePointOfView>
+${povString}
+</scenePointOfView>`;
+    }
     const user = `${codexBlock}
 
-${formData.use_pov ? `{! Give a hint about the POV, if specified !}
-{#if pov}
- <scenePointOfView>
- This scene is written in {pov.type} point of view{ifs(pov.character, " from the perspective of " + pov.character)}.
- </scenePointOfView>
-{#endif}
-
-` : ""}
+${povBlock}
 
 {! Make sure that we don't get something like 'I walked...' !}
 Write the summary in third person, and use present tense.
@@ -14809,7 +14859,7 @@ ${selectedText ? truncatedText : "{removeWhitespace(scene.fullText)}"}
       allBtns.forEach((btn) => {
         if (btn.classList.contains("js-ai-action-btn")) {
           const action = btn.dataset.action;
-          if (action === "scene-summarization") {
+          if (action === "scene-summarization" || action === "scene-beat") {
             btn.disabled = false;
           } else {
             btn.disabled = !isTextSelected;
@@ -14966,28 +15016,79 @@ ${selectedText ? truncatedText : "{removeWhitespace(scene.fullText)}"}
         alert("Error: Could not determine the current novel.");
         return;
       }
-      let selectedText = "";
       const activeEditor = getActiveEditor();
-      if (activeEditor && !activeEditor.state.selection.empty) {
-        const { from: from2, to } = activeEditor.state.selection;
-        selectedText = activeEditor.state.doc.textBetween(from2, to, " ");
-      }
-      const allCodexEntries = await window.api.getAllCodexEntriesForNovel(novelId);
-      let linkedCodexEntryIds = [];
+      let selectedText = "";
+      let wordsBefore = "";
+      let wordsAfter = "";
       let chapterId = null;
+      let povString = "";
+      const novelData = await window.api.getOneNovel(novelId);
+      const novelLanguage = novelData.prose_language || "English";
+      const novelTense = novelData.prose_tense || "past";
       if (activeEditor) {
+        const { state } = activeEditor;
+        const { from: from2, to, empty: empty2 } = state.selection;
+        if (!empty2) {
+          selectedText = state.doc.textBetween(from2, to, " ");
+        } else if (action === "scene-summarization") {
+          selectedText = state.doc.textContent;
+        }
+        const textBeforeSelection = state.doc.textBetween(Math.max(0, from2 - 1500), from2);
+        const textAfterSelection = state.doc.textBetween(to, Math.min(to + 1500, state.doc.content.size));
+        wordsBefore = textBeforeSelection.trim().split(/\s+/).slice(-200).join(" ");
+        wordsAfter = textAfterSelection.trim().split(/\s+/).slice(0, 200).join(" ");
         const chapterWindowContent = activeEditor.dom.closest(".chapter-window-content");
         if (chapterWindowContent) {
           chapterId = chapterWindowContent.dataset.chapterId;
         }
       }
+      let povData;
+      if (chapterId) {
+        povData = await window.api.getPovDataForChapter(chapterId);
+      } else {
+        povData = {
+          currentPov: novelData.prose_pov,
+          isOverride: false,
+          characters: [],
+          currentCharacterId: null
+        };
+      }
+      if (povData && povData.currentPov) {
+        const povDisplayMap = {
+          "first_person": "1st Person",
+          "second_person": "2nd Person",
+          "third_person": "3rd Person",
+          "third_person_limited": "3rd Person (Limited)",
+          "third_person_omniscient": "3rd Person (Omniscient)"
+        };
+        const povTypeDisplay = povDisplayMap[povData.currentPov] || povData.currentPov;
+        let characterName = "";
+        if (povData.currentCharacterId) {
+          const character = povData.characters.find((c) => String(c.id) === String(povData.currentCharacterId));
+          if (character) {
+            characterName = character.title;
+          }
+        }
+        povString = `This scene is written in ${povTypeDisplay} point of view`;
+        if (characterName) {
+          povString += ` from the perspective of ${characterName}`;
+        }
+        povString += ".";
+      }
+      const allCodexEntries = await window.api.getAllCodexEntriesForNovel(novelId);
+      let linkedCodexEntryIds = [];
       if (chapterId) {
         linkedCodexEntryIds = await window.api.getLinkedCodexIdsForChapter(chapterId);
       }
       const context = {
         selectedText,
         allCodexEntries,
-        linkedCodexEntryIds
+        linkedCodexEntryIds,
+        novelLanguage,
+        novelTense,
+        povString,
+        wordsBefore,
+        wordsAfter
       };
       openPromptEditor(context, action);
       return;

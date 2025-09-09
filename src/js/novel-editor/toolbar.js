@@ -103,14 +103,13 @@ export function updateToolbarState(view) {
 		allBtns.forEach(btn => {
 			if (btn.classList.contains('js-ai-action-btn')) {
 				const action = btn.dataset.action;
-				if (action === 'scene-summarization') {
-					// Summarization can work on the whole chapter, so it's always enabled if an editor is active.
+				if (action === 'scene-summarization' || action === 'scene-beat') { // MODIFIED: Scene Beat is also enabled without selection
+					// These actions can work without a selection.
 					btn.disabled = false;
 				} else {
 					// Other actions depend on having text selected.
 					btn.disabled = !isTextSelected;
 				}
-				// The scene-beat button will also be enabled with selection, implying it uses the selection as a prompt.
 				return;
 			}
 			
@@ -257,32 +256,98 @@ async function handleToolbarAction(button) {
 			return;
 		}
 		
-		let selectedText = '';
+		// --- NEW/MODIFIED: Gather all context data for the prompt builders ---
 		const activeEditor = getActiveEditor();
-		if (activeEditor && !activeEditor.state.selection.empty) {
-			const { from, to } = activeEditor.state.selection;
-			selectedText = activeEditor.state.doc.textBetween(from, to, ' ');
-		}
-		
-		const allCodexEntries = await window.api.getAllCodexEntriesForNovel(novelId);
-		let linkedCodexEntryIds = [];
+		let selectedText = '';
+		let wordsBefore = '';
+		let wordsAfter = '';
 		let chapterId = null;
+		let povString = '';
+		
+		// Get novel data for language and default POV. This is a heavy call, but necessary.
+		const novelData = await window.api.getOneNovel(novelId);
+		const novelLanguage = novelData.prose_language || 'English';
+		const novelTense = novelData.prose_tense || 'past';
 		
 		if (activeEditor) {
+			const { state } = activeEditor;
+			const { from, to, empty } = state.selection;
+			
+			if (!empty) {
+				selectedText = state.doc.textBetween(from, to, ' ');
+			} else if (action === 'scene-summarization') {
+				// For summarization, if nothing is selected, use the whole chapter content.
+				selectedText = state.doc.textContent;
+			}
+			
+			// Get surrounding text (word-based approximation)
+			const textBeforeSelection = state.doc.textBetween(Math.max(0, from - 1500), from);
+			const textAfterSelection = state.doc.textBetween(to, Math.min(to + 1500, state.doc.content.size));
+			
+			wordsBefore = textBeforeSelection.trim().split(/\s+/).slice(-200).join(' ');
+			wordsAfter = textAfterSelection.trim().split(/\s+/).slice(0, 200).join(' ');
+			
 			const chapterWindowContent = activeEditor.dom.closest('.chapter-window-content');
 			if (chapterWindowContent) {
 				chapterId = chapterWindowContent.dataset.chapterId;
 			}
 		}
 		
+		// Get and format POV string
+		let povData;
+		if (chapterId) {
+			povData = await window.api.getPovDataForChapter(chapterId);
+		} else {
+			// Fallback to novel defaults if not in a chapter context
+			povData = {
+				currentPov: novelData.prose_pov,
+				isOverride: false,
+				characters: [],
+				currentCharacterId: null,
+			};
+		}
+		
+		if (povData && povData.currentPov) {
+			const povDisplayMap = {
+				'first_person': '1st Person',
+				'second_person': '2nd Person',
+				'third_person': '3rd Person',
+				'third_person_limited': '3rd Person (Limited)',
+				'third_person_omniscient': '3rd Person (Omniscient)',
+			};
+			const povTypeDisplay = povDisplayMap[povData.currentPov] || povData.currentPov;
+			let characterName = '';
+			if (povData.currentCharacterId) {
+				const character = povData.characters.find(c => String(c.id) === String(povData.currentCharacterId));
+				if (character) {
+					characterName = character.title;
+				}
+			}
+			
+			povString = `This scene is written in ${povTypeDisplay} point of view`;
+			if (characterName) {
+				povString += ` from the perspective of ${characterName}`;
+			}
+			povString += '.';
+		}
+		
+		const allCodexEntries = await window.api.getAllCodexEntriesForNovel(novelId);
+		let linkedCodexEntryIds = [];
+		
 		if (chapterId) {
 			linkedCodexEntryIds = await window.api.getLinkedCodexIdsForChapter(chapterId);
 		}
 		
+		// Pass the enhanced context object to the prompt editor
 		const context = {
 			selectedText,
 			allCodexEntries,
-			linkedCodexEntryIds
+			linkedCodexEntryIds,
+			novelLanguage,
+			novelTense,
+			povString,
+			wordsBefore,
+			wordsAfter,
 		};
 		openPromptEditor(context, action);
 		return;
