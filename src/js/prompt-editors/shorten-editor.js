@@ -8,7 +8,8 @@ const defaultState = {
 	use_pov: true,
 };
 
-const renderCodexList = (container, context) => {
+// MODIFIED: Accept initialState to restore checkbox state.
+const renderCodexList = (container, context, initialState = null) => {
 	const codexContainer = container.querySelector('.js-codex-selection-container');
 	if (!codexContainer) return;
 	
@@ -19,8 +20,12 @@ const renderCodexList = (container, context) => {
 		return;
 	}
 	
+	// NEW: Use selected IDs from initial state if available, otherwise default to linked chapter IDs.
+	const selectedIds = initialState ? initialState.selectedCodexIds : linkedCodexEntryIds.map(String);
+	
 	const listHtml = allCodexEntries.map(entry => {
-		const isChecked = linkedCodexEntryIds.includes(entry.id);
+		// MODIFIED: Check against the determined selectedIds list.
+		const isChecked = selectedIds.includes(String(entry.id));
 		return `
             <div class="form-control">
                 <label class="label cursor-pointer justify-start gap-4 py-1">
@@ -44,7 +49,6 @@ const updateLengthPreviews = (container, wordCount) => {
 	if (quarterOption) quarterOption.textContent = `(approx. ${Math.round(wordCount / 4)} words)`;
 };
 
-// NEW: Helper function to build the surrounding text block for prompts.
 const buildSurroundingTextBlock = (use, wordsBefore, wordsAfter) => {
 	if (!use || (!wordsBefore && !wordsAfter)) {
 		return '';
@@ -61,7 +65,6 @@ const buildSurroundingTextBlock = (use, wordsBefore, wordsAfter) => {
 
 // Export this function for use in the main prompt editor module.
 export const buildPromptJson = (formData, context) => {
-	// MODIFIED: Destructure new context properties.
 	const { selectedText, wordCount, allCodexEntries, novelLanguage, povString, wordsBefore, wordsAfter } = context;
 	
 	let lengthInstruction = '';
@@ -77,7 +80,6 @@ export const buildPromptJson = (formData, context) => {
 			break;
 	}
 	
-	// MODIFIED: System prompt now uses dynamic novel language.
 	const system = `You are an expert prose editor.
 
 Whenever you're given text, rewrite it to condense it into fewer words without losing meaning. Imitiate the current writing style perfectly, keeping mannerisms, word choice and sentence structure intact.
@@ -115,7 +117,6 @@ ${codexContent}
 	
 	const truncatedText = selectedText.length > 4096 ? selectedText.substring(0, 4096) + '...' : selectedText;
 	
-	// MODIFIED: User prompt is built dynamically with new context.
 	const surroundingText = buildSurroundingTextBlock(formData.use_surrounding_text, wordsBefore, wordsAfter);
 	
 	const userParts = [codexBlock];
@@ -172,7 +173,6 @@ const populateForm = (container, state) => {
 	
 	form.elements.shorten_length.value = state.shorten_length;
 	form.elements.instructions.value = state.instructions;
-	// Note: Codex checkboxes are populated by renderCodexList, not here.
 	form.elements.use_surrounding_text.checked = state.use_surrounding_text;
 	form.elements.use_pov.checked = state.use_pov;
 };
@@ -185,8 +185,10 @@ export const init = async (container, context) => {
 		const wordCount = context.selectedText ? context.selectedText.trim().split(/\s+/).filter(Boolean).length : 0;
 		const fullContext = { ...context, wordCount };
 		
-		populateForm(container, defaultState);
-		renderCodexList(container, fullContext);
+		// MODIFIED: Populate form with initial state from context if it exists, otherwise use defaults.
+		populateForm(container, context.initialState || defaultState);
+		// MODIFIED: Pass initial state to renderCodexList to check the correct boxes.
+		renderCodexList(container, fullContext, context.initialState);
 		updateLengthPreviews(container, wordCount);
 		
 		const form = container.querySelector('#shorten-editor-form');

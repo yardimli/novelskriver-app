@@ -7,7 +7,8 @@ const defaultState = {
 	use_story_so_far: true,
 };
 
-const renderCodexList = (container, context) => {
+// MODIFIED: Accept initialState to restore checkbox state.
+const renderCodexList = (container, context, initialState = null) => {
 	const codexContainer = container.querySelector('.js-codex-selection-container');
 	if (!codexContainer) return;
 	
@@ -18,8 +19,12 @@ const renderCodexList = (container, context) => {
 		return;
 	}
 	
+	// NEW: Use selected IDs from initial state if available, otherwise default to linked chapter IDs.
+	const selectedIds = initialState ? initialState.selectedCodexIds : linkedCodexEntryIds.map(String);
+	
 	const listHtml = allCodexEntries.map(entry => {
-		const isChecked = linkedCodexEntryIds.includes(entry.id);
+		// MODIFIED: Check against the determined selectedIds list.
+		const isChecked = selectedIds.includes(String(entry.id));
 		return `
             <div class="form-control">
                 <label class="label cursor-pointer justify-start gap-4 py-1">
@@ -35,10 +40,8 @@ const renderCodexList = (container, context) => {
 
 // Export this function for use in the main prompt editor module.
 export const buildPromptJson = (formData, context) => {
-	// MODIFIED: Destructure new context properties.
 	const { allCodexEntries, novelLanguage, novelTense, povString, wordsBefore } = context;
 	
-	// MODIFIED: System prompt now uses dynamic tense and language.
 	const system = `You are an expert fiction writer.
 
 Always keep the following rules in mind:
@@ -90,7 +93,6 @@ ${codexContent}
 
 ` : ''}`;
 	
-	// MODIFIED: The AI "prefix" now includes the actual text before the cursor and the formatted POV string.
 	const ai = `
 
 {! If no text is before this beat, include text from the previous scene, but only if told from the same character. This helps with matching your writing style across scenes. !}
@@ -157,7 +159,6 @@ const populateForm = (container, state) => {
 	
 	form.elements.words.value = state.words;
 	form.elements.instructions.value = state.instructions;
-	// Note: Codex checkboxes are populated by renderCodexList, not here.
 	form.elements.use_story_so_far.checked = state.use_story_so_far;
 };
 
@@ -169,8 +170,10 @@ export const init = async (container, context) => {
 		const wordCount = context.selectedText ? context.selectedText.trim().split(/\s+/).filter(Boolean).length : 0;
 		const fullContext = { ...context, wordCount };
 		
-		populateForm(container, defaultState);
-		renderCodexList(container, fullContext);
+		// MODIFIED: Populate form with initial state from context if it exists, otherwise use defaults.
+		populateForm(container, context.initialState || defaultState);
+		// MODIFIED: Pass initial state to renderCodexList to check the correct boxes.
+		renderCodexList(container, fullContext, context.initialState);
 		
 		const form = container.querySelector('#scene-beat-editor-form');
 		

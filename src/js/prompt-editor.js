@@ -8,7 +8,7 @@ import { init as initSceneBeatEditor, buildPromptJson as buildSceneBeatJson } fr
 import { init as initSceneSummarizationEditor, buildPromptJson as buildSceneSummarizationJson } from './prompt-editors/scene-summarization-editor.js';
 import { getActiveEditor } from './novel-editor/content-editor.js';
 import { updateToolbarState } from './novel-editor/toolbar.js';
-import { TextSelection } from 'prosemirror-state'; // NEW: Import TextSelection for re-selecting text.
+import { TextSelection } from 'prosemirror-state';
 
 // Configuration mapping prompt IDs to their respective builder modules.
 const editors = {
@@ -27,6 +27,44 @@ const promptBuilders = {
 	'scene-beat': buildSceneBeatJson,
 	'scene-summarization': buildSceneSummarizationJson,
 };
+
+// NEW: Map of functions to extract structured form data.
+const formDataExtractors = {
+	'expand': (form) => ({
+		focus: form.elements.focus.value,
+		expand_length: form.elements.expand_length.value,
+		instructions: form.elements.instructions.value.trim(),
+		selectedCodexIds: form.elements.codex_entry ? Array.from(form.elements.codex_entry).filter(cb => cb.checked).map(cb => cb.value) : [],
+		use_surrounding_text: form.elements.use_surrounding_text.checked,
+		use_pov: form.elements.use_pov.checked,
+	}),
+	'rephrase': (form) => ({
+		instructions: form.elements.instructions.value.trim(),
+		selectedCodexIds: form.elements.codex_entry ? Array.from(form.elements.codex_entry).filter(cb => cb.checked).map(cb => cb.value) : [],
+		use_surrounding_text: form.elements.use_surrounding_text.checked,
+		use_pov: form.elements.use_pov.checked,
+	}),
+	'shorten': (form) => ({
+		shorten_length: form.elements.shorten_length.value,
+		instructions: form.elements.instructions.value.trim(),
+		selectedCodexIds: form.elements.codex_entry ? Array.from(form.elements.codex_entry).filter(cb => cb.checked).map(cb => cb.value) : [],
+		use_surrounding_text: form.elements.use_surrounding_text.checked,
+		use_pov: form.elements.use_pov.checked,
+	}),
+	'scene-beat': (form) => ({
+		words: form.elements.words.value,
+		instructions: form.elements.instructions.value.trim(),
+		selectedCodexIds: form.elements.codex_entry ? Array.from(form.elements.codex_entry).filter(cb => cb.checked).map(cb => cb.value) : [],
+		use_story_so_far: form.elements.use_story_so_far.checked,
+	}),
+	'scene-summarization': (form) => ({
+		words: form.elements.words.value,
+		instructions: form.elements.instructions.value.trim(),
+		selectedCodexIds: form.elements.codex_entry ? Array.from(form.elements.codex_entry).filter(cb => cb.checked).map(cb => cb.value) : [],
+		use_pov: form.elements.use_pov.checked,
+	}),
+};
+
 
 let modalEl;
 let currentContext;
@@ -124,12 +162,13 @@ function handleFloatyDiscard() {
 	cleanupAiAction();
 }
 
-// MODIFIED: This function now reverts the text, re-selects it, and re-opens the prompt editor modal.
+// MODIFIED: This function now reverts the text, re-selects it, and re-opens the prompt editor modal with previous settings.
 async function handleFloatyRetry() {
 	if (!isAiActionActive || !activeEditorView || !currentAiParams) return;
 	
 	const actionToRetry = currentAiParams.action;
 	const contextForRetry = currentAiParams.context;
+	const previousFormData = currentAiParams.formData; // NEW: Get previous settings.
 	
 	// 1. Remove the floating toolbar.
 	if (floatingToolbar) {
@@ -158,8 +197,8 @@ async function handleFloatyRetry() {
 	// aiActionRange is still valid and needed for the next step.
 	updateToolbarState(activeEditorView);
 	
-	// 7. Re-open the prompt editor modal with the original context, allowing the user to make changes.
-	openPromptEditor(contextForRetry, actionToRetry);
+	// 7. Re-open the prompt editor modal with the original context and previous form data.
+	openPromptEditor(contextForRetry, actionToRetry, previousFormData);
 }
 
 function createFloatingToolbar(view, from, to, model) {
@@ -305,7 +344,7 @@ async function handleModalApply() {
 	const action = currentPromptId ? currentPromptId : null;
 	const form = modalEl.querySelector('.js-custom-editor-pane form');
 	
-	console.log('Applying AI Action:', { model, action,  form });
+	console.log('Applying AI Action:', { model, action, form });
 	
 	if (!model || !action || !form) {
 		alert('Could not apply action. Missing model, action, or form.');
@@ -313,8 +352,9 @@ async function handleModalApply() {
 	}
 	
 	const builder = promptBuilders[action];
-	if (!builder) {
-		alert(`No prompt builder found for action: ${action}`);
+	const extractor = formDataExtractors[action]; // NEW: Get the correct extractor.
+	if (!builder || !extractor) {
+		alert(`No prompt builder or form extractor found for action: ${action}`);
 		return;
 	}
 	
@@ -342,17 +382,16 @@ async function handleModalApply() {
 	originalFragment = state.doc.slice(from, to);
 	aiActionRange = { from, to };
 	
-	const formData = new FormData(form);
-	const formDataObj = Object.fromEntries(formData.entries());
-	formDataObj.selectedCodexIds = formData.getAll('codex_entry');
+	const formDataObj = extractor(form); // NEW: Use extractor to get form data.
 	
 	const wordCount = text ? text.trim().split(/\s+/).filter(Boolean).length : 0;
 	const promptContext = { ...currentContext, selectedText: text, wordCount };
 	const prompt = builder(formDataObj, promptContext);
 	
-	currentAiParams = { prompt, model, action, context: currentContext };
+	// MODIFIED: Store the structured form data object for retries.
+	currentAiParams = { prompt, model, action, context: currentContext, formData: formDataObj };
 	
-	await startAiStream(currentAiParams);
+	await startAiStream({ prompt: currentAiParams.prompt, model: currentAiParams.model });
 }
 
 
@@ -374,13 +413,15 @@ export function setupPromptEditor() {
  * Opens the prompt editor modal with fresh context.
  * @param {object} context
  * @param {string} promptId The ID of the prompt to open.
+ * @param {object|null} initialState The form state to restore from a previous run.
  */
-export async function openPromptEditor(context, promptId) {
+export async function openPromptEditor(context, promptId, initialState = null) {
 	if (!modalEl) {
 		console.error('Prompt editor modal element not found.');
 		return;
 	}
-	currentContext = context;
+	// MODIFIED: Add initial state to the context for the editor builders.
+	currentContext = { ...context, initialState };
 	currentPromptId = promptId;
 	
 	const placeholder = modalEl.querySelector('.js-prompt-placeholder');
