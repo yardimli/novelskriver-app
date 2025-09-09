@@ -284,7 +284,6 @@ async function handleToolbarAction(button) {
 			allCodexEntries,
 			linkedCodexEntryIds
 		};
-		
 		openPromptEditor(context, action);
 		return;
 	}

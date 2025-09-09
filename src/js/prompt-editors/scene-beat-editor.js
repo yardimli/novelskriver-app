@@ -170,21 +170,9 @@ export const init = async (container, context) => {
 		renderCodexList(container, fullContext);
 		
 		const form = container.querySelector('#scene-beat-editor-form');
-		const resetButton = container.querySelector('.js-reset-btn');
 		
 		if (form) {
 			form.addEventListener('input', () => updatePreview(container, fullContext));
-		}
-		
-		if (resetButton) {
-			resetButton.addEventListener('click', () => {
-				if (confirm('Are you sure you want to reset the form to its default settings?')) {
-					populateForm(container, defaultState);
-					// Uncheck all codex entries on reset
-					container.querySelectorAll('input[name="codex_entry"]').forEach(cb => cb.checked = false);
-					updatePreview(container, fullContext);
-				}
-			});
 		}
 		
 		updatePreview(container, fullContext);

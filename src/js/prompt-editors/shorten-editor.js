@@ -102,19 +102,9 @@ ${codexContent}
 	
 	const user = `${codexBlock}
 
-${formData.use_pov ? `{pov}\n\n` : ''}${formData.use_surrounding_text ? `{#if either(hasTextAfter, hasTextBefore)}
- For contextual information, refer to surrounding words in the scene, DO NOT REPEAT THEM:
- {#if hasTextBefore}
- <textBefore>
+${formData.use_pov ? `{pov}\n\n` : ''}${formData.use_surrounding_text ? `
  {wordsBefore(200)}
- </textBefore>
- {#endif}
- {#if hasTextAfter}
- <textAfter>
  {wordsAfter(200)}
- </textAfter>
- {#endif}
-{#endif}
 
 ` : ''}Text to rewrite:
 <text words="${wordCount}">
@@ -182,21 +172,9 @@ export const init = async (container, context) => {
 		updateLengthPreviews(container, wordCount);
 		
 		const form = container.querySelector('#shorten-editor-form');
-		const resetButton = container.querySelector('.js-reset-btn');
 		
 		if (form) {
 			form.addEventListener('input', () => updatePreview(container, fullContext));
-		}
-		
-		if (resetButton) {
-			resetButton.addEventListener('click', () => {
-				if (confirm('Are you sure you want to reset the form to its default settings?')) {
-					populateForm(container, defaultState);
-					// Uncheck all codex entries on reset
-					container.querySelectorAll('input[name="codex_entry"]').forEach(cb => cb.checked = false);
-					updatePreview(container, fullContext);
-				}
-			});
 		}
 		
 		updatePreview(container, fullContext);

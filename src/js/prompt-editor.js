@@ -37,6 +37,7 @@ let aiActionRange = null;
 let floatingToolbar = null;
 let currentAiParams = null; // For the retry functionality
 let activeEditorView = null;
+let currentPromptId = null;
 
 /**
  * Loads a specific prompt builder into the editor pane.
@@ -74,17 +75,6 @@ const loadPrompt = async (promptId) => {
 	
 	// The init function from the module will load its template and set up logic.
 	await editorConfig.init(customFormContainer, currentContext);
-};
-
-/**
- * Handles clicks within the prompt list container.
- * @param {MouseEvent} event
- */
-const handleListClick = (event) => {
-	const button = event.target.closest('.js-prompt-item');
-	if (button) {
-		loadPrompt(button.dataset.promptId);
-	}
 };
 
 
@@ -285,9 +275,10 @@ async function handleModalApply() {
 	if (!modalEl || isAiActionActive) return;
 	
 	const model = modalEl.querySelector('.js-llm-model-select').value;
-	const activePromptItem = modalEl.querySelector('.js-prompt-item.btn-active');
-	const action = activePromptItem ? activePromptItem.dataset.promptId : null;
+	const action = currentPromptId ? currentPromptId : null;
 	const form = modalEl.querySelector('.js-custom-editor-pane form');
+	
+	console.log('Applying AI Action:', { model, action,  form });
 	
 	if (!model || !action || !form) {
 		alert('Could not apply action. Missing model, action, or form.');
@@ -345,12 +336,8 @@ export function setupPromptEditor() {
 	modalEl = document.getElementById('prompt-editor-modal');
 	if (!modalEl) return;
 	
-	const listContainer = modalEl.querySelector('.js-prompt-list-container');
 	const applyBtn = modalEl.querySelector('.js-prompt-apply-btn');
 	
-	if (listContainer) {
-		listContainer.addEventListener('click', handleListClick);
-	}
 	if (applyBtn) {
 		applyBtn.addEventListener('click', handleModalApply);
 	}
@@ -367,38 +354,22 @@ export async function openPromptEditor(context, promptId) {
 		return;
 	}
 	currentContext = context;
+	currentPromptId = promptId;
 	
-	const listContainer = modalEl.querySelector('.js-prompt-list-container');
 	const placeholder = modalEl.querySelector('.js-prompt-placeholder');
 	const customEditorPane = modalEl.querySelector('.js-custom-editor-pane');
 	
 	placeholder.classList.add('hidden');
 	customEditorPane.classList.remove('hidden');
-	listContainer.innerHTML = `<div class="p-4 text-center"><span class="loading loading-spinner"></span></div>`;
 	
 	try {
-		const prompts = await window.api.listPrompts();
-		listContainer.innerHTML = '';
-		if (prompts.length === 0) {
-			listContainer.innerHTML = '<p class="p-4 text-sm text-base-content/70">No prompts found.</p>';
-			return;
-		}
-		
-		prompts.forEach(prompt => {
-			const button = document.createElement('button');
-			button.className = 'js-prompt-item btn btn-ghost w-full justify-start text-left normal-case';
-			button.dataset.promptId = prompt.id;
-			button.textContent = prompt.name;
-			listContainer.appendChild(button);
-		});
-		
 		await populateModelDropdown();
 		await loadPrompt(promptId);
 		modalEl.showModal();
 		
 	} catch (error) {
-		console.error('Failed to load prompt list:', error);
-		listContainer.innerHTML = `<div class="alert alert-error m-2">${error.message}</div>`;
+		console.error('Error loading prompt editor:', error);
 		modalEl.showModal();
 	}
+	
 }

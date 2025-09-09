@@ -914,287 +914,6 @@
     }
   };
 
-  // src/js/novel-editor/eventHandlers.js
-  function setupCodexEntryHandler(desktop, windowManager) {
-    const entryIcon = `<i class="bi bi-journal-richtext text-lg"></i>`;
-    async function openCodexEntry(entryId, entryTitle) {
-      const windowId = `codex-entry-${entryId}`;
-      if (windowManager.windows.has(windowId)) {
-        const win = windowManager.windows.get(windowId);
-        if (win.isMinimized) {
-          windowManager.restore(windowId);
-        } else {
-          windowManager.focus(windowId);
-        }
-        windowManager.scrollIntoView(windowId);
-        return;
-      }
-      try {
-        const content = await window.api.getCodexEntryHtml(entryId);
-        if (!content) {
-          throw new Error("Failed to load codex entry details.");
-        }
-        let offsetX = 850;
-        let offsetY = 120;
-        const codexWin = windowManager.windows.get("codex-window");
-        const openCodexWindows = Array.from(windowManager.windows.keys()).filter((k) => k.startsWith("codex-entry-")).length;
-        if (codexWin && !codexWin.isMinimized) {
-          const codexEl = codexWin.element;
-          offsetX = codexEl.offsetLeft + codexEl.offsetWidth + 20;
-          offsetY = codexEl.offsetTop + openCodexWindows * 30;
-        } else {
-          offsetX += openCodexWindows * 30;
-          offsetY += openCodexWindows * 30;
-        }
-        windowManager.createWindow({
-          id: windowId,
-          title: entryTitle,
-          content,
-          x: offsetX,
-          y: offsetY,
-          width: 600,
-          height: 450,
-          icon: entryIcon,
-          closable: true
-        });
-        setTimeout(() => windowManager.scrollIntoView(windowId), 150);
-      } catch (error) {
-        console.error("Error opening codex entry window:", error);
-        alert(error.message);
-      }
-    }
-    desktop.addEventListener("click", (event) => {
-      const entryButton = event.target.closest(".js-open-codex-entry");
-      if (!entryButton || entryButton.closest("#codex-window")) {
-        return;
-      }
-      const entryId = entryButton.dataset.entryId;
-      const entryTitle = entryButton.dataset.entryTitle;
-      openCodexEntry(entryId, entryTitle);
-    });
-    desktop.addEventListener("click", (event) => {
-      const entryButton = event.target.closest(".js-open-codex-entry");
-      if (!entryButton || !entryButton.closest("#codex-window")) {
-        return;
-      }
-      const entryId = entryButton.dataset.entryId;
-      const entryTitle = entryButton.dataset.entryTitle;
-      openCodexEntry(entryId, entryTitle);
-    });
-  }
-  function setupChapterHandler(desktop, windowManager) {
-    const chapterIcon = `<i class="bi bi-card-text text-lg"></i>`;
-    desktop.addEventListener("click", async (event) => {
-      const chapterButton = event.target.closest(".js-open-chapter");
-      if (!chapterButton) return;
-      const chapterId = chapterButton.dataset.chapterId;
-      const chapterTitle = chapterButton.dataset.chapterTitle;
-      const windowId = `chapter-${chapterId}`;
-      if (windowManager.windows.has(windowId)) {
-        const win = windowManager.windows.get(windowId);
-        if (win.isMinimized) {
-          windowManager.restore(windowId);
-        } else {
-          windowManager.focus(windowId);
-        }
-        windowManager.scrollIntoView(windowId);
-        return;
-      }
-      try {
-        const content = await window.api.getChapterHtml(chapterId);
-        if (!content) {
-          throw new Error("Failed to load chapter details.");
-        }
-        let offsetX = 100;
-        let offsetY = 300;
-        const outlineWin = windowManager.windows.get("outline-window");
-        const openChapterWindows = Array.from(windowManager.windows.keys()).filter((k) => k.startsWith("chapter-")).length;
-        if (outlineWin && !outlineWin.isMinimized) {
-          const outlineEl = outlineWin.element;
-          offsetX = outlineEl.offsetLeft + outlineEl.offsetWidth + 20;
-          offsetY = outlineEl.offsetTop + openChapterWindows * 30;
-        } else {
-          offsetX += openChapterWindows * 30;
-          offsetY += openChapterWindows * 30;
-        }
-        windowManager.createWindow({
-          id: windowId,
-          title: chapterTitle,
-          content,
-          x: offsetX,
-          y: offsetY,
-          width: 700,
-          height: 500,
-          icon: chapterIcon,
-          closable: true
-        });
-        setTimeout(() => windowManager.scrollIntoView(windowId), 150);
-      } catch (error) {
-        console.error("Error opening chapter window:", error);
-        alert(error.message);
-      }
-    });
-  }
-  function setupOpenWindowsMenu(windowManager) {
-    const openWindowsBtn = document.getElementById("open-windows-btn");
-    const openWindowsMenu = document.getElementById("open-windows-menu");
-    const openWindowsList = document.getElementById("open-windows-list");
-    function populateOpenWindowsMenu() {
-      openWindowsList.innerHTML = "";
-      if (windowManager.windows.size === 0) {
-        openWindowsList.innerHTML = `<li><span class="px-4 py-2 text-sm text-base-content/70">No open windows.</span></li>`;
-        return;
-      }
-      const createMenuItem = (innerHTML, onClick) => {
-        const li = document.createElement("li");
-        const button = document.createElement("button");
-        button.className = "w-full text-left px-4 py-2 text-sm hover:bg-base-200 flex items-center gap-3";
-        button.innerHTML = innerHTML;
-        button.addEventListener("click", () => {
-          if (onClick) onClick();
-          if (document.activeElement) document.activeElement.blur();
-        });
-        li.appendChild(button);
-        return li;
-      };
-      const specialOrder = ["outline-window", "codex-window"];
-      const sortedWindows = [];
-      const otherWindows = [];
-      windowManager.windows.forEach((win, windowId) => {
-        if (!specialOrder.includes(windowId)) {
-          otherWindows.push({ win, windowId });
-        }
-      });
-      specialOrder.forEach((id) => {
-        if (windowManager.windows.has(id)) {
-          sortedWindows.push({ win: windowManager.windows.get(id), windowId: id });
-        }
-      });
-      otherWindows.sort((a, b) => a.win.title.localeCompare(b.win.title));
-      const allSortedWindows = [...sortedWindows, ...otherWindows];
-      allSortedWindows.forEach(({ win, windowId }) => {
-        const innerHTML = `<div class="w-5 h-5 flex-shrink-0">${win.icon || ""}</div><span class="truncate">${win.title}</span>`;
-        const li = createMenuItem(innerHTML, () => {
-          if (win.isMinimized) {
-            windowManager.restore(windowId);
-          } else {
-            windowManager.focus(windowId);
-          }
-        });
-        openWindowsList.appendChild(li);
-      });
-    }
-    openWindowsBtn.addEventListener("focusin", () => {
-      populateOpenWindowsMenu();
-    });
-  }
-  function setupCanvasControls(windowManager) {
-    const zoomInBtn = document.getElementById("zoom-in-btn");
-    const zoomOutBtn = document.getElementById("zoom-out-btn");
-    const zoom100Btn = document.getElementById("zoom-100-btn");
-    const zoomFitBtn = document.getElementById("zoom-fit-btn");
-    const arrangeBtn = document.getElementById("arrange-windows-btn");
-    if (zoomInBtn) zoomInBtn.addEventListener("click", () => windowManager.zoomIn());
-    if (zoomOutBtn) zoomOutBtn.addEventListener("click", () => windowManager.zoomOut());
-    if (zoom100Btn) zoom100Btn.addEventListener("click", () => windowManager.zoomTo(1));
-    if (zoomFitBtn) zoomFitBtn.addEventListener("click", () => windowManager.fitToView());
-    if (arrangeBtn) arrangeBtn.addEventListener("click", () => windowManager.arrangeWindows());
-  }
-  function setupPromptEditorHandler(desktop, windowManager) {
-    const taskbarBtn = document.getElementById("open-prompts-btn");
-    const promptModal = document.getElementById("prompt-editor-modal");
-    if (!taskbarBtn || !promptModal) return;
-    taskbarBtn.addEventListener("click", () => {
-      promptModal.showModal();
-    });
-  }
-
-  // src/js/novel-editor/chapter-editor.js
-  function setupChapterEditor(desktop) {
-    desktop.addEventListener("dragstart", (event) => {
-      const draggable = event.target.closest(".js-draggable-codex");
-      if (draggable) {
-        event.dataTransfer.setData("application/x-codex-entry-id", draggable.dataset.entryId);
-        event.dataTransfer.effectAllowed = "link";
-      }
-    });
-    desktop.addEventListener("dragover", (event) => {
-      const dropZone = event.target.closest(".js-chapter-drop-zone");
-      if (dropZone) {
-        event.preventDefault();
-        event.dataTransfer.dropEffect = "link";
-      }
-    });
-    desktop.addEventListener("dragenter", (event) => {
-      const dropZone = event.target.closest(".js-chapter-drop-zone");
-      if (dropZone) dropZone.classList.add("bg-blue-100", "dark:bg-blue-900/50");
-    });
-    desktop.addEventListener("dragleave", (event) => {
-      const dropZone = event.target.closest(".js-chapter-drop-zone");
-      if (dropZone && !dropZone.contains(event.relatedTarget)) {
-        dropZone.classList.remove("bg-blue-100", "dark:bg-blue-900/50");
-      }
-    });
-    desktop.addEventListener("drop", async (event) => {
-      const dropZone = event.target.closest(".js-chapter-drop-zone");
-      if (!dropZone) return;
-      event.preventDefault();
-      dropZone.classList.remove("bg-blue-100", "dark:bg-blue-900/50");
-      const chapterId = dropZone.dataset.chapterId;
-      const codexEntryId = event.dataTransfer.getData("application/x-codex-entry-id");
-      if (!chapterId || !codexEntryId) return;
-      if (dropZone.querySelector(`.js-codex-tag[data-entry-id="${codexEntryId}"]`)) return;
-      try {
-        const data = await window.api.attachCodexToChapter(chapterId, codexEntryId);
-        if (!data.success) throw new Error(data.message || "Failed to link codex entry.");
-        const tagContainer = dropZone.querySelector(".js-codex-tags-container");
-        if (tagContainer) {
-          const newTag = await createCodexTagElement(chapterId, data.codexEntry);
-          tagContainer.appendChild(newTag);
-          const tagsWrapper = dropZone.querySelector(".js-codex-tags-wrapper");
-          if (tagsWrapper) tagsWrapper.classList.remove("hidden");
-        }
-      } catch (error) {
-        console.error("Error linking codex entry:", error);
-        alert(error.message);
-      }
-    });
-    desktop.addEventListener("click", async (event) => {
-      const removeBtn = event.target.closest(".js-remove-codex-link");
-      if (!removeBtn) return;
-      const tag = removeBtn.closest(".js-codex-tag");
-      const chapterId = removeBtn.dataset.chapterId;
-      const codexEntryId = removeBtn.dataset.entryId;
-      const entryTitle = tag.querySelector(".js-codex-tag-title").textContent;
-      if (!confirm(`Are you sure you want to unlink "${entryTitle}" from this chapter?`)) {
-        return;
-      }
-      try {
-        const data = await window.api.detachCodexFromChapter(chapterId, codexEntryId);
-        if (!data.success) throw new Error(data.message || "Failed to unlink codex entry.");
-        const tagContainer = tag.parentElement;
-        tag.remove();
-        if (tagContainer && tagContainer.children.length === 0) {
-          const tagsWrapper = tagContainer.closest(".js-codex-tags-wrapper");
-          if (tagsWrapper) tagsWrapper.classList.add("hidden");
-        }
-      } catch (error) {
-        console.error("Error unlinking codex entry:", error);
-        alert(error.message);
-      }
-    });
-  }
-  async function createCodexTagElement(chapterId, codexEntry) {
-    let template = await window.api.getTemplate("chapter-codex-tag");
-    template = template.replace(/{{CHAPTER_ID}}/g, chapterId);
-    template = template.replace(/{{ENTRY_ID}}/g, codexEntry.id);
-    template = template.replace(/{{ENTRY_TITLE}}/g, codexEntry.title);
-    template = template.replace(/{{THUMBNAIL_URL}}/g, codexEntry.thumbnail_url);
-    const div = document.createElement("div");
-    div.innerHTML = template.trim();
-    return div.firstElementChild;
-  }
-
   // node_modules/orderedmap/dist/index.js
   function OrderedMap(content) {
     this.content = content;
@@ -13965,15 +13684,1057 @@
   var mac4 = typeof navigator != "undefined" ? /Mac|iP(hone|[oa]d)/.test(navigator.platform) : typeof os != "undefined" && os.platform ? os.platform() == "darwin" : false;
   var baseKeymap = mac4 ? macBaseKeymap : pcBaseKeymap;
 
-  // src/js/novel-editor/toolbar.js
-  var activeEditorView = null;
-  var toolbar = document.getElementById("top-toolbar");
-  var wordCountEl = document.getElementById("js-word-count");
+  // src/js/prompt-editors/expand-editor.js
+  var defaultState = {
+    focus: "generic",
+    expand_length: "default",
+    instructions: "",
+    selectedCodexIds: [],
+    use_surrounding_text: true,
+    use_pov: true
+  };
+  var renderCodexList = (container, context) => {
+    const codexContainer = container.querySelector(".js-codex-selection-container");
+    if (!codexContainer) return;
+    const { allCodexEntries, linkedCodexEntryIds } = context;
+    if (!allCodexEntries || allCodexEntries.length === 0) {
+      codexContainer.innerHTML = '<p class="text-sm text-base-content/60">No codex entries found for this novel.</p>';
+      return;
+    }
+    const listHtml = allCodexEntries.map((entry) => {
+      const isChecked = linkedCodexEntryIds.includes(entry.id);
+      return `
+            <div class="form-control">
+                <label class="label cursor-pointer justify-start gap-4 py-1">
+                    <input type="checkbox" name="codex_entry" value="${entry.id}" ${isChecked ? "checked" : ""} class="checkbox checkbox-sm" />
+                    <span class="label-text">${entry.title}</span>
+                </label>
+            </div>
+        `;
+    }).join("");
+    codexContainer.innerHTML = `<h4 class="label-text font-semibold mb-1">Use Codex Entries</h4>${listHtml}`;
+  };
+  var updateLengthPreviews = (container, wordCount) => {
+    if (wordCount === 0) return;
+    const doubleOption = container.querySelector('select[name="expand_length"] option[value="double"] span');
+    const tripleOption = container.querySelector('select[name="expand_length"] option[value="triple"] span');
+    if (doubleOption) doubleOption.textContent = `(approx. ${wordCount * 2} words)`;
+    if (tripleOption) tripleOption.textContent = `(approx. ${wordCount * 3} words)`;
+  };
+  var buildPromptJson = (formData, context) => {
+    const { selectedText, wordCount, allCodexEntries } = context;
+    let instructionsBlock = "";
+    const mainInstruction = {
+      "sensory": "Expand the text by adding/highlighting sensory details (e.g. smell, touch, sound, ...) that fit the context.",
+      "feelings": "Go in depth about their feelings.",
+      "introspection": "Add more inner thoughts/dialogue about what's happening. We want to really be in their head!",
+      "generic": "Expand the text further by fleshing out the details, descriptions, and add more context to the scene."
+    }[formData.focus];
+    if (formData.instructions) {
+      instructionsBlock = `<instructions>
+ ${mainInstruction}
+ ${formData.instructions}
+</instructions>`;
+    } else {
+      instructionsBlock = `<instructions>
+ ${mainInstruction}
+</instructions>`;
+    }
+    let lengthBlock = "";
+    if (formData.expand_length !== "default") {
+      const lengthInstruction = {
+        "double": `Double the length of the given prose. Your current word target is ${wordCount * 2} words.`,
+        "triple": `Triple the length of the given prose. Your current word target is ${wordCount * 3} words.`
+      }[formData.expand_length];
+      lengthBlock = `
+
+<targetWordCount>
+ ${lengthInstruction}
+</targetWordCount>`;
+    }
+    const system = `You are an expert prose editor.
+
+Whenever you're given text, expand it according to the instructions. Imitiate the current writing style perfectly, keeping mannerisms, word choice and sentence structure intact.
+Keep the same tense and stylistic choices. Use {novel.language} spelling and grammar.
+
+${instructionsBlock}
+${lengthBlock}
+
+If the original text contains dialogue, keep the matter of the dialogue intact, but change the wording to hit the target length.
+
+If needed, split the expanded text into more paragraphs (add new ones as needed). Split them where it makes sense, e.g.:
+- when a new character enters the scene or when the location changes
+- a new thought or action starts, or we switch from thoughts to action (and vice-versa)
+- someone starts talking
+
+Only return the expanded text, nothing else.`;
+    let codexBlock = "";
+    if (formData.selectedCodexIds && formData.selectedCodexIds.length > 0) {
+      const selectedEntries = allCodexEntries.filter((entry) => formData.selectedCodexIds.includes(String(entry.id)));
+      if (selectedEntries.length > 0) {
+        const codexContent = selectedEntries.map((entry) => {
+          const tempDiv = document.createElement("div");
+          tempDiv.innerHTML = entry.content || "";
+          const plainContent = tempDiv.textContent || tempDiv.innerText || "";
+          return `Title: ${entry.title}
+Content: ${plainContent.trim()}`;
+        }).join("\n\n");
+        codexBlock = `Take into account the following glossary of characters/locations/items/lore... when writing your response:
+<codex>
+${codexContent}
+</codex>
+
+`;
+      }
+    }
+    const truncatedText = selectedText.length > 300 ? selectedText.substring(0, 300) + "..." : selectedText;
+    const user = `${codexBlock}
+
+${formData.use_pov ? `{pov}
+
+` : ""}${formData.use_surrounding_text ? `
+ For contextual information, refer to surrounding words in the scene, DO NOT REPEAT THEM:
+ {wordsBefore(200)}
+ {wordsAfter(200)}
+
+` : ""}Text to rewrite:
+<text words="${wordCount}">
+${wordCount > 0 ? truncatedText : "{message}"}
+</text>`;
+    return {
+      system: system.replace(/\n\n\n/g, "\n\n"),
+      user: user.replace(/\n\n\n/g, "\n\n"),
+      ai: ""
+    };
+  };
+  var updatePreview = (container, context) => {
+    const form = container.querySelector("#expand-editor-form");
+    if (!form) return;
+    const formData = {
+      focus: form.elements.focus.value,
+      expand_length: form.elements.expand_length.value,
+      instructions: form.elements.instructions.value.trim(),
+      selectedCodexIds: form.elements.codex_entry ? Array.from(form.elements.codex_entry).filter((cb) => cb.checked).map((cb) => cb.value) : [],
+      use_surrounding_text: form.elements.use_surrounding_text.checked,
+      use_pov: form.elements.use_pov.checked
+    };
+    const systemPreview = container.querySelector(".js-preview-system");
+    const userPreview = container.querySelector(".js-preview-user");
+    const aiPreview = container.querySelector(".js-preview-ai");
+    if (!systemPreview || !userPreview || !aiPreview) return;
+    try {
+      const promptJson = buildPromptJson(formData, context);
+      systemPreview.textContent = promptJson.system;
+      userPreview.textContent = promptJson.user;
+      aiPreview.textContent = promptJson.ai || "(Empty)";
+    } catch (error) {
+      systemPreview.textContent = `Error building preview: ${error.message}`;
+      userPreview.textContent = "";
+      aiPreview.textContent = "";
+    }
+  };
+  var populateForm = (container, state) => {
+    const form = container.querySelector("#expand-editor-form");
+    if (!form) return;
+    form.elements.focus.value = state.focus;
+    form.elements.expand_length.value = state.expand_length;
+    form.elements.instructions.value = state.instructions;
+    form.elements.use_surrounding_text.checked = state.use_surrounding_text;
+    form.elements.use_pov.checked = state.use_pov;
+  };
+  var init = async (container, context) => {
+    try {
+      const templateHtml = await window.api.getTemplate("expand-editor");
+      container.innerHTML = templateHtml;
+      const wordCount = context.selectedText ? context.selectedText.trim().split(/\s+/).filter(Boolean).length : 0;
+      const fullContext = { ...context, wordCount };
+      populateForm(container, defaultState);
+      renderCodexList(container, fullContext);
+      updateLengthPreviews(container, wordCount);
+      const form = container.querySelector("#expand-editor-form");
+      if (form) {
+        form.addEventListener("input", () => updatePreview(container, fullContext));
+      }
+      updatePreview(container, fullContext);
+    } catch (error) {
+      container.innerHTML = `<p class="p-4 text-error">Could not load editor form.</p>`;
+      console.error(error);
+    }
+  };
+
+  // src/js/prompt-editors/rephrase-editor.js
+  var defaultState2 = {
+    instructions: "",
+    selectedCodexIds: [],
+    use_surrounding_text: true,
+    use_pov: true
+  };
+  var renderCodexList2 = (container, context) => {
+    const codexContainer = container.querySelector(".js-codex-selection-container");
+    if (!codexContainer) return;
+    const { allCodexEntries, linkedCodexEntryIds } = context;
+    if (!allCodexEntries || allCodexEntries.length === 0) {
+      codexContainer.innerHTML = '<p class="text-sm text-base-content/60">No codex entries found for this novel.</p>';
+      return;
+    }
+    const listHtml = allCodexEntries.map((entry) => {
+      const isChecked = linkedCodexEntryIds.includes(entry.id);
+      return `
+            <div class="form-control">
+                <label class="label cursor-pointer justify-start gap-4 py-1">
+                    <input type="checkbox" name="codex_entry" value="${entry.id}" ${isChecked ? "checked" : ""} class="checkbox checkbox-sm" />
+                    <span class="label-text">${entry.title}</span>
+                </label>
+            </div>
+        `;
+    }).join("");
+    codexContainer.innerHTML = `<h4 class="label-text font-semibold mb-1">Use Codex Entries</h4>${listHtml}`;
+  };
+  var buildPromptJson2 = (formData, context) => {
+    const { selectedText, wordCount, allCodexEntries } = context;
+    const system = `You are an expert prose editor.
+
+Whenever you're given text, rephrase it using the following instructions: <instructions>${formData.instructions || "Rephrase the given text."}</instructions>
+
+Imitiate and keep the current writing style, and leave mannerisms, word choice and sentence structure intact.
+You are free to remove redundant lines of speech. Keep the same tense and stylistic choices. Use {novel.language} spelling and grammar.
+
+Only return the rephrased text, nothing else.`;
+    let codexBlock = "";
+    if (formData.selectedCodexIds && formData.selectedCodexIds.length > 0) {
+      const selectedEntries = allCodexEntries.filter((entry) => formData.selectedCodexIds.includes(String(entry.id)));
+      if (selectedEntries.length > 0) {
+        const codexContent = selectedEntries.map((entry) => {
+          const tempDiv = document.createElement("div");
+          tempDiv.innerHTML = entry.content || "";
+          const plainContent = tempDiv.textContent || tempDiv.innerText || "";
+          return `Title: ${entry.title}
+Content: ${plainContent.trim()}`;
+        }).join("\n\n");
+        codexBlock = `Take into account the following glossary of characters/locations/items/lore... when writing your response:
+<codex>
+${codexContent}
+</codex>
+
+`;
+      }
+    }
+    const truncatedText = selectedText.length > 300 ? selectedText.substring(0, 300) + "..." : selectedText;
+    const user = `${codexBlock}
+
+${formData.use_pov ? `{pov}
+
+` : ""}${formData.use_surrounding_text ? `
+ For contextual information, refer to surrounding words in the scene, DO NOT REPEAT THEM:
+ {wordsBefore(200)}
+ {wordsAfter(200)}
+
+` : ""}Text to rewrite:
+<text words="${wordCount}">
+${wordCount > 0 ? truncatedText : "{message}"}
+</text>`;
+    return {
+      system: system.replace(/\n\n\n/g, "\n\n"),
+      user: user.replace(/\n\n\n/g, "\n\n"),
+      ai: ""
+    };
+  };
+  var updatePreview2 = (container, context) => {
+    const form = container.querySelector("#rephrase-editor-form");
+    if (!form) return;
+    const formData = {
+      instructions: form.elements.instructions.value.trim(),
+      selectedCodexIds: form.elements.codex_entry ? Array.from(form.elements.codex_entry).filter((cb) => cb.checked).map((cb) => cb.value) : [],
+      use_surrounding_text: form.elements.use_surrounding_text.checked,
+      use_pov: form.elements.use_pov.checked
+    };
+    const systemPreview = container.querySelector(".js-preview-system");
+    const userPreview = container.querySelector(".js-preview-user");
+    const aiPreview = container.querySelector(".js-preview-ai");
+    if (!systemPreview || !userPreview || !aiPreview) return;
+    try {
+      const promptJson = buildPromptJson2(formData, context);
+      systemPreview.textContent = promptJson.system;
+      userPreview.textContent = promptJson.user;
+      aiPreview.textContent = promptJson.ai || "(Empty)";
+    } catch (error) {
+      systemPreview.textContent = `Error building preview: ${error.message}`;
+      userPreview.textContent = "";
+      aiPreview.textContent = "";
+    }
+  };
+  var populateForm2 = (container, state) => {
+    const form = container.querySelector("#rephrase-editor-form");
+    if (!form) return;
+    form.elements.instructions.value = state.instructions;
+    form.elements.use_surrounding_text.checked = state.use_surrounding_text;
+    form.elements.use_pov.checked = state.use_pov;
+  };
+  var init2 = async (container, context) => {
+    try {
+      const templateHtml = await window.api.getTemplate("rephrase-editor");
+      container.innerHTML = templateHtml;
+      const wordCount = context.selectedText ? context.selectedText.trim().split(/\s+/).filter(Boolean).length : 0;
+      const fullContext = { ...context, wordCount };
+      populateForm2(container, defaultState2);
+      renderCodexList2(container, fullContext);
+      const form = container.querySelector("#rephrase-editor-form");
+      if (form) {
+        form.addEventListener("input", () => updatePreview2(container, fullContext));
+      }
+      updatePreview2(container, fullContext);
+    } catch (error) {
+      container.innerHTML = `<p class="p-4 text-error">Could not load editor form.</p>`;
+      console.error(error);
+    }
+  };
+
+  // src/js/prompt-editors/shorten-editor.js
+  var defaultState3 = {
+    shorten_length: "half",
+    instructions: "",
+    selectedCodexIds: [],
+    use_surrounding_text: true,
+    use_pov: true
+  };
+  var renderCodexList3 = (container, context) => {
+    const codexContainer = container.querySelector(".js-codex-selection-container");
+    if (!codexContainer) return;
+    const { allCodexEntries, linkedCodexEntryIds } = context;
+    if (!allCodexEntries || allCodexEntries.length === 0) {
+      codexContainer.innerHTML = '<p class="text-sm text-base-content/60">No codex entries found for this novel.</p>';
+      return;
+    }
+    const listHtml = allCodexEntries.map((entry) => {
+      const isChecked = linkedCodexEntryIds.includes(entry.id);
+      return `
+            <div class="form-control">
+                <label class="label cursor-pointer justify-start gap-4 py-1">
+                    <input type="checkbox" name="codex_entry" value="${entry.id}" ${isChecked ? "checked" : ""} class="checkbox checkbox-sm" />
+                    <span class="label-text">${entry.title}</span>
+                </label>
+            </div>
+        `;
+    }).join("");
+    codexContainer.innerHTML = `<h4 class="label-text font-semibold mb-1">Use Codex Entries</h4>${listHtml}`;
+  };
+  var updateLengthPreviews2 = (container, wordCount) => {
+    if (wordCount === 0) return;
+    const halfOption = container.querySelector('select[name="shorten_length"] option[value="half"] span');
+    const quarterOption = container.querySelector('select[name="shorten_length"] option[value="quarter"] span');
+    if (halfOption) halfOption.textContent = `(approx. ${Math.round(wordCount / 2)} words)`;
+    if (quarterOption) quarterOption.textContent = `(approx. ${Math.round(wordCount / 4)} words)`;
+  };
+  var buildPromptJson3 = (formData, context) => {
+    const { selectedText, wordCount, allCodexEntries } = context;
+    let lengthInstruction = "";
+    switch (formData.shorten_length) {
+      case "half":
+        lengthInstruction = `Halve the length of the given prose. Your current word target is ${Math.round(wordCount / 2)} words. Do not return more.`;
+        break;
+      case "quarter":
+        lengthInstruction = `Quarter the length of the given prose. Your current word target is ${Math.round(wordCount / 4)} words. Do not return more.`;
+        break;
+      case "paragraph":
+        lengthInstruction = "Shorten the given text into a single paragraph. Don't just join the sentences together, rewrite them into a coherent part of the story, summarizing the action/story accordingly.";
+        break;
+    }
+    const system = `You are an expert prose editor.
+
+Whenever you're given text, rewrite it to condense it into fewer words without losing meaning. Imitiate the current writing style perfectly, keeping mannerisms, word choice and sentence structure intact.
+You are free to remove redundant lines of speech. Keep the same tense and stylistic choices. Use {novel.language} spelling and grammar.
+
+${lengthInstruction}
+
+If the original text contained dialogue, keep the matter of the dialogue intact, but change the wording to hit the target length.
+
+${formData.instructions ? `Additional instructions have been provided to tweak your role, behavior and capabilities. Follow them closely:
+<instructions>
+${formData.instructions}
+</instructions>
+` : ""}
+Only return the condensed text, nothing else.`;
+    let codexBlock = "";
+    if (formData.selectedCodexIds && formData.selectedCodexIds.length > 0) {
+      const selectedEntries = allCodexEntries.filter((entry) => formData.selectedCodexIds.includes(String(entry.id)));
+      if (selectedEntries.length > 0) {
+        const codexContent = selectedEntries.map((entry) => {
+          const tempDiv = document.createElement("div");
+          tempDiv.innerHTML = entry.content || "";
+          const plainContent = tempDiv.textContent || tempDiv.innerText || "";
+          return `Title: ${entry.title}
+Content: ${plainContent.trim()}`;
+        }).join("\n\n");
+        codexBlock = `Take into account the following glossary of characters/locations/items/lore... when writing your response:
+<codex>
+${codexContent}
+</codex>
+
+`;
+      }
+    }
+    const truncatedText = selectedText.length > 300 ? selectedText.substring(0, 300) + "..." : selectedText;
+    const user = `${codexBlock}
+
+${formData.use_pov ? `{pov}
+
+` : ""}${formData.use_surrounding_text ? `
+ {wordsBefore(200)}
+ {wordsAfter(200)}
+
+` : ""}Text to rewrite:
+<text words="${wordCount}">
+${wordCount > 0 ? truncatedText : "{message}"}
+</text>`;
+    return {
+      system: system.replace(/\n\n\n/g, "\n\n"),
+      user: user.replace(/\n\n\n/g, "\n\n"),
+      ai: ""
+    };
+  };
+  var updatePreview3 = (container, context) => {
+    const form = container.querySelector("#shorten-editor-form");
+    if (!form) return;
+    const formData = {
+      shorten_length: form.elements.shorten_length.value,
+      instructions: form.elements.instructions.value.trim(),
+      selectedCodexIds: form.elements.codex_entry ? Array.from(form.elements.codex_entry).filter((cb) => cb.checked).map((cb) => cb.value) : [],
+      use_surrounding_text: form.elements.use_surrounding_text.checked,
+      use_pov: form.elements.use_pov.checked
+    };
+    const systemPreview = container.querySelector(".js-preview-system");
+    const userPreview = container.querySelector(".js-preview-user");
+    const aiPreview = container.querySelector(".js-preview-ai");
+    if (!systemPreview || !userPreview || !aiPreview) return;
+    try {
+      const promptJson = buildPromptJson3(formData, context);
+      systemPreview.textContent = promptJson.system;
+      userPreview.textContent = promptJson.user;
+      aiPreview.textContent = promptJson.ai || "(Empty)";
+    } catch (error) {
+      systemPreview.textContent = `Error building preview: ${error.message}`;
+      userPreview.textContent = "";
+      aiPreview.textContent = "";
+    }
+  };
+  var populateForm3 = (container, state) => {
+    const form = container.querySelector("#shorten-editor-form");
+    if (!form) return;
+    form.elements.shorten_length.value = state.shorten_length;
+    form.elements.instructions.value = state.instructions;
+    form.elements.use_surrounding_text.checked = state.use_surrounding_text;
+    form.elements.use_pov.checked = state.use_pov;
+  };
+  var init3 = async (container, context) => {
+    try {
+      const templateHtml = await window.api.getTemplate("shorten-editor");
+      container.innerHTML = templateHtml;
+      const wordCount = context.selectedText ? context.selectedText.trim().split(/\s+/).filter(Boolean).length : 0;
+      const fullContext = { ...context, wordCount };
+      populateForm3(container, defaultState3);
+      renderCodexList3(container, fullContext);
+      updateLengthPreviews2(container, wordCount);
+      const form = container.querySelector("#shorten-editor-form");
+      if (form) {
+        form.addEventListener("input", () => updatePreview3(container, fullContext));
+      }
+      updatePreview3(container, fullContext);
+    } catch (error) {
+      container.innerHTML = `<p class="p-4 text-error">Could not load editor form.</p>`;
+      console.error(error);
+    }
+  };
+
+  // src/js/prompt-editors/scene-beat-editor.js
+  var defaultState4 = {
+    words: 250,
+    instructions: "",
+    selectedCodexIds: [],
+    use_story_so_far: true
+  };
+  var renderCodexList4 = (container, context) => {
+    const codexContainer = container.querySelector(".js-codex-selection-container");
+    if (!codexContainer) return;
+    const { allCodexEntries, linkedCodexEntryIds } = context;
+    if (!allCodexEntries || allCodexEntries.length === 0) {
+      codexContainer.innerHTML = '<p class="text-sm text-base-content/60">No codex entries found for this novel.</p>';
+      return;
+    }
+    const listHtml = allCodexEntries.map((entry) => {
+      const isChecked = linkedCodexEntryIds.includes(entry.id);
+      return `
+            <div class="form-control">
+                <label class="label cursor-pointer justify-start gap-4 py-1">
+                    <input type="checkbox" name="codex_entry" value="${entry.id}" ${isChecked ? "checked" : ""} class="checkbox checkbox-sm" />
+                    <span class="label-text">${entry.title}</span>
+                </label>
+            </div>
+        `;
+    }).join("");
+    codexContainer.innerHTML = `<h4 class="label-text font-semibold mb-1">Use Codex Entries</h4>${listHtml}`;
+  };
+  var buildPromptJson4 = (formData, context) => {
+    const { allCodexEntries } = context;
+    const system = `You are an expert fiction writer.
+
+Always keep the following rules in mind:
+- Write in {novel.tense} and use {novel.language} spelling, grammar, and colloquialisms/slang.
+- Write in active voice
+- Always follow the "show, don't tell" principle.
+- Avoid adverbs and cliches and overused/commonly used phrases. Aim for fresh and original descriptions.
+- Convey events and story through dialogue.
+- Mix short, punchy sentences with long, descriptive ones. Drop fill words to add variety.
+- Skip "he/she said said" dialogue tags and convey people's actions or face expressions through their speech
+- Avoid mushy dialog and descriptions, have dialogue always continue the action, never stall or add unnecessary fluff. Vary the descriptions to not repeat yourself.
+- Put dialogue on its own paragraph to separate scene and action.
+- Reduce indicators of uncertainty like "trying" or "maybe"
+
+When writing text:
+- NEVER conclude the scene on your own, follow the beat instructions very closely.
+- NEVER end with foreshadowing.
+- NEVER write further than what I prompt you with.
+- AVOID imagining possible endings, NEVER deviate from the instructions.
+- STOP EARLY if the continuation contains what was required in the instructions. You do not need to fill out the full amount of words possible.`;
+    let codexBlock = "";
+    if (formData.selectedCodexIds && formData.selectedCodexIds.length > 0) {
+      const selectedEntries = allCodexEntries.filter((entry) => formData.selectedCodexIds.includes(String(entry.id)));
+      if (selectedEntries.length > 0) {
+        const codexContent = selectedEntries.map((entry) => {
+          const tempDiv = document.createElement("div");
+          tempDiv.innerHTML = entry.content || "";
+          const plainContent = tempDiv.textContent || tempDiv.innerText || "";
+          return `Title: ${entry.title}
+Content: ${plainContent.trim()}`;
+        }).join("\n\n");
+        codexBlock = `Take into account the following glossary of characters/locations/items/lore... when writing your response:
+<codex>
+${codexContent}
+</codex>
+
+`;
+      }
+    }
+    const user = `${codexBlock}
+	${formData.use_story_so_far ? `{! Include all scene summaries up until, but excluding, this scene !}
+{#if storySoFar}
+ The story so far:
+ {storySoFar}
+{#endif}
+
+` : ""}`;
+    const ai = `
+
+{! If no text is before this beat, include text from the previous scene, but only if told from the same character. This helps with matching your writing style across scenes. !}
+{#if and(
+ isStartOfText,
+ pov.character is pov.character(scene.previous)
+)}
+ {lastWords(scene.fullText(scene.previous), 650)}
+{#endif}
+
+{! Otherwise, include recent text before this beat within this scene !}
+{textBefore}
+
+User
+Write ${formData.words || 250} words that continue the story, using the following instructions:
+<instructions>
+ {! This will use the novel's POV, or any scene override !}
+ {pov}
+
+ ${formData.instructions || "Continue the story."}
+</instructions>
+
+`;
+    return {
+      system: system.replace(/\n\n\n/g, "\n\n"),
+      user: user.replace(/\n\n\n/g, "\n\n"),
+      ai: ai.replace(/\n\n\n/g, "\n\n")
+    };
+  };
+  var updatePreview4 = (container, context) => {
+    const form = container.querySelector("#scene-beat-editor-form");
+    if (!form) return;
+    const formData = {
+      words: form.elements.words.value,
+      instructions: form.elements.instructions.value.trim(),
+      selectedCodexIds: form.elements.codex_entry ? Array.from(form.elements.codex_entry).filter((cb) => cb.checked).map((cb) => cb.value) : [],
+      use_story_so_far: form.elements.use_story_so_far.checked
+    };
+    const systemPreview = container.querySelector(".js-preview-system");
+    const userPreview = container.querySelector(".js-preview-user");
+    const aiPreview = container.querySelector(".js-preview-ai");
+    if (!systemPreview || !userPreview || !aiPreview) return;
+    try {
+      const promptJson = buildPromptJson4(formData, context);
+      systemPreview.textContent = promptJson.system;
+      userPreview.textContent = promptJson.user || "(Empty)";
+      aiPreview.textContent = promptJson.ai;
+    } catch (error) {
+      systemPreview.textContent = `Error building preview: ${error.message}`;
+      userPreview.textContent = "";
+      aiPreview.textContent = "";
+    }
+  };
+  var populateForm4 = (container, state) => {
+    const form = container.querySelector("#scene-beat-editor-form");
+    if (!form) return;
+    form.elements.words.value = state.words;
+    form.elements.instructions.value = state.instructions;
+    form.elements.use_story_so_far.checked = state.use_story_so_far;
+  };
+  var init4 = async (container, context) => {
+    try {
+      const templateHtml = await window.api.getTemplate("scene-beat-editor");
+      container.innerHTML = templateHtml;
+      const wordCount = context.selectedText ? context.selectedText.trim().split(/\s+/).filter(Boolean).length : 0;
+      const fullContext = { ...context, wordCount };
+      populateForm4(container, defaultState4);
+      renderCodexList4(container, fullContext);
+      const form = container.querySelector("#scene-beat-editor-form");
+      if (form) {
+        form.addEventListener("input", () => updatePreview4(container, fullContext));
+      }
+      updatePreview4(container, fullContext);
+    } catch (error) {
+      container.innerHTML = `<p class="p-4 text-error">Could not load editor form.</p>`;
+      console.error(error);
+    }
+  };
+
+  // src/js/prompt-editors/scene-summarization-editor.js
+  var defaultState5 = {
+    words: 100,
+    instructions: "",
+    selectedCodexIds: [],
+    use_pov: true
+  };
+  var renderCodexList5 = (container, context) => {
+    const codexContainer = container.querySelector(".js-codex-selection-container");
+    if (!codexContainer) return;
+    const { allCodexEntries, linkedCodexEntryIds } = context;
+    if (!allCodexEntries || allCodexEntries.length === 0) {
+      codexContainer.innerHTML = '<p class="text-sm text-base-content/60">No codex entries found for this novel.</p>';
+      return;
+    }
+    const listHtml = allCodexEntries.map((entry) => {
+      const isChecked = linkedCodexEntryIds.includes(entry.id);
+      return `
+            <div class="form-control">
+                <label class="label cursor-pointer justify-start gap-4 py-1">
+                    <input type="checkbox" name="codex_entry" value="${entry.id}" ${isChecked ? "checked" : ""} class="checkbox checkbox-sm" />
+                    <span class="label-text">${entry.title}</span>
+                </label>
+            </div>
+        `;
+    }).join("");
+    codexContainer.innerHTML = `<h4 class="label-text font-semibold mb-1">Use Codex Entries</h4>${listHtml}`;
+  };
+  var buildPromptJson5 = (formData, context) => {
+    const { selectedText, allCodexEntries } = context;
+    const system = `You are an expert novel summarizer.
+Whenever you're given text, summarize it into a concise, condensed version.
+
+Keep the following rules in mind:
+- Don't write more than ${formData.words || 100} words.
+- Always write in {novel.language} spelling and grammar.
+- Only return the summary in running text, don't abbreviate to bullet points.
+- Don't start with "In this scene..." or "Here is...". Only write the summary itself.
+- Mention characters by name and never by their role (e.g. protagonist, mentor, friend, author).
+- Assume the reader is familiar with character or location profiles, so don't explain who everyone is.
+- Use third person, regardless of the POV of the scene itself.
+- Write in present tense.
+- Use nouns instead of pronouns (Don't use he, she, they, etc. instead use actual names).
+- If a sequence of events gets too long, or there's a major shift in location, always start a new paragraph within the summary.
+
+A strong summary consists of the following:
+- Knowing when and where things happen (don't leave out location or time changes within the scene - remember to start them on a new paragraph).
+- No talking about backstory, previous summaries already covered these parts.
+- Not talking about day-to-day or mundane actions, unless they're important to the plot and its development.
+- No talking about background activities or people/happenings. Only characters/locations/etc. mentioned by name are significant.
+- No introspection - neither at the start nor end of the summary.
+- Keeping only the most important key details, leaving out sensory details, descriptions and dialogue:
+ 1. <bad>X met Y, they had coffee and later visited Z.</bad>
+ <good>Over coffee, X argued with Y about... W comes by and leads them to Z.</good>
+ 2. <bad>X walks through Y, seeking Z.</bad>
+ <good>At Y, X attempts to get Z to....</good>
+ 3. <bad>As they have coffee, X talks about Y their plans to do Z.</bad>
+ <good>X and Y discuss their plans for Z.</good>
+
+${formData.instructions ? `Additional instructions have been provided to tweak your role, behavior and capabilities. Follow them closely:
+<instructions>
+${formData.instructions}
+</instructions>
+` : ""}`;
+    let codexBlock = "";
+    if (formData.selectedCodexIds && formData.selectedCodexIds.length > 0) {
+      const selectedEntries = allCodexEntries.filter((entry) => formData.selectedCodexIds.includes(String(entry.id)));
+      if (selectedEntries.length > 0) {
+        const codexContent = selectedEntries.map((entry) => {
+          const tempDiv = document.createElement("div");
+          tempDiv.innerHTML = entry.content || "";
+          const plainContent = tempDiv.textContent || tempDiv.innerText || "";
+          return `Title: ${entry.title}
+Content: ${plainContent.trim()}`;
+        }).join("\n\n");
+        codexBlock = `Take into account the following glossary of characters/locations/items/lore... when writing your response:
+<codex>
+${codexContent}
+</codex>
+
+`;
+      }
+    }
+    const truncatedText = selectedText.length > 300 ? selectedText.substring(0, 300) + "..." : selectedText;
+    const user = `${codexBlock}
+
+${formData.use_pov ? `{! Give a hint about the POV, if specified !}
+{#if pov}
+ <scenePointOfView>
+ This scene is written in {pov.type} point of view{ifs(pov.character, " from the perspective of " + pov.character)}.
+ </scenePointOfView>
+{#endif}
+
+` : ""}
+
+{! Make sure that we don't get something like 'I walked...' !}
+Write the summary in third person, and use present tense.
+
+Text to summarize:
+<scene>
+${selectedText ? truncatedText : "{removeWhitespace(scene.fullText)}"}
+</scene>`;
+    return {
+      system: system.replace(/\n\n\n/g, "\n\n"),
+      user: user.replace(/\n\n\n/g, "\n\n"),
+      ai: ""
+    };
+  };
+  var updatePreview5 = (container, context) => {
+    const form = container.querySelector("#scene-summarization-editor-form");
+    if (!form) return;
+    const formData = {
+      words: form.elements.words.value,
+      instructions: form.elements.instructions.value.trim(),
+      selectedCodexIds: form.elements.codex_entry ? Array.from(form.elements.codex_entry).filter((cb) => cb.checked).map((cb) => cb.value) : [],
+      use_pov: form.elements.use_pov.checked
+    };
+    const systemPreview = container.querySelector(".js-preview-system");
+    const userPreview = container.querySelector(".js-preview-user");
+    const aiPreview = container.querySelector(".js-preview-ai");
+    if (!systemPreview || !userPreview || !aiPreview) return;
+    try {
+      const promptJson = buildPromptJson5(formData, context);
+      systemPreview.textContent = promptJson.system;
+      userPreview.textContent = promptJson.user;
+      aiPreview.textContent = promptJson.ai || "(Empty)";
+    } catch (error) {
+      systemPreview.textContent = `Error building preview: ${error.message}`;
+      userPreview.textContent = "";
+      aiPreview.textContent = "";
+    }
+  };
+  var populateForm5 = (container, state) => {
+    const form = container.querySelector("#scene-summarization-editor-form");
+    if (!form) return;
+    form.elements.words.value = state.words;
+    form.elements.instructions.value = state.instructions;
+    form.elements.use_pov.checked = state.use_pov;
+  };
+  var init5 = async (container, context) => {
+    try {
+      const templateHtml = await window.api.getTemplate("scene-summarization-editor");
+      container.innerHTML = templateHtml;
+      const wordCount = context.selectedText ? context.selectedText.trim().split(/\s+/).filter(Boolean).length : 0;
+      const fullContext = { ...context, wordCount };
+      populateForm5(container, defaultState5);
+      renderCodexList5(container, fullContext);
+      const form = container.querySelector("#scene-summarization-editor-form");
+      if (form) {
+        form.addEventListener("input", () => updatePreview5(container, fullContext));
+      }
+      updatePreview5(container, fullContext);
+    } catch (error) {
+      container.innerHTML = `<p class="p-4 text-error">Could not load editor form.</p>`;
+      console.error(error);
+    }
+  };
+
+  // src/js/prompt-editor.js
+  var editors = {
+    "expand": { name: "Expand", init },
+    "rephrase": { name: "Rephrase", init: init2 },
+    "shorten": { name: "Shorten", init: init3 },
+    "scene-beat": { name: "Scene Beat", init: init4 },
+    "scene-summarization": { name: "Scene Summarization", init: init5 }
+  };
+  var promptBuilders = {
+    "expand": buildPromptJson,
+    "rephrase": buildPromptJson2,
+    "shorten": buildPromptJson3,
+    "scene-beat": buildPromptJson4,
+    "scene-summarization": buildPromptJson5
+  };
+  var modalEl;
+  var currentContext;
   var isAiActionActive = false;
   var originalFragment = null;
   var aiActionRange = null;
-  var currentAiParams = null;
   var floatingToolbar = null;
+  var currentAiParams = null;
+  var activeEditorView = null;
+  var currentPromptId = null;
+  var loadPrompt = async (promptId) => {
+    if (!modalEl) return;
+    const placeholder = modalEl.querySelector(".js-prompt-placeholder");
+    const customEditorPane = modalEl.querySelector(".js-custom-editor-pane");
+    const customPromptTitle = customEditorPane.querySelector(".js-custom-prompt-title");
+    const customFormContainer = customEditorPane.querySelector(".js-custom-form-container");
+    const editorConfig = editors[promptId];
+    if (!editorConfig) {
+      console.error(`No editor configured for promptId: ${promptId}`);
+      placeholder.classList.remove("hidden");
+      customEditorPane.classList.add("hidden");
+      placeholder.innerHTML = `<p class="text-error">No editor found for prompt: ${promptId}</p>`;
+      return;
+    }
+    modalEl.querySelectorAll(".js-prompt-item").forEach((btn) => {
+      btn.classList.toggle("btn-active", btn.dataset.promptId === promptId);
+    });
+    placeholder.classList.add("hidden");
+    customEditorPane.classList.remove("hidden");
+    customPromptTitle.textContent = `Prompt Builder: ${editorConfig.name}`;
+    customFormContainer.innerHTML = `<div class="p-4 text-center"><span class="loading loading-spinner"></span></div>`;
+    await editorConfig.init(customFormContainer, currentContext);
+  };
+  function setEditorEditable(view, isEditable) {
+    view.setProps({
+      editable: () => isEditable
+    });
+  }
+  function cleanupAiAction() {
+    if (floatingToolbar) {
+      floatingToolbar.remove();
+      floatingToolbar = null;
+    }
+    if (activeEditorView) {
+      setEditorEditable(activeEditorView, true);
+      const { state, dispatch } = activeEditorView;
+      const { schema: schema3 } = state;
+      const tr = state.tr.removeMark(0, state.doc.content.size, schema3.marks.ai_suggestion);
+      dispatch(tr);
+      activeEditorView.focus();
+    }
+    isAiActionActive = false;
+    originalFragment = null;
+    aiActionRange = null;
+    currentAiParams = null;
+    updateToolbarState(activeEditorView);
+  }
+  function handleFloatyApply() {
+    if (!isAiActionActive || !activeEditorView) return;
+    cleanupAiAction();
+  }
+  function handleFloatyDiscard() {
+    if (!isAiActionActive || !activeEditorView || !originalFragment) return;
+    const { state, dispatch } = activeEditorView;
+    const tr = state.tr.replace(aiActionRange.from, aiActionRange.to, originalFragment);
+    dispatch(tr);
+    cleanupAiAction();
+  }
+  async function handleFloatyRetry() {
+    if (!isAiActionActive || !activeEditorView || !currentAiParams) return;
+    const actionToRetry = currentAiParams.action;
+    const contextForRetry = currentAiParams.context;
+    handleFloatyDiscard();
+    openPromptEditor(contextForRetry, actionToRetry);
+  }
+  function createFloatingToolbar(view, from2, to, model) {
+    if (floatingToolbar) floatingToolbar.remove();
+    const text = view.state.doc.textBetween(from2, to, " ");
+    const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
+    const modelName = model.split("/").pop() || model;
+    const toolbarEl = document.createElement("div");
+    toolbarEl.id = "ai-floating-toolbar";
+    toolbarEl.innerHTML = `
+        <button data-action="apply" title="Apply"><i class="bi bi-check-lg"></i> Apply</button>
+        <button data-action="retry" title="Retry"><i class="bi bi-arrow-repeat"></i> Retry</button>
+        <button data-action="discard" title="Discard"><i class="bi bi-x-lg"></i> Discard</button>
+        <div class="divider-vertical"></div>
+        <span class="text-gray-400">${wordCount} Words, ${modelName}</span>
+    `;
+    const viewport = document.getElementById("viewport");
+    viewport.appendChild(toolbarEl);
+    floatingToolbar = toolbarEl;
+    const toolbarWidth = toolbarEl.offsetWidth;
+    const toolbarHeight = toolbarEl.offsetHeight;
+    const viewportRect = viewport.getBoundingClientRect();
+    const startCoords = view.coordsAtPos(from2);
+    let desiredLeft = startCoords.left - viewportRect.left;
+    const finalLeft = Math.max(10, Math.min(desiredLeft, viewport.clientWidth - toolbarWidth - 10));
+    let desiredTop = startCoords.top - viewportRect.top - toolbarHeight - 5;
+    if (desiredTop < 10) {
+      desiredTop = startCoords.bottom - viewportRect.top + 5;
+    }
+    const finalTop = Math.max(10, Math.min(desiredTop, viewport.clientHeight - toolbarHeight - 10));
+    toolbarEl.style.left = `${finalLeft}px`;
+    toolbarEl.style.top = `${finalTop}px`;
+    toolbarEl.addEventListener("mousedown", (e) => e.preventDefault());
+    toolbarEl.addEventListener("click", (e) => {
+      const button = e.target.closest("button");
+      if (!button) return;
+      const action = button.dataset.action;
+      if (action === "apply") handleFloatyApply();
+      if (action === "discard") handleFloatyDiscard();
+      if (action === "retry") handleFloatyRetry();
+    });
+  }
+  async function startAiStream(params) {
+    const { prompt, model } = params;
+    isAiActionActive = true;
+    updateToolbarState(activeEditorView);
+    setEditorEditable(activeEditorView, false);
+    let isFirstChunk = true;
+    let currentInsertionPos = aiActionRange.from;
+    const onData = (payload) => {
+      if (payload.chunk) {
+        const { schema: schema3 } = activeEditorView.state;
+        const mark = schema3.marks.ai_suggestion.create();
+        let tr = activeEditorView.state.tr;
+        if (isFirstChunk) {
+          tr.replaceWith(aiActionRange.from, aiActionRange.to, []);
+          isFirstChunk = false;
+        }
+        const parts = payload.chunk.split("\n");
+        parts.forEach((part, index) => {
+          if (part) {
+            const textNode = schema3.text(part, [mark]);
+            tr.insert(currentInsertionPos, textNode);
+            currentInsertionPos += part.length;
+          }
+          if (index < parts.length - 1) {
+            tr.split(currentInsertionPos);
+            currentInsertionPos += 2;
+          }
+        });
+        aiActionRange.to = currentInsertionPos;
+        activeEditorView.dispatch(tr);
+      } else if (payload.done) {
+        createFloatingToolbar(activeEditorView, aiActionRange.from, aiActionRange.to, model);
+      } else if (payload.error) {
+        console.error("AI Action Error:", payload.error);
+        alert(`Error: ${payload.error}`);
+        handleFloatyDiscard();
+      }
+    };
+    try {
+      window.api.processCodexTextStream({ prompt, model }, onData);
+    } catch (error) {
+      console.error("AI Action Error:", error);
+      alert(`Error: ${error.message}`);
+      handleFloatyDiscard();
+    }
+  }
+  async function populateModelDropdown() {
+    if (!modalEl) return;
+    const select = modalEl.querySelector(".js-llm-model-select");
+    if (!select) return;
+    try {
+      const result = await window.api.getModels();
+      if (!result.success || !result.models || result.models.length === 0) {
+        throw new Error(result.message || "No models returned from API.");
+      }
+      const models = result.models;
+      const defaultModel = "openai/gpt-4o-mini";
+      select.innerHTML = "";
+      models.forEach((model) => {
+        const option = new Option(model.name, model.id);
+        select.appendChild(option);
+      });
+      if (models.some((m) => m.id === defaultModel)) {
+        select.value = defaultModel;
+      } else if (models.length > 0) {
+        select.value = models[0].id;
+      }
+    } catch (error) {
+      console.error("Failed to populate AI model dropdowns:", error);
+      select.innerHTML = '<option value="" disabled selected>Error loading</option>';
+    }
+  }
+  async function handleModalApply() {
+    if (!modalEl || isAiActionActive) return;
+    const model = modalEl.querySelector(".js-llm-model-select").value;
+    const action = currentPromptId ? currentPromptId : null;
+    const form = modalEl.querySelector(".js-custom-editor-pane form");
+    console.log("Applying AI Action:", { model, action, form });
+    if (!model || !action || !form) {
+      alert("Could not apply action. Missing model, action, or form.");
+      return;
+    }
+    const builder = promptBuilders[action];
+    if (!builder) {
+      alert(`No prompt builder found for action: ${action}`);
+      return;
+    }
+    modalEl.close();
+    activeEditorView = getActiveEditor();
+    if (!activeEditorView) {
+      alert("No active editor to apply changes to.");
+      return;
+    }
+    const { state } = activeEditorView;
+    const { from: from2, to } = state.selection;
+    let text = state.doc.textBetween(from2, to, " ");
+    if (action === "scene-summarization" && state.selection.empty) {
+      text = state.doc.textContent;
+    }
+    if (action !== "scene-summarization" && action !== "scene-beat" && state.selection.empty) {
+      alert("Please select text to apply this action.");
+      return;
+    }
+    originalFragment = state.doc.slice(from2, to);
+    aiActionRange = { from: from2, to };
+    const formData = new FormData(form);
+    const formDataObj = Object.fromEntries(formData.entries());
+    formDataObj.selectedCodexIds = formData.getAll("codex_entry");
+    const wordCount = text ? text.trim().split(/\s+/).filter(Boolean).length : 0;
+    const promptContext = { ...currentContext, selectedText: text, wordCount };
+    const prompt = builder(formDataObj, promptContext);
+    currentAiParams = { prompt, model, action, context: currentContext };
+    await startAiStream(currentAiParams);
+  }
+  function setupPromptEditor() {
+    modalEl = document.getElementById("prompt-editor-modal");
+    if (!modalEl) return;
+    const applyBtn = modalEl.querySelector(".js-prompt-apply-btn");
+    if (applyBtn) {
+      applyBtn.addEventListener("click", handleModalApply);
+    }
+  }
+  async function openPromptEditor(context, promptId) {
+    if (!modalEl) {
+      console.error("Prompt editor modal element not found.");
+      return;
+    }
+    currentContext = context;
+    currentPromptId = promptId;
+    const placeholder = modalEl.querySelector(".js-prompt-placeholder");
+    const customEditorPane = modalEl.querySelector(".js-custom-editor-pane");
+    placeholder.classList.add("hidden");
+    customEditorPane.classList.remove("hidden");
+    try {
+      await populateModelDropdown();
+      await loadPrompt(promptId);
+      modalEl.showModal();
+    } catch (error) {
+      console.error("Error loading prompt editor:", error);
+      modalEl.showModal();
+    }
+  }
+
+  // src/js/novel-editor/toolbar.js
+  var activeEditorView2 = null;
+  var toolbar = document.getElementById("top-toolbar");
+  var wordCountEl = document.getElementById("js-word-count");
   function isNodeActive(state, type) {
     const { $from } = state.selection;
     for (let i = $from.depth; i > 0; i--) {
@@ -13984,8 +14745,8 @@
     return false;
   }
   async function handleCreateCodexFromSelection() {
-    if (!activeEditorView) return;
-    const { state } = activeEditorView;
+    if (!activeEditorView2) return;
+    const { state } = activeEditorView2;
     if (state.selection.empty) return;
     const selectedText = state.doc.textBetween(state.selection.from, state.selection.to, " ");
     const modal = document.getElementById("new-codex-entry-modal");
@@ -14030,7 +14791,7 @@
     }
   }
   function updateToolbarState(view) {
-    activeEditorView = view;
+    activeEditorView2 = view;
     const allBtns = toolbar.querySelectorAll(".js-toolbar-btn, .js-ai-action-btn");
     const isMarkActive = (state, type) => {
       if (!type) return false;
@@ -14046,6 +14807,15 @@
       const { from: from2, to, empty: empty2, $from } = state.selection;
       const isTextSelected = !empty2;
       allBtns.forEach((btn) => {
+        if (btn.classList.contains("js-ai-action-btn")) {
+          const action = btn.dataset.action;
+          if (action === "scene-summarization") {
+            btn.disabled = false;
+          } else {
+            btn.disabled = !isTextSelected;
+          }
+          return;
+        }
         const cmd = btn.dataset.command;
         let commandFn, markType;
         switch (cmd) {
@@ -14093,8 +14863,8 @@
             })(state);
             return;
         }
-        if (btn.closest(".js-dropdown-container") || btn.classList.contains("js-ai-action-btn")) {
-          btn.disabled = !isTextSelected || isAiActionActive;
+        if (btn.closest(".js-dropdown-container")) {
+          btn.disabled = !isTextSelected;
         }
         if (commandFn) {
           btn.disabled = !commandFn(state);
@@ -14131,8 +14901,8 @@
     }
   }
   function applyCommand(command, attrs = {}) {
-    if (!activeEditorView) return;
-    const { state, dispatch } = activeEditorView;
+    if (!activeEditorView2) return;
+    const { state, dispatch } = activeEditorView2;
     const { schema: schema3 } = state;
     let cmd;
     switch (command) {
@@ -14170,8 +14940,8 @@
     }
   }
   function applyHighlight(color) {
-    if (!activeEditorView) return;
-    const { state } = activeEditorView;
+    if (!activeEditorView2) return;
+    const { state } = activeEditorView2;
     const { schema: schema3 } = state;
     const { from: from2, to } = state.selection;
     let tr = state.tr;
@@ -14186,205 +14956,51 @@
         tr = tr.addMark(from2, to, markType.create());
       }
     }
-    activeEditorView.dispatch(tr);
-  }
-  function setEditorEditable(view, isEditable) {
-    view.setProps({
-      editable: () => isEditable
-    });
-  }
-  function cleanupAiAction() {
-    if (floatingToolbar) {
-      floatingToolbar.remove();
-      floatingToolbar = null;
-    }
-    if (activeEditorView) {
-      setEditorEditable(activeEditorView, true);
-      const { state, dispatch } = activeEditorView;
-      const { schema: schema3 } = state;
-      const tr = state.tr.removeMark(0, state.doc.content.size, schema3.marks.ai_suggestion);
-      dispatch(tr);
-      activeEditorView.focus();
-    }
-    isAiActionActive = false;
-    originalFragment = null;
-    aiActionRange = null;
-    currentAiParams = null;
-    updateToolbarState(activeEditorView);
-  }
-  function handleApply() {
-    if (!isAiActionActive || !activeEditorView) return;
-    cleanupAiAction();
-  }
-  function handleDiscard() {
-    if (!isAiActionActive || !activeEditorView || !originalFragment) return;
-    const { state, dispatch } = activeEditorView;
-    const tr = state.tr.replace(aiActionRange.from, aiActionRange.to, originalFragment);
-    dispatch(tr);
-    cleanupAiAction();
-  }
-  async function handleRetry() {
-    if (!isAiActionActive || !activeEditorView || !currentAiParams) return;
-    const { state, dispatch } = activeEditorView;
-    const tr = state.tr.replace(aiActionRange.from, aiActionRange.to, originalFragment);
-    dispatch(tr);
-    if (floatingToolbar) {
-      floatingToolbar.remove();
-      floatingToolbar = null;
-    }
-    isAiActionActive = false;
-    await handleAiAction(null, currentAiParams);
-  }
-  function createFloatingToolbar(view, from2, to, model) {
-    if (floatingToolbar) floatingToolbar.remove();
-    const text = view.state.doc.textBetween(from2, to, " ");
-    const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
-    const modelName = model.split("/").pop() || model;
-    const toolbarEl = document.createElement("div");
-    toolbarEl.id = "ai-floating-toolbar";
-    toolbarEl.innerHTML = `
-        <button data-action="apply" title="Apply"><i class="bi bi-check-lg"></i> Apply</button>
-        <button data-action="retry" title="Retry"><i class="bi bi-arrow-repeat"></i> Retry</button>
-        <button data-action="discard" title="Discard"><i class="bi bi-x-lg"></i> Discard</button>
-        <div class="divider-vertical"></div>
-        <span class="text-gray-400">${wordCount} Words, ${modelName}</span>
-    `;
-    const viewport = document.getElementById("viewport");
-    if (!viewport) {
-      console.error("Could not find viewport element for floating toolbar.");
-      document.body.appendChild(toolbarEl);
-    } else {
-      viewport.appendChild(toolbarEl);
-    }
-    floatingToolbar = toolbarEl;
-    const toolbarWidth = toolbarEl.offsetWidth;
-    const toolbarHeight = toolbarEl.offsetHeight;
-    const viewportRect = viewport.getBoundingClientRect();
-    const startCoords = view.coordsAtPos(from2);
-    const padding = { left: 100, right: 400, top: 100, bottom: 100 };
-    let desiredLeft = startCoords.left - viewportRect.left;
-    const minLeft = padding.left;
-    const maxLeft = viewport.clientWidth - toolbarWidth - padding.right;
-    const finalLeft = Math.max(minLeft, Math.min(desiredLeft, maxLeft));
-    let desiredTop = startCoords.top - viewportRect.top - toolbarHeight - 5;
-    if (desiredTop < padding.top) {
-      desiredTop = startCoords.bottom - viewportRect.top + 5;
-    }
-    const minTop = padding.top;
-    const maxTop = viewport.clientHeight - toolbarHeight - padding.bottom;
-    const finalTop = Math.max(minTop, Math.min(desiredTop, maxTop));
-    toolbarEl.style.left = `${finalLeft}px`;
-    toolbarEl.style.top = `${finalTop}px`;
-    toolbarEl.addEventListener("mousedown", (e) => e.preventDefault());
-    toolbarEl.addEventListener("click", (e) => {
-      const button = e.target.closest("button");
-      if (!button) return;
-      const action = button.dataset.action;
-      if (action === "apply") handleApply();
-      if (action === "discard") handleDiscard();
-      if (action === "retry") handleRetry();
-    });
-  }
-  async function handleAiAction(button, params = null) {
-    if (!activeEditorView || isAiActionActive) return;
-    let action, model, text, from2, to;
-    if (params) {
-      action = params.action;
-      model = params.model;
-      text = params.text;
-      from2 = aiActionRange.from;
-      to = aiActionRange.from + originalFragment.size;
-    } else {
-      action = button.dataset.action;
-      const dropdown = button.closest(".js-dropdown-container").querySelector(".js-dropdown");
-      const modelSelect = dropdown.querySelector(".js-llm-model-select");
-      model = modelSelect.value;
-      const { state } = activeEditorView;
-      from2 = state.selection.from;
-      to = state.selection.to;
-      text = state.doc.textBetween(from2, to, " ");
-      if (!action || !model || !text || state.selection.empty) {
-        alert("Could not perform AI action. Please select text and choose a model.");
-        return;
-      }
-      originalFragment = state.doc.slice(from2, to);
-      aiActionRange = { from: from2, to };
-      currentAiParams = { text, action, model };
-      button.disabled = true;
-      button.textContent = "Processing...";
-    }
-    isAiActionActive = true;
-    updateToolbarState(activeEditorView);
-    setEditorEditable(activeEditorView, false);
-    let isFirstChunk = true;
-    let currentInsertionPos = from2;
-    let justCreatedParagraph = false;
-    const onData = (payload) => {
-      if (payload.chunk) {
-        const { schema: schema3 } = activeEditorView.state;
-        const mark = schema3.marks.ai_suggestion.create();
-        let tr = activeEditorView.state.tr;
-        if (isFirstChunk) {
-          tr.replaceWith(from2, to, []);
-          isFirstChunk = false;
-          justCreatedParagraph = false;
-        }
-        const parts = payload.chunk.split("\n");
-        parts.forEach((part, index) => {
-          if (part) {
-            const textNode = schema3.text(part, [mark]);
-            tr.insert(currentInsertionPos, textNode);
-            currentInsertionPos += part.length;
-            justCreatedParagraph = false;
-          }
-          if (index < parts.length - 1) {
-            if (!justCreatedParagraph) {
-              tr.split(currentInsertionPos);
-              currentInsertionPos += 2;
-              justCreatedParagraph = true;
-            }
-          }
-        });
-        aiActionRange.to = currentInsertionPos;
-        activeEditorView.dispatch(tr);
-      } else if (payload.done) {
-        if (button) {
-          button.disabled = false;
-          button.textContent = "Apply";
-        }
-        createFloatingToolbar(activeEditorView, aiActionRange.from, aiActionRange.to, model);
-      } else if (payload.error) {
-        console.error("AI Action Error:", payload.error);
-        alert(`Error: ${payload.error}`);
-        if (button) {
-          button.disabled = false;
-          button.textContent = "Apply";
-        }
-        handleDiscard();
-      }
-    };
-    try {
-      window.api.processCodexTextStream({ text, action, model }, onData);
-    } catch (error) {
-      console.error("AI Action Error:", error);
-      alert(`Error: ${error.message}`);
-      if (button) {
-        button.disabled = false;
-        button.textContent = "Apply";
-      }
-      handleDiscard();
-    }
+    activeEditorView2.dispatch(tr);
   }
   async function handleToolbarAction(button) {
-    if (!activeEditorView && !button.closest(".js-dropdown-container")) {
+    if (button.classList.contains("js-ai-action-btn")) {
+      const action = button.dataset.action;
+      const novelId = document.body.dataset.novelId;
+      if (!novelId) {
+        alert("Error: Could not determine the current novel.");
+        return;
+      }
+      let selectedText = "";
+      const activeEditor = getActiveEditor();
+      if (activeEditor && !activeEditor.state.selection.empty) {
+        const { from: from2, to } = activeEditor.state.selection;
+        selectedText = activeEditor.state.doc.textBetween(from2, to, " ");
+      }
+      const allCodexEntries = await window.api.getAllCodexEntriesForNovel(novelId);
+      let linkedCodexEntryIds = [];
+      let chapterId = null;
+      if (activeEditor) {
+        const chapterWindowContent = activeEditor.dom.closest(".chapter-window-content");
+        if (chapterWindowContent) {
+          chapterId = chapterWindowContent.dataset.chapterId;
+        }
+      }
+      if (chapterId) {
+        linkedCodexEntryIds = await window.api.getLinkedCodexIdsForChapter(chapterId);
+      }
+      const context = {
+        selectedText,
+        allCodexEntries,
+        linkedCodexEntryIds
+      };
+      openPromptEditor(context, action);
+      return;
+    }
+    if (!activeEditorView2 && !button.closest(".js-dropdown-container")) {
       return;
     }
     const command = button.dataset.command;
     if (command) {
       if (command === "undo") {
-        undo(activeEditorView.state, activeEditorView.dispatch);
+        undo(activeEditorView2.state, activeEditorView2.dispatch);
       } else if (command === "redo") {
-        redo(activeEditorView.state, activeEditorView.dispatch);
+        redo(activeEditorView2.state, activeEditorView2.dispatch);
       } else if (command === "create_codex") {
         await handleCreateCodexFromSelection();
       } else {
@@ -14392,53 +15008,14 @@
       }
     } else if (button.classList.contains("js-highlight-option")) {
       applyHighlight(button.dataset.bg.replace("highlight-", ""));
-      closeAllDropdowns();
-    } else if (button.classList.contains("js-ai-apply-btn")) {
-      await handleAiAction(button);
-      closeAllDropdowns();
+      if (document.activeElement) document.activeElement.blur();
     } else if (button.classList.contains("js-heading-option")) {
       const level = parseInt(button.dataset.level, 10);
       applyCommand("heading", { level });
-      closeAllDropdowns();
-    }
-    if (activeEditorView && !isAiActionActive) {
-      activeEditorView.focus();
-    }
-  }
-  function closeAllDropdowns() {
-    toolbar.querySelectorAll(".js-dropdown").forEach((d) => {
       if (document.activeElement) document.activeElement.blur();
-    });
-  }
-  async function populateModelDropdowns() {
-    const selects = toolbar.querySelectorAll(".js-llm-model-select");
-    if (selects.length === 0) return;
-    try {
-      const result = await window.api.getModels();
-      if (!result.success || !result.models || result.models.length === 0) {
-        throw new Error(result.message || "No models returned from API.");
-      }
-      const models = result.models;
-      const defaultModel = "openai/gpt-4o-mini";
-      selects.forEach((select) => {
-        select.innerHTML = "";
-        models.forEach((model) => {
-          const option = document.createElement("option");
-          option.value = model.id;
-          option.textContent = model.name;
-          select.appendChild(option);
-        });
-        if (models.some((m) => m.id === defaultModel)) {
-          select.value = defaultModel;
-        } else if (models.length > 0) {
-          select.value = models[0].id;
-        }
-      });
-    } catch (error) {
-      console.error("Failed to populate AI model dropdowns:", error);
-      selects.forEach((select) => {
-        select.innerHTML = '<option value="" disabled selected>Error loading</option>';
-      });
+    }
+    if (activeEditorView2) {
+      activeEditorView2.focus();
     }
   }
   function setupTopToolbar() {
@@ -14461,13 +15038,12 @@
       handleToolbarAction(button);
     });
     updateToolbarState(null);
-    populateModelDropdowns();
   }
 
   // src/js/novel-editor/content-editor.js
   var debounceTimers = /* @__PURE__ */ new Map();
   var editorInstances = /* @__PURE__ */ new Map();
-  var activeEditorView2 = null;
+  var activeEditorView3 = null;
   var highlightMarkSpec = (colorClass) => ({
     attrs: {},
     parseDOM: [{ tag: `span.${colorClass}` }],
@@ -14533,6 +15109,9 @@
     },
     marks: {}
   });
+  function getActiveEditor() {
+    return activeEditorView3;
+  }
   function triggerDebouncedSave(windowContent) {
     const isChapter = windowContent.matches(".chapter-window-content");
     const isCodex = windowContent.matches(".codex-entry-window-content");
@@ -14637,13 +15216,13 @@
               props: {
                 handleDOMEvents: {
                   focus(view2) {
-                    activeEditorView2 = view2;
+                    activeEditorView3 = view2;
                     updateToolbarState(view2);
                   },
                   blur(view2, event) {
                     const relatedTarget = event.relatedTarget;
                     if (!relatedTarget || !relatedTarget.closest("#top-toolbar")) {
-                      activeEditorView2 = null;
+                      activeEditorView3 = null;
                       updateToolbarState(null);
                     }
                   }
@@ -14721,128 +15300,277 @@
     desktop.querySelectorAll(".codex-entry-window-content, .chapter-window-content").forEach(initEditorsForWindow);
   }
 
-  // src/js/novel-editor/prompt-editor.js
-  function setupPromptEditor(windowEl) {
-    const contentEl = windowEl.querySelector(".js-prompt-editor-content");
-    const listContainer = contentEl.querySelector(".js-prompt-list-container");
-    const editorPane = contentEl.querySelector(".js-prompt-editor-pane");
-    const placeholder = contentEl.querySelector(".js-prompt-placeholder");
-    const form = contentEl.querySelector(".js-prompt-form");
-    const saveBtn = contentEl.querySelector(".js-save-prompt-btn");
-    const resetBtn = contentEl.querySelector(".js-reset-prompt-btn");
-    const modal = document.getElementById("prompt-editor-modal");
-    const closeBtn = windowEl.querySelector(".js-close-prompt-modal");
-    let currentPrompt = null;
-    const setButtonLoadingState = (button, isLoading) => {
-      const text = button.querySelector(".js-btn-text");
-      const spinner = button.querySelector(".js-spinner");
-      if (isLoading) {
-        button.disabled = true;
-        if (text) text.classList.add("hidden");
-        if (spinner) spinner.classList.remove("hidden");
-      } else {
-        button.disabled = false;
-        if (text) text.classList.remove("hidden");
-        if (spinner) spinner.classList.add("hidden");
-      }
-    };
-    const autosizeTextarea = (textarea) => {
-      setTimeout(() => {
-        textarea.style.height = "auto";
-        textarea.style.height = `${textarea.scrollHeight + 50}px`;
-      }, 0);
-    };
-    form.querySelectorAll(".js-autosize").forEach((textarea) => {
-      textarea.addEventListener("input", () => autosizeTextarea(textarea));
-    });
-    const loadPromptList = async () => {
-      try {
-        const prompts = await window.api.listPrompts();
-        listContainer.innerHTML = "";
-        if (prompts.length === 0) {
-          listContainer.innerHTML = '<p class="p-4 text-sm text-base-content/70">No prompts found.</p>';
-          return;
+  // src/js/novel-editor/eventHandlers.js
+  function setupCodexEntryHandler(desktop, windowManager) {
+    const entryIcon = `<i class="bi bi-journal-richtext text-lg"></i>`;
+    async function openCodexEntry(entryId, entryTitle) {
+      const windowId = `codex-entry-${entryId}`;
+      if (windowManager.windows.has(windowId)) {
+        const win = windowManager.windows.get(windowId);
+        if (win.isMinimized) {
+          windowManager.restore(windowId);
+        } else {
+          windowManager.focus(windowId);
         }
-        prompts.forEach((prompt) => {
-          const button = document.createElement("button");
-          button.className = "js-prompt-item btn btn-ghost w-full justify-start text-left";
-          button.dataset.promptId = prompt.id;
-          button.textContent = prompt.name;
-          listContainer.appendChild(button);
+        windowManager.scrollIntoView(windowId);
+        return;
+      }
+      try {
+        const content = await window.api.getCodexEntryHtml(entryId);
+        if (!content) {
+          throw new Error("Failed to load codex entry details.");
+        }
+        let offsetX = 850;
+        let offsetY = 120;
+        const codexWin = windowManager.windows.get("codex-window");
+        const openCodexWindows = Array.from(windowManager.windows.keys()).filter((k) => k.startsWith("codex-entry-")).length;
+        if (codexWin && !codexWin.isMinimized) {
+          const codexEl = codexWin.element;
+          offsetX = codexEl.offsetLeft + codexEl.offsetWidth + 20;
+          offsetY = codexEl.offsetTop + openCodexWindows * 30;
+        } else {
+          offsetX += openCodexWindows * 30;
+          offsetY += openCodexWindows * 30;
+        }
+        windowManager.createWindow({
+          id: windowId,
+          title: entryTitle,
+          content,
+          x: offsetX,
+          y: offsetY,
+          width: 600,
+          height: 450,
+          icon: entryIcon,
+          closable: true
         });
+        setTimeout(() => windowManager.scrollIntoView(windowId), 150);
       } catch (error) {
-        console.error("Failed to load prompt list:", error);
-        listContainer.innerHTML = `<p class="p-4 text-sm text-error">${error.message}</p>`;
-      }
-    };
-    const loadPrompt = async (promptId) => {
-      listContainer.querySelectorAll(".js-prompt-item").forEach((btn) => {
-        btn.classList.toggle("btn-active", btn.dataset.promptId === promptId);
-      });
-      editorPane.classList.remove("hidden");
-      placeholder.classList.add("hidden");
-      try {
-        const promptData = await window.api.getPrompt(promptId);
-        currentPrompt = promptData;
-        form.elements.system.value = promptData.system || "";
-        form.elements.user.value = promptData.user || "";
-        form.elements.ai.value = promptData.ai || "";
-        form.querySelectorAll(".js-autosize").forEach(autosizeTextarea);
-      } catch (error) {
-        console.error(`Failed to load prompt ${promptId}:`, error);
+        console.error("Error opening codex entry window:", error);
         alert(error.message);
       }
-    };
-    listContainer.addEventListener("click", (event) => {
-      const button = event.target.closest(".js-prompt-item");
-      if (button) {
-        loadPrompt(button.dataset.promptId);
+    }
+    desktop.addEventListener("click", (event) => {
+      const entryButton = event.target.closest(".js-open-codex-entry");
+      if (!entryButton || entryButton.closest("#codex-window")) {
+        return;
       }
+      const entryId = entryButton.dataset.entryId;
+      const entryTitle = entryButton.dataset.entryTitle;
+      openCodexEntry(entryId, entryTitle);
     });
-    saveBtn.addEventListener("click", async () => {
-      if (!currentPrompt) return;
-      setButtonLoadingState(saveBtn, true);
-      const dataToSave = {
-        name: currentPrompt.name,
-        // Get name from the stored prompt object
-        system: form.elements.system.value,
-        user: form.elements.user.value,
-        ai: form.elements.ai.value
-      };
-      try {
-        await window.api.savePrompt(currentPrompt.id, dataToSave);
-      } catch (error) {
-        console.error(`Failed to save prompt ${currentPrompt.id}:`, error);
-        alert(error.message);
-      } finally {
-        setButtonLoadingState(saveBtn, false);
+    desktop.addEventListener("click", (event) => {
+      const entryButton = event.target.closest(".js-open-codex-entry");
+      if (!entryButton || !entryButton.closest("#codex-window")) {
+        return;
       }
+      const entryId = entryButton.dataset.entryId;
+      const entryTitle = entryButton.dataset.entryTitle;
+      openCodexEntry(entryId, entryTitle);
     });
-    resetBtn.addEventListener("click", async () => {
-      if (!currentPrompt) return;
-      if (confirm(`Are you sure you want to reset the "${currentPrompt.name}" prompt to its default state? Any customizations will be lost.`)) {
-        try {
-          const result = await window.api.resetPrompt(currentPrompt.id);
-          if (result.success) {
-            currentPrompt = result.data;
-            form.elements.system.value = result.data.system || "";
-            form.elements.user.value = result.data.user || "";
-            form.elements.ai.value = result.data.ai || "";
-            form.querySelectorAll(".js-autosize").forEach(autosizeTextarea);
-            alert("Prompt has been reset to default.");
-          }
-        } catch (error) {
-          console.error(`Failed to reset prompt ${currentPrompt.id}:`, error);
-          alert(error.message);
+  }
+  function setupChapterHandler(desktop, windowManager) {
+    const chapterIcon = `<i class="bi bi-card-text text-lg"></i>`;
+    desktop.addEventListener("click", async (event) => {
+      const chapterButton = event.target.closest(".js-open-chapter");
+      if (!chapterButton) return;
+      const chapterId = chapterButton.dataset.chapterId;
+      const chapterTitle = chapterButton.dataset.chapterTitle;
+      const windowId = `chapter-${chapterId}`;
+      if (windowManager.windows.has(windowId)) {
+        const win = windowManager.windows.get(windowId);
+        if (win.isMinimized) {
+          windowManager.restore(windowId);
+        } else {
+          windowManager.focus(windowId);
         }
+        windowManager.scrollIntoView(windowId);
+        return;
+      }
+      try {
+        const content = await window.api.getChapterHtml(chapterId);
+        if (!content) {
+          throw new Error("Failed to load chapter details.");
+        }
+        let offsetX = 100;
+        let offsetY = 300;
+        const outlineWin = windowManager.windows.get("outline-window");
+        const openChapterWindows = Array.from(windowManager.windows.keys()).filter((k) => k.startsWith("chapter-")).length;
+        if (outlineWin && !outlineWin.isMinimized) {
+          const outlineEl = outlineWin.element;
+          offsetX = outlineEl.offsetLeft + outlineEl.offsetWidth + 20;
+          offsetY = outlineEl.offsetTop + openChapterWindows * 30;
+        } else {
+          offsetX += openChapterWindows * 30;
+          offsetY += openChapterWindows * 30;
+        }
+        windowManager.createWindow({
+          id: windowId,
+          title: chapterTitle,
+          content,
+          x: offsetX,
+          y: offsetY,
+          width: 700,
+          height: 500,
+          icon: chapterIcon,
+          closable: true
+        });
+        setTimeout(() => windowManager.scrollIntoView(windowId), 150);
+      } catch (error) {
+        console.error("Error opening chapter window:", error);
+        alert(error.message);
       }
     });
-    if (closeBtn && modal) {
-      closeBtn.addEventListener("click", () => {
-        modal.close();
+  }
+  function setupOpenWindowsMenu(windowManager) {
+    const openWindowsBtn = document.getElementById("open-windows-btn");
+    const openWindowsMenu = document.getElementById("open-windows-menu");
+    const openWindowsList = document.getElementById("open-windows-list");
+    function populateOpenWindowsMenu() {
+      openWindowsList.innerHTML = "";
+      if (windowManager.windows.size === 0) {
+        openWindowsList.innerHTML = `<li><span class="px-4 py-2 text-sm text-base-content/70">No open windows.</span></li>`;
+        return;
+      }
+      const createMenuItem = (innerHTML, onClick) => {
+        const li = document.createElement("li");
+        const button = document.createElement("button");
+        button.className = "w-full text-left px-4 py-2 text-sm hover:bg-base-200 flex items-center gap-3";
+        button.innerHTML = innerHTML;
+        button.addEventListener("click", () => {
+          if (onClick) onClick();
+          if (document.activeElement) document.activeElement.blur();
+        });
+        li.appendChild(button);
+        return li;
+      };
+      const specialOrder = ["outline-window", "codex-window"];
+      const sortedWindows = [];
+      const otherWindows = [];
+      windowManager.windows.forEach((win, windowId) => {
+        if (!specialOrder.includes(windowId)) {
+          otherWindows.push({ win, windowId });
+        }
+      });
+      specialOrder.forEach((id) => {
+        if (windowManager.windows.has(id)) {
+          sortedWindows.push({ win: windowManager.windows.get(id), windowId: id });
+        }
+      });
+      otherWindows.sort((a, b) => a.win.title.localeCompare(b.win.title));
+      const allSortedWindows = [...sortedWindows, ...otherWindows];
+      allSortedWindows.forEach(({ win, windowId }) => {
+        const innerHTML = `<div class="w-5 h-5 flex-shrink-0">${win.icon || ""}</div><span class="truncate">${win.title}</span>`;
+        const li = createMenuItem(innerHTML, () => {
+          if (win.isMinimized) {
+            windowManager.restore(windowId);
+          } else {
+            windowManager.focus(windowId);
+          }
+        });
+        openWindowsList.appendChild(li);
       });
     }
-    loadPromptList();
+    openWindowsBtn.addEventListener("focusin", () => {
+      populateOpenWindowsMenu();
+    });
+  }
+  function setupCanvasControls(windowManager) {
+    const zoomInBtn = document.getElementById("zoom-in-btn");
+    const zoomOutBtn = document.getElementById("zoom-out-btn");
+    const zoom100Btn = document.getElementById("zoom-100-btn");
+    const zoomFitBtn = document.getElementById("zoom-fit-btn");
+    const arrangeBtn = document.getElementById("arrange-windows-btn");
+    if (zoomInBtn) zoomInBtn.addEventListener("click", () => windowManager.zoomIn());
+    if (zoomOutBtn) zoomOutBtn.addEventListener("click", () => windowManager.zoomOut());
+    if (zoom100Btn) zoom100Btn.addEventListener("click", () => windowManager.zoomTo(1));
+    if (zoomFitBtn) zoomFitBtn.addEventListener("click", () => windowManager.fitToView());
+    if (arrangeBtn) arrangeBtn.addEventListener("click", () => windowManager.arrangeWindows());
+  }
+
+  // src/js/novel-editor/chapter-editor.js
+  function setupChapterEditor(desktop) {
+    desktop.addEventListener("dragstart", (event) => {
+      const draggable = event.target.closest(".js-draggable-codex");
+      if (draggable) {
+        event.dataTransfer.setData("application/x-codex-entry-id", draggable.dataset.entryId);
+        event.dataTransfer.effectAllowed = "link";
+      }
+    });
+    desktop.addEventListener("dragover", (event) => {
+      const dropZone = event.target.closest(".js-chapter-drop-zone");
+      if (dropZone) {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "link";
+      }
+    });
+    desktop.addEventListener("dragenter", (event) => {
+      const dropZone = event.target.closest(".js-chapter-drop-zone");
+      if (dropZone) dropZone.classList.add("bg-blue-100", "dark:bg-blue-900/50");
+    });
+    desktop.addEventListener("dragleave", (event) => {
+      const dropZone = event.target.closest(".js-chapter-drop-zone");
+      if (dropZone && !dropZone.contains(event.relatedTarget)) {
+        dropZone.classList.remove("bg-blue-100", "dark:bg-blue-900/50");
+      }
+    });
+    desktop.addEventListener("drop", async (event) => {
+      const dropZone = event.target.closest(".js-chapter-drop-zone");
+      if (!dropZone) return;
+      event.preventDefault();
+      dropZone.classList.remove("bg-blue-100", "dark:bg-blue-900/50");
+      const chapterId = dropZone.dataset.chapterId;
+      const codexEntryId = event.dataTransfer.getData("application/x-codex-entry-id");
+      if (!chapterId || !codexEntryId) return;
+      if (dropZone.querySelector(`.js-codex-tag[data-entry-id="${codexEntryId}"]`)) return;
+      try {
+        const data = await window.api.attachCodexToChapter(chapterId, codexEntryId);
+        if (!data.success) throw new Error(data.message || "Failed to link codex entry.");
+        const tagContainer = dropZone.querySelector(".js-codex-tags-container");
+        if (tagContainer) {
+          const newTag = await createCodexTagElement(chapterId, data.codexEntry);
+          tagContainer.appendChild(newTag);
+          const tagsWrapper = dropZone.querySelector(".js-codex-tags-wrapper");
+          if (tagsWrapper) tagsWrapper.classList.remove("hidden");
+        }
+      } catch (error) {
+        console.error("Error linking codex entry:", error);
+        alert(error.message);
+      }
+    });
+    desktop.addEventListener("click", async (event) => {
+      const removeBtn = event.target.closest(".js-remove-codex-link");
+      if (!removeBtn) return;
+      const tag = removeBtn.closest(".js-codex-tag");
+      const chapterId = removeBtn.dataset.chapterId;
+      const codexEntryId = removeBtn.dataset.entryId;
+      const entryTitle = tag.querySelector(".js-codex-tag-title").textContent;
+      if (!confirm(`Are you sure you want to unlink "${entryTitle}" from this chapter?`)) {
+        return;
+      }
+      try {
+        const data = await window.api.detachCodexFromChapter(chapterId, codexEntryId);
+        if (!data.success) throw new Error(data.message || "Failed to unlink codex entry.");
+        const tagContainer = tag.parentElement;
+        tag.remove();
+        if (tagContainer && tagContainer.children.length === 0) {
+          const tagsWrapper = tagContainer.closest(".js-codex-tags-wrapper");
+          if (tagsWrapper) tagsWrapper.classList.add("hidden");
+        }
+      } catch (error) {
+        console.error("Error unlinking codex entry:", error);
+        alert(error.message);
+      }
+    });
+  }
+  async function createCodexTagElement(chapterId, codexEntry) {
+    let template = await window.api.getTemplate("chapter-codex-tag");
+    template = template.replace(/{{CHAPTER_ID}}/g, chapterId);
+    template = template.replace(/{{ENTRY_ID}}/g, codexEntry.id);
+    template = template.replace(/{{ENTRY_TITLE}}/g, codexEntry.title);
+    template = template.replace(/{{THUMBNAIL_URL}}/g, codexEntry.thumbnail_url);
+    const div = document.createElement("div");
+    div.innerHTML = template.trim();
+    return div.firstElementChild;
   }
 
   // src/js/novel-editor/codex-entry-editor.js
@@ -15544,15 +16272,11 @@
     setupTopToolbar();
     setupCodexEntryHandler(desktop, windowManager);
     setupChapterHandler(desktop, windowManager);
-    setupPromptEditorHandler(desktop, windowManager);
     setupChapterEditor(desktop);
     setupContentEditor(desktop);
     setupOpenWindowsMenu(windowManager);
     setupCanvasControls(windowManager);
     setupChapterPovEditor(desktop);
-    const promptEditorModal = document.getElementById("prompt-editor-modal");
-    if (promptEditorModal) {
-      setupPromptEditor(promptEditorModal);
-    }
+    setupPromptEditor();
   });
 })();

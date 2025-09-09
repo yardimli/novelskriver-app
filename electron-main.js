@@ -1132,21 +1132,6 @@ function setupIpcHandlers() {
 		}
 		return null;
 	});
-	
-	// --- AI Prompt Template Handlers ---
-	
-	//This handler now returns a static, hardcoded list of prompts.
-	ipcMain.handle('prompts:list', async () => {
-		// The prompts are now built-in features, not user-editable files.
-		return [
-			{ id: 'expand', name: 'Expand' },
-			{ id: 'rephrase', name: 'Rephrase' },
-			{ id: 'shorten', name: 'Shorten' },
-			{ id: 'scene-beat', name: 'Scene Beat' },
-			{ id: 'scene-summarization', name: 'Scene Summarization' }
-		].sort((a, b) => a.name.localeCompare(b.name));
-	});
-	
 }
 
 // --- App Lifecycle Events ---
