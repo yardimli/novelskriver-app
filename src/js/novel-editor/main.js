@@ -4,12 +4,13 @@ import {
 	setupChapterHandler,
 	setupOpenWindowsMenu,
 	setupCanvasControls,
-	setupPromptEditorHandler // MODIFIED: Import updated handler
+	setupPromptEditorHandler
 } from './eventHandlers.js';
 import {setupChapterEditor} from './chapter-editor.js';
 import {setupContentEditor} from './content-editor.js';
 import {setupTopToolbar} from './toolbar.js';
-// REMOVED: No longer importing setupPromptEditor from here.
+// NEW: Import the setup function for the prompt editor modal.
+import { setupPromptEditor } from '../prompt-editor.js';
 import './codex-entry-editor.js'; // Import for side-effects (attaches event listeners)
 import './chapter-creation.js'; // Import for new chapter modal logic
 import { setupChapterPovEditor } from './chapter-pov-editor.js'; // Import for POV editor logic
@@ -190,14 +191,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 	setupTopToolbar();
 	setupCodexEntryHandler(desktop, windowManager);
 	setupChapterHandler(desktop, windowManager);
-	// MODIFIED: Pass the windowManager instance to the handler to access context.
 	setupPromptEditorHandler(windowManager);
 	setupChapterEditor(desktop);
 	setupContentEditor(desktop);
 	setupOpenWindowsMenu(windowManager);
 	setupCanvasControls(windowManager);
 	setupChapterPovEditor(desktop);
-	
-	
-	// REMOVED: The prompt editor modal is no longer part of this document.
+	// NEW: Initialize the prompt editor modal logic.
+	setupPromptEditor();
 });

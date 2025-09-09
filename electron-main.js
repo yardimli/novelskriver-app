@@ -13,9 +13,7 @@ const imageHandler = require('./src/utils/image-handler.js');
 let db;
 let mainWindow;
 let editorWindows = new Map();
-let promptEditorWindow = null;
-// NEW: This variable will temporarily hold the context for the prompt editor window.
-let promptEditorContext = null;
+// REMOVED: The prompt editor window and its context are no longer managed in the main process.
 
 
 // --- Template and HTML Helper Functions ---
@@ -204,47 +202,7 @@ function createEditorWindow(novelId) {
 	
 }
 
-/**
- * Creates the AI Prompt Editor window. Manages a single instance.
- */
-function createPromptEditorWindow() {
-	if (promptEditorWindow) {
-		promptEditorWindow.focus();
-		return;
-	}
-	
-	promptEditorWindow = new BrowserWindow({
-		width: 1000, // MODIFIED: Increased width for better layout
-		height: 800, // MODIFIED: Increased height for better layout
-		minWidth: 800,
-		minHeight: 600,
-		icon: path.join(__dirname, 'assets/icon.png'),
-		title: 'AI Prompt Editor',
-		autoHideMenuBar: true,
-		webPreferences: {
-			preload: path.join(__dirname, 'preload.js'),
-			contextIsolation: true,
-			nodeIntegration: false
-		}
-	});
-	
-	promptEditorWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
-		callback({
-			responseHeaders: {
-				...details.responseHeaders,
-				'Content-Security-Policy': ["default-src 'self'; script-src 'self' 'unsafe-inline'; img-src 'self' data:;"]
-			}
-		});
-	});
-	
-	promptEditorWindow.loadFile('public/prompt-editor.html');
-	
-	promptEditorWindow.on('closed', () => {
-		promptEditorWindow = null;
-	});
-	
-	// promptEditorWindow.webContents.openDevTools();
-}
+// REMOVED: The createPromptEditorWindow function has been removed as it's now a modal.
 
 
 /**
@@ -1191,18 +1149,9 @@ function setupIpcHandlers() {
 	
 	// --- AI Prompt Template Handlers ---
 	
-	// MODIFIED: This handler now accepts context from the renderer process.
-	ipcMain.on('prompts:openEditor', (event, context) => {
-		promptEditorContext = context; // Store context for the new window.
-		createPromptEditorWindow();
-	});
+	// REMOVED: This handler is no longer needed as the prompt editor is now a modal.
 	
-	// NEW: This handler allows the new prompt editor window to retrieve its context.
-	ipcMain.handle('prompts:getContext', () => {
-		const context = promptEditorContext;
-		promptEditorContext = null; // Clear context after it's been retrieved once.
-		return context;
-	});
+	// REMOVED: This handler is no longer needed. Context is passed directly in the renderer process.
 	
 	// MODIFIED: This handler now returns a static, hardcoded list of prompts.
 	ipcMain.handle('prompts:list', async () => {

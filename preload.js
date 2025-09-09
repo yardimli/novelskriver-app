@@ -79,10 +79,8 @@ contextBridge.exposeInMainWorld('api', {
 		};
 	},
 	getModels: () => ipcRenderer.invoke('ai:getModels'),
-	// MODIFIED: openPromptEditor now sends context to the main process.
-	openPromptEditor: (context) => ipcRenderer.send('prompts:openEditor', context),
-	// NEW: API for the prompt editor window to retrieve its context.
-	getPromptContext: () => ipcRenderer.invoke('prompts:getContext'),
+	// REMOVED: openPromptEditor is no longer needed. The modal is handled in the renderer.
+	// REMOVED: getPromptContext is no longer needed.
 	listPrompts: () => ipcRenderer.invoke('prompts:list'),
 	
 	generateCodexImage: (entryId, prompt) => ipcRenderer.invoke('codex-entries:generate-image', entryId, prompt),

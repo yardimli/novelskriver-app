@@ -1,4 +1,4 @@
-// MODIFIED: This file is now a controller that loads specialized editor modules.
+// MODIFIED: This file now controls the prompt editor modal within the novel editor.
 
 import { init as initExpandEditor } from './prompt-editors/expand-editor.js';
 import { init as initRephraseEditor } from './prompt-editors/rephrase-editor.js';
@@ -15,84 +15,112 @@ const editors = {
 	'scene-summarization': { name: 'Scene Summarization', init: initSceneSummarizationEditor },
 };
 
-// NEW: This will hold the context passed from the novel editor window.
-let promptBuilderContext = null;
+let modalEl;
+let currentContext;
 
-document.addEventListener('DOMContentLoaded', async () => {
-	const listContainer = document.querySelector('.js-prompt-list-container');
-	const placeholder = document.querySelector('.js-prompt-placeholder');
+/**
+ * Loads a specific prompt builder into the editor pane.
+ * @param {string} promptId - The ID of the prompt to load.
+ */
+const loadPrompt = async (promptId) => {
+	if (!modalEl) return;
 	
-	// A single pane is now used for all custom editors.
-	const customEditorPane = document.querySelector('.js-custom-editor-pane');
+	const placeholder = modalEl.querySelector('.js-prompt-placeholder');
+	const customEditorPane = modalEl.querySelector('.js-custom-editor-pane');
 	const customPromptTitle = customEditorPane.querySelector('.js-custom-prompt-title');
 	const customFormContainer = customEditorPane.querySelector('.js-custom-form-container');
 	
-	// NEW: Fetch the context from the main process when the window loads.
-	try {
-		promptBuilderContext = await window.api.getPromptContext();
-	} catch (error) {
-		console.error('Failed to get prompt builder context:', error);
-		placeholder.innerHTML = `<p class="text-error">Could not load context from the editor.</p>`;
+	const editorConfig = editors[promptId];
+	if (!editorConfig) {
+		console.error(`No editor configured for promptId: ${promptId}`);
+		placeholder.classList.remove('hidden');
+		customEditorPane.classList.add('hidden');
+		placeholder.innerHTML = `<p class="text-error">No editor found for prompt: ${promptId}</p>`;
+		return;
 	}
 	
-	const loadPromptList = async () => {
-		try {
-			// This now gets a static list from the main process.
-			const prompts = await window.api.listPrompts();
-			listContainer.innerHTML = '';
-			if (prompts.length === 0) {
-				listContainer.innerHTML = '<p class="p-4 text-sm text-base-content/70">No prompts found.</p>';
-				return;
-			}
-			
-			prompts.forEach(prompt => {
-				const button = document.createElement('button');
-				button.className = 'js-prompt-item btn btn-ghost w-full justify-start text-left normal-case';
-				button.dataset.promptId = prompt.id;
-				button.textContent = prompt.name;
-				listContainer.appendChild(button);
-			});
-		} catch (error) {
-			console.error('Failed to load prompt list:', error);
-			listContainer.innerHTML = `<div class="alert alert-error m-2">${error.message}</div>`;
-		}
-	};
+	// Update active item in the list
+	modalEl.querySelectorAll('.js-prompt-item').forEach(btn => {
+		btn.classList.toggle('btn-active', btn.dataset.promptId === promptId);
+	});
 	
-	const loadPrompt = async (promptId) => {
-		const editorConfig = editors[promptId];
-		if (!editorConfig) {
-			console.error(`No editor configured for promptId: ${promptId}`);
-			placeholder.classList.remove('hidden');
-			customEditorPane.classList.add('hidden');
-			placeholder.innerHTML = `<p class="text-error">No editor found for prompt: ${promptId}</p>`;
+	// Show editor, hide placeholder
+	placeholder.classList.add('hidden');
+	customEditorPane.classList.remove('hidden');
+	
+	// Set the title and initialize the specific editor module.
+	customPromptTitle.textContent = `Prompt Builder: ${editorConfig.name}`;
+	customFormContainer.innerHTML = `<div class="p-4 text-center"><span class="loading loading-spinner"></span></div>`;
+	
+	// The init function from the module will load its template and set up logic.
+	await editorConfig.init(customFormContainer, currentContext);
+};
+
+/**
+ * Handles clicks within the prompt list container.
+ * @param {MouseEvent} event
+ */
+const handleListClick = (event) => {
+	const button = event.target.closest('.js-prompt-item');
+	if (button) {
+		loadPrompt(button.dataset.promptId);
+	}
+};
+
+/**
+ * Initializes the prompt editor modal logic once, attaching the necessary event listener.
+ */
+export function setupPromptEditor() {
+	modalEl = document.getElementById('prompt-editor-modal');
+	if (!modalEl) return;
+	
+	const listContainer = modalEl.querySelector('.js-prompt-list-container');
+	if (listContainer) {
+		// Attach a single, delegated event listener for the lifetime of the app.
+		listContainer.addEventListener('click', handleListClick);
+	}
+}
+
+/**
+ * Opens the prompt editor modal with fresh context.
+ * @param {object} context
+ */
+export async function openPromptEditor(context) {
+	if (!modalEl) {
+		console.error('Prompt editor modal element not found.');
+		return;
+	}
+	currentContext = context;
+	
+	const listContainer = modalEl.querySelector('.js-prompt-list-container');
+	const placeholder = modalEl.querySelector('.js-prompt-placeholder');
+	const customEditorPane = modalEl.querySelector('.js-custom-editor-pane');
+	
+	// Reset view to its initial state
+	placeholder.classList.remove('hidden');
+	customEditorPane.classList.add('hidden');
+	listContainer.innerHTML = `<div class="p-4 text-center"><span class="loading loading-spinner"></span></div>`;
+	
+	// Load the list of available prompts
+	try {
+		const prompts = await window.api.listPrompts();
+		listContainer.innerHTML = '';
+		if (prompts.length === 0) {
+			listContainer.innerHTML = '<p class="p-4 text-sm text-base-content/70">No prompts found.</p>';
 			return;
 		}
 		
-		// Update active item in the list
-		listContainer.querySelectorAll('.js-prompt-item').forEach(btn => {
-			btn.classList.toggle('btn-active', btn.dataset.promptId === promptId);
+		prompts.forEach(prompt => {
+			const button = document.createElement('button');
+			button.className = 'js-prompt-item btn btn-ghost w-full justify-start text-left normal-case';
+			button.dataset.promptId = prompt.id;
+			button.textContent = prompt.name;
+			listContainer.appendChild(button);
 		});
-		
-		// Show editor, hide placeholder
-		placeholder.classList.add('hidden');
-		customEditorPane.classList.remove('hidden');
-		
-		// Set the title and initialize the specific editor module.
-		customPromptTitle.textContent = `Prompt Builder: ${editorConfig.name}`;
-		customFormContainer.innerHTML = `<div class="p-4 text-center"><span class="loading loading-spinner"></span></div>`;
-		
-		// MODIFIED: The init function from the module will load its template and set up logic,
-		// now with the context from the novel editor.
-		await editorConfig.init(customFormContainer, promptBuilderContext);
-	};
+	} catch (error) {
+		console.error('Failed to load prompt list:', error);
+		listContainer.innerHTML = `<div class="alert alert-error m-2">${error.message}</div>`;
+	}
 	
-	listContainer.addEventListener('click', (event) => {
-		const button = event.target.closest('.js-prompt-item');
-		if (button) {
-			loadPrompt(button.dataset.promptId);
-		}
-	});
-	
-	// Initial load
-	loadPromptList();
-});
+	modalEl.showModal();
+}

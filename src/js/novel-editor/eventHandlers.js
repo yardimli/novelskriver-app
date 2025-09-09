@@ -1,8 +1,9 @@
 /**
  * This module contains functions to set up various event listeners for the novel editor UI.
  */
-// NEW: Import getActiveEditor to access the current editor state.
 import { getActiveEditor } from './content-editor.js';
+// NEW: Import the function to open the modal from the prompt editor controller.
+import { openPromptEditor } from '../prompt-editor.js';
 
 /**
  * Sets up the event listener for opening codex entry windows.
@@ -255,7 +256,7 @@ export function setupCanvasControls(windowManager) {
 	if (arrangeBtn) arrangeBtn.addEventListener('click', () => windowManager.arrangeWindows());
 }
 
-// MODIFIED: This function now gathers context from the editor before opening the prompt window.
+// MODIFIED: This function now gathers context and opens the prompt editor modal.
 export function setupPromptEditorHandler(windowManager) {
 	const taskbarBtn = document.getElementById('open-prompts-btn');
 	
@@ -286,14 +287,15 @@ export function setupPromptEditorHandler(windowManager) {
 				linkedCodexEntryIds = await window.api.getLinkedCodexIdsForChapter(chapterId);
 			}
 			
-			// 4. Bundle the context and open the editor window
+			// 4. Bundle the context and open the editor modal
 			const context = {
 				selectedText,
 				allCodexEntries,
 				linkedCodexEntryIds
 			};
 			
-			window.api.openPromptEditor(context);
+			// MODIFIED: Call the local function to open the modal instead of an IPC call.
+			openPromptEditor(context);
 		});
 	}
 }
