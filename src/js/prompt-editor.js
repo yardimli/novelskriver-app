@@ -152,23 +152,25 @@ function createFloatingToolbar(view, from, to, model) {
         <span class="text-gray-400">${wordCount} Words, ${modelName}</span>
     `;
 	
-	const viewport = document.getElementById('viewport');
-	viewport.appendChild(toolbarEl);
+	// MODIFIED: Use document.body as a fallback container if #viewport is not found.
+	// This makes the function compatible with both the main novel editor and the dedicated chapter editor.
+	const container = document.getElementById('viewport') || document.body;
+	container.appendChild(toolbarEl);
 	floatingToolbar = toolbarEl;
 	
 	const toolbarWidth = toolbarEl.offsetWidth;
 	const toolbarHeight = toolbarEl.offsetHeight;
-	const viewportRect = viewport.getBoundingClientRect();
+	const containerRect = container.getBoundingClientRect(); // MODIFIED: Use container's rect
 	const startCoords = view.coordsAtPos(from);
 	
-	let desiredLeft = startCoords.left - viewportRect.left;
-	const finalLeft = Math.max(10, Math.min(desiredLeft, viewport.clientWidth - toolbarWidth - 10));
+	let desiredLeft = startCoords.left - containerRect.left; // MODIFIED: Use container's rect
+	const finalLeft = Math.max(10, Math.min(desiredLeft, container.clientWidth - toolbarWidth - 10)); // MODIFIED: Use container's width
 	
-	let desiredTop = startCoords.top - viewportRect.top - toolbarHeight - 5;
+	let desiredTop = startCoords.top - containerRect.top - toolbarHeight - 5; // MODIFIED: Use container's rect
 	if (desiredTop < 10) {
-		desiredTop = startCoords.bottom - viewportRect.top + 5;
+		desiredTop = startCoords.bottom - containerRect.top + 5; // MODIFIED: Use container's rect
 	}
-	const finalTop = Math.max(10, Math.min(desiredTop, viewport.clientHeight - toolbarHeight - 10));
+	const finalTop = Math.max(10, Math.min(desiredTop, container.clientHeight - toolbarHeight - 10)); // MODIFIED: Use container's height
 	
 	toolbarEl.style.left = `${finalLeft}px`;
 	toolbarEl.style.top = `${finalTop}px`;
@@ -293,7 +295,8 @@ async function handleModalApply() {
 	
 	modalEl.close();
 	
-	activeEditorView = getActiveEditor();
+	// MODIFIED: Use the editor instance passed in the context instead of querying the global state.
+	activeEditorView = currentContext.activeEditorView;
 	if (!activeEditorView) {
 		alert('No active editor to apply changes to.');
 		return;

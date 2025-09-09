@@ -287,9 +287,12 @@ async function handleToolbarAction(button) {
 			wordsBefore = textBeforeSelection.trim().split(/\s+/).slice(-200).join(' ');
 			wordsAfter = textAfterSelection.trim().split(/\s+/).slice(0, 200).join(' ');
 			
+			// MODIFIED: Find chapterId from body dataset as a fallback for the dedicated chapter editor.
 			const chapterWindowContent = activeEditor.dom.closest('.chapter-window-content');
 			if (chapterWindowContent) {
 				chapterId = chapterWindowContent.dataset.chapterId;
+			} else {
+				chapterId = document.body.dataset.chapterId || null;
 			}
 		}
 		
@@ -338,7 +341,8 @@ async function handleToolbarAction(button) {
 			linkedCodexEntryIds = await window.api.getLinkedCodexIdsForChapter(chapterId);
 		}
 		
-		// Pass the enhanced context object to the prompt editor
+		// MODIFIED: Pass the active editor instance in the context object.
+		// This preserves the editor reference even after it loses focus to the modal.
 		const context = {
 			selectedText,
 			allCodexEntries,
@@ -348,6 +352,7 @@ async function handleToolbarAction(button) {
 			povString,
 			wordsBefore,
 			wordsAfter,
+			activeEditorView: activeEditor, // MODIFIED: Add active editor to context
 		};
 		openPromptEditor(context, action);
 		return;

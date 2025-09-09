@@ -79,6 +79,12 @@ const descriptionSchema = new Schema({
 	marks: {},
 });
 
+// NEW: Function to set the globally active editor.
+// This allows other modules (like chapter-content-editor) to register their active view.
+export function setActiveEditor(view) {
+	activeEditorView = view;
+}
+
 export function getActiveEditor() {
 	return activeEditorView;
 }
@@ -209,13 +215,15 @@ function initEditorsForWindow(windowContent) {
 						props: {
 							handleDOMEvents: {
 								focus(view) {
-									activeEditorView = view;
+									// MODIFIED: Use the setter function.
+									setActiveEditor(view);
 									updateToolbarState(view);
 								},
 								blur(view, event) {
 									const relatedTarget = event.relatedTarget;
 									if (!relatedTarget || !relatedTarget.closest('#top-toolbar')) {
-										activeEditorView = null;
+										// MODIFIED: Use the setter function.
+										setActiveEditor(null);
 										updateToolbarState(null);
 									}
 								},

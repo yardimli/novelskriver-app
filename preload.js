@@ -39,6 +39,13 @@ contextBridge.exposeInMainWorld('api', {
 	attachCodexToChapter: (chapterId, codexEntryId) => ipcRenderer.invoke('chapters:codex:attach', chapterId, codexEntryId),
 	detachCodexFromChapter: (chapterId, codexEntryId) => ipcRenderer.invoke('chapters:codex:detach', chapterId, codexEntryId),
 	
+	// NEW: API to open the dedicated chapter editor window.
+	openChapterEditor: (chapterId) => ipcRenderer.send('chapters:openEditor', chapterId),
+	// NEW: API to get all data needed for the chapter editor.
+	getOneChapterForEditor: (chapterId) => ipcRenderer.invoke('chapters:getOneForEditor', chapterId),
+	// NEW: API to save all data from the chapter editor.
+	updateChapterFull: (chapterId, data) => ipcRenderer.invoke('chapters:updateFull', chapterId, data),
+	
 	updateChapterContent: (chapterId, data) => ipcRenderer.invoke('chapters:updateContent', chapterId, data),
 	createChapter: (novelId, data) => ipcRenderer.invoke('chapters:store', novelId, data),
 	

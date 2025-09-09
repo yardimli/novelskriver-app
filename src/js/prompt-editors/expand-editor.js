@@ -129,7 +129,7 @@ ${codexContent}
 		}
 	}
 	
-	const truncatedText = selectedText.length > 300 ? selectedText.substring(0, 300) + '...' : selectedText;
+	const truncatedText = selectedText.length > 4096 ? selectedText.substring(0, 4096) + '...' : selectedText;
 	
 	// MODIFIED: User prompt is built dynamically with POV and surrounding text.
 	const surroundingText = buildSurroundingTextBlock(formData.use_surrounding_text, wordsBefore, wordsAfter);

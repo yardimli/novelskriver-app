@@ -93,7 +93,7 @@ ${codexContent}
 		}
 	}
 	
-	const truncatedText = selectedText.length > 300 ? selectedText.substring(0, 300) + '...' : selectedText;
+	const truncatedText = selectedText.length > 4096 ? selectedText.substring(0, 4096) + '...' : selectedText;
 	
 	// MODIFIED: The placeholder POV block is replaced with a dynamically generated one.
 	let povBlock = '';

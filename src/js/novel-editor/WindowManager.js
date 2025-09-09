@@ -110,7 +110,20 @@ export default class WindowManager {
 			newChapterBtn.className = 'js-open-new-chapter-modal btn btn-xs btn-accent gap-1 mr-2';
 			newChapterBtn.innerHTML = `<i class="bi bi-plus-lg"></i> New Chapter`;
 			rightSpacer.appendChild(newChapterBtn);
-		} else
+		} else if (isChapterWindow) { // MODIFIED: Add an edit button to chapter windows.
+			rightSpacer.className = 'flex items-center justify-end min-w-[64px]';
+			const editChapterBtn = document.createElement('button');
+			editChapterBtn.type = 'button';
+			editChapterBtn.className = 'btn btn-xs btn-ghost gap-1 mr-2';
+			editChapterBtn.innerHTML = `<i class="bi bi-pencil-fill"></i> Edit`;
+			editChapterBtn.title = 'Open in dedicated editor';
+			editChapterBtn.addEventListener('click', () => {
+				const chapterId = windowId.replace('chapter-', '');
+				window.api.openChapterEditor(chapterId);
+			});
+			rightSpacer.appendChild(editChapterBtn);
+		}
+		else
 		{
 			rightSpacer.style.width = '64px';
 		}

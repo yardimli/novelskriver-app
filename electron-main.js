@@ -13,6 +13,7 @@ const imageHandler = require('./src/utils/image-handler.js');
 let db;
 let mainWindow;
 let editorWindows = new Map();
+let chapterEditorWindows = new Map(); // NEW: Map for dedicated chapter editors.
 
 // --- Template and HTML Helper Functions ---
 
@@ -199,6 +200,77 @@ function createEditorWindow(novelId) {
 	// editorWindow.webContents.openDevTools();
 	
 }
+
+/**
+ * NEW: Creates a new dedicated chapter editor window.
+ * @param {number} chapterId - The ID of the chapter to load.
+ */
+function createChapterEditorWindow(chapterId) {
+	if (chapterEditorWindows.has(chapterId)) {
+		const existingWin = chapterEditorWindows.get(chapterId);
+		if (existingWin) {
+			existingWin.focus();
+			return;
+		}
+	}
+	
+	const chapterEditorWindow = new BrowserWindow({
+		width: 1600,
+		height: 1000,
+		icon: path.join(__dirname, 'assets/icon.png'),
+		title: 'Novel Skriver - Chapter Editor',
+		autoHideMenuBar: true,
+		webPreferences: {
+			preload: path.join(__dirname, 'preload.js'),
+			contextIsolation: true,
+			nodeIntegration: false,
+		},
+	});
+	
+	chapterEditorWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+		callback({
+			responseHeaders: {
+				...details.responseHeaders,
+				"Content-Security-Policy": ["default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' file: data: https:;"],
+			},
+		});
+	});
+	
+	chapterEditorWindow.loadFile('public/chapter-editor.html', {query: {chapterId: chapterId}});
+	chapterEditorWindows.set(chapterId, chapterEditorWindow);
+	
+	chapterEditorWindow.webContents.on('context-menu', (event, params) => {
+		const menu = new Menu();
+		for (const suggestion of params.dictionarySuggestions) {
+			menu.append(new MenuItem({
+				label: suggestion,
+				click: () => chapterEditorWindow.webContents.replaceMisspelling(suggestion)
+			}));
+		}
+		if (params.misspelledWord) {
+			menu.append(new MenuItem({
+				label: 'Add to dictionary',
+				click: () => chapterEditorWindow.webContents.session.addWordToSpellCheckerDictionary(params.misspelledWord)
+			}));
+		}
+		if (params.isEditable) {
+			if (menu.items.length > 0) menu.append(new MenuItem({type: 'separator'}));
+			menu.append(new MenuItem({label: 'Cut', role: 'cut', enabled: params.selectionText}));
+			menu.append(new MenuItem({label: 'Copy', role: 'copy', enabled: params.selectionText}));
+			menu.append(new MenuItem({label: 'Paste', role: 'paste'}));
+			menu.append(new MenuItem({type: 'separator'}));
+			menu.append(new MenuItem({label: 'Select All', role: 'selectAll'}));
+		}
+		menu.popup();
+	});
+	
+	chapterEditorWindow.on('closed', () => {
+		chapterEditorWindows.delete(chapterId);
+	});
+	
+	// chapterEditorWindow.webContents.openDevTools();
+}
+
 
 /**
  * Wraps all IPC handler registrations in a single function.
@@ -414,6 +486,11 @@ function setupIpcHandlers() {
 		createEditorWindow(novelId);
 	});
 	
+	// NEW: IPC handler to open the dedicated chapter editor.
+	ipcMain.on('chapters:openEditor', (event, chapterId) => {
+		createChapterEditorWindow(chapterId);
+	});
+	
 	ipcMain.handle('novels:generateTitle', async () => {
 		const apiKey = process.env.OPEN_ROUTER_API_KEY;
 		const modelId = process.env.OPEN_ROUTER_MODEL || 'openai/gpt-4o-mini';
@@ -589,6 +666,41 @@ function setupIpcHandlers() {
 		} catch (error) {
 			console.error('Failed to create chapter:', error);
 			return {success: false, message: error.message};
+		}
+	});
+	
+	// NEW: IPC handler to get all necessary data for the dedicated chapter editor.
+	ipcMain.handle('chapters:getOneForEditor', (event, chapterId) => {
+		const chapter = db.prepare(`
+			SELECT
+				c.title AS chapter_title,
+				c.summary,
+				c.content,
+				c.novel_id,
+				s.title AS section_title,
+				n.title AS novel_title
+			FROM chapters c
+			LEFT JOIN sections s ON c.section_id = s.id
+			LEFT JOIN novels n ON c.novel_id = n.id
+			WHERE c.id = ?
+		`).get(chapterId);
+		
+		if (!chapter) {
+			throw new Error('Chapter not found for editor.');
+		}
+		return chapter;
+	});
+	
+	// NEW: IPC handler to save all editable fields from the dedicated chapter editor.
+	ipcMain.handle('chapters:updateFull', (event, chapterId, data) => {
+		try {
+			// Assuming a 'content' column exists on the 'chapters' table.
+			db.prepare('UPDATE chapters SET title = ?, summary = ?, content = ? WHERE id = ?')
+				.run(data.title, data.summary, data.content, chapterId);
+			return { success: true, message: 'Chapter updated.' };
+		} catch (error) {
+			console.error(`Failed to fully update chapter ${chapterId}:`, error);
+			return { success: false, message: 'Failed to save chapter.' };
 		}
 	});
 	
