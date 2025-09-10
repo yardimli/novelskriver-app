@@ -1,10 +1,10 @@
 // This file contains the logic for the "Scene Summarization" prompt builder.
 
+// MODIFIED: Removed 'use_pov' from the default state.
 const defaultState = {
 	words: 100,
 	instructions: '',
 	selectedCodexIds: [],
-	use_pov: true,
 };
 
 // MODIFIED: Renders codex entries grouped by category into a multi-column layout.
@@ -120,7 +120,8 @@ ${codexContent}
 	const truncatedText = selectedText.length > 4096 ? selectedText.substring(0, 4096) + '...' : selectedText;
 	
 	let povBlock = '';
-	if (formData.use_pov && povString) {
+	// MODIFIED: Always include POV block if povString exists.
+	if (povString) {
 		povBlock = `{! Give a hint about the POV, if specified !}
 <scenePointOfView>
 ${povString}
@@ -150,11 +151,11 @@ const updatePreview = (container, context) => {
 	const form = container.querySelector('#scene-summarization-editor-form');
 	if (!form) return;
 	
+	// MODIFIED: Removed reading of 'use_pov' checkbox.
 	const formData = {
 		words: form.elements.words.value,
 		instructions: form.elements.instructions.value.trim(),
 		selectedCodexIds: form.elements.codex_entry ? Array.from(form.elements.codex_entry).filter(cb => cb.checked).map(cb => cb.value) : [],
-		use_pov: form.elements.use_pov.checked,
 	};
 	
 	const systemPreview = container.querySelector('.js-preview-system');
@@ -175,13 +176,13 @@ const updatePreview = (container, context) => {
 	}
 };
 
+// MODIFIED: No longer sets checkbox values.
 const populateForm = (container, state) => {
 	const form = container.querySelector('#scene-summarization-editor-form');
 	if (!form) return;
 	
 	form.elements.words.value = state.words;
 	form.elements.instructions.value = state.instructions;
-	form.elements.use_pov.checked = state.use_pov;
 };
 
 export const init = async (container, context) => {

@@ -1,11 +1,10 @@
 // This file contains the logic for the "Shorten" prompt builder.
 
+// MODIFIED: Removed 'use_surrounding_text' and 'use_pov' from the default state.
 const defaultState = {
 	shorten_length: 'half',
 	instructions: '',
 	selectedCodexIds: [],
-	use_surrounding_text: true,
-	use_pov: true,
 };
 
 // MODIFIED: Renders codex entries grouped by category into a multi-column layout.
@@ -68,8 +67,9 @@ const updateLengthPreviews = (container, wordCount) => {
 	if (quarterOption) quarterOption.textContent = `(approx. ${Math.round(wordCount / 4)} words)`;
 };
 
-const buildSurroundingTextBlock = (use, wordsBefore, wordsAfter) => {
-	if (!use || (!wordsBefore && !wordsAfter)) {
+// MODIFIED: Removed the 'use' parameter. This block is now always constructed if context exists.
+const buildSurroundingTextBlock = (wordsBefore, wordsAfter) => {
+	if (!wordsBefore && !wordsAfter) {
 		return '';
 	}
 	let block = 'For contextual information, refer to surrounding words in the scene, DO NOT REPEAT THEM:\n';
@@ -138,10 +138,12 @@ ${codexContent}
 	
 	const truncatedText = selectedText.length > 4096 ? selectedText.substring(0, 4096) + '...' : selectedText;
 	
-	const surroundingText = buildSurroundingTextBlock(formData.use_surrounding_text, wordsBefore, wordsAfter);
+	// MODIFIED: Call buildSurroundingTextBlock without the 'use' flag.
+	const surroundingText = buildSurroundingTextBlock(wordsBefore, wordsAfter);
 	
 	const userParts = [codexBlock];
-	if (formData.use_pov && povString) {
+	// MODIFIED: Always include POV if it exists.
+	if (povString) {
 		userParts.push(povString);
 	}
 	if (surroundingText) {
@@ -162,12 +164,11 @@ const updatePreview = (container, context) => {
 	const form = container.querySelector('#shorten-editor-form');
 	if (!form) return;
 	
+	// MODIFIED: Removed reading of checkbox values.
 	const formData = {
 		shorten_length: form.elements.shorten_length.value,
 		instructions: form.elements.instructions.value.trim(),
 		selectedCodexIds: form.elements.codex_entry ? Array.from(form.elements.codex_entry).filter(cb => cb.checked).map(cb => cb.value) : [],
-		use_surrounding_text: form.elements.use_surrounding_text.checked,
-		use_pov: form.elements.use_pov.checked,
 	};
 	
 	const systemPreview = container.querySelector('.js-preview-system');
@@ -188,14 +189,13 @@ const updatePreview = (container, context) => {
 	}
 };
 
+// MODIFIED: No longer sets checkbox values.
 const populateForm = (container, state) => {
 	const form = container.querySelector('#shorten-editor-form');
 	if (!form) return;
 	
 	form.elements.shorten_length.value = state.shorten_length;
 	form.elements.instructions.value = state.instructions;
-	form.elements.use_surrounding_text.checked = state.use_surrounding_text;
-	form.elements.use_pov.checked = state.use_pov;
 };
 
 export const init = async (container, context) => {

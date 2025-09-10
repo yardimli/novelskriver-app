@@ -1,5 +1,5 @@
-<div class="p-6">
-	<form id="scene-beat-editor-form" class="space-y-6">
+<div class="py-1 px-6">
+	<form id="scene-beat-editor-form" class="space-y-3">
 		<!-- Word Count -->
 		<div>
 			<label for="scene-beat-words" class="label"><span class="label-text text-lg font-semibold">Target Word Count</span></label>
@@ -19,7 +19,6 @@
 			<h3 class="text-lg font-semibold">Contextual Information</h3>
 			<p class="text-xs text-base-content/60 mb-2">These settings control what extra information is sent to the AI.</p>
 			
-			<!-- MODIFIED: Removed max-height, overflow, and space-y classes. JS will handle layout. -->
 			<div class="js-codex-selection-container rounded-md border border-base-300 p-3">
 				<p class="text-sm text-base-content/60">Loading codex entries...</p>
 			</div>
@@ -34,10 +33,10 @@
 		</div>
 	</form>
 	
-	<div class="divider my-8"></div>
+	<div class="divider my-2"></div>
 	
-	<!-- Live Preview Section -->
-	<div>
+	<!-- MODIFIED: Wrapped Live Preview Section and made it hidden by default -->
+	<div class="js-live-preview-section hidden">
 		<h2 class="text-xl font-bold">Live Prompt Preview</h2>
 		<p class="text-sm text-base-content/70 mb-4">This is the final prompt that will be sent to the AI, based on your settings above.</p>
 		

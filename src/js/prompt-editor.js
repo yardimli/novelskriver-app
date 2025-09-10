@@ -28,28 +28,22 @@ const promptBuilders = {
 	'scene-summarization': buildSceneSummarizationJson,
 };
 
-// NEW: Map of functions to extract structured form data.
+// Map of functions to extract structured form data.
 const formDataExtractors = {
 	'expand': (form) => ({
 		focus: form.elements.focus.value,
 		expand_length: form.elements.expand_length.value,
 		instructions: form.elements.instructions.value.trim(),
 		selectedCodexIds: form.elements.codex_entry ? Array.from(form.elements.codex_entry).filter(cb => cb.checked).map(cb => cb.value) : [],
-		use_surrounding_text: form.elements.use_surrounding_text.checked,
-		use_pov: form.elements.use_pov.checked,
 	}),
 	'rephrase': (form) => ({
 		instructions: form.elements.instructions.value.trim(),
 		selectedCodexIds: form.elements.codex_entry ? Array.from(form.elements.codex_entry).filter(cb => cb.checked).map(cb => cb.value) : [],
-		use_surrounding_text: form.elements.use_surrounding_text.checked,
-		use_pov: form.elements.use_pov.checked,
 	}),
 	'shorten': (form) => ({
 		shorten_length: form.elements.shorten_length.value,
 		instructions: form.elements.instructions.value.trim(),
 		selectedCodexIds: form.elements.codex_entry ? Array.from(form.elements.codex_entry).filter(cb => cb.checked).map(cb => cb.value) : [],
-		use_surrounding_text: form.elements.use_surrounding_text.checked,
-		use_pov: form.elements.use_pov.checked,
 	}),
 	'scene-beat': (form) => ({
 		words: form.elements.words.value,
@@ -61,7 +55,6 @@ const formDataExtractors = {
 		words: form.elements.words.value,
 		instructions: form.elements.instructions.value.trim(),
 		selectedCodexIds: form.elements.codex_entry ? Array.from(form.elements.codex_entry).filter(cb => cb.checked).map(cb => cb.value) : [],
-		use_pov: form.elements.use_pov.checked,
 	}),
 };
 
@@ -84,6 +77,12 @@ let currentPromptId = null;
  */
 const loadPrompt = async (promptId) => {
 	if (!modalEl) return;
+	
+	// NEW: Reset the toggle preview button text since the preview is hidden by default.
+	const toggleBtn = modalEl.querySelector('.js-toggle-preview-btn');
+	if (toggleBtn) {
+		toggleBtn.textContent = 'Show Preview';
+	}
 	
 	const placeholder = modalEl.querySelector('.js-prompt-placeholder');
 	const customEditorPane = modalEl.querySelector('.js-custom-editor-pane');
@@ -403,9 +402,24 @@ export function setupPromptEditor() {
 	if (!modalEl) return;
 	
 	const applyBtn = modalEl.querySelector('.js-prompt-apply-btn');
-	
 	if (applyBtn) {
 		applyBtn.addEventListener('click', handleModalApply);
+	}
+	
+	// NEW: Add event listener for the toggle preview button.
+	const toggleBtn = modalEl.querySelector('.js-toggle-preview-btn');
+	if (toggleBtn) {
+		toggleBtn.addEventListener('click', () => {
+			// The preview section is inside the form container which is dynamically loaded
+			const formContainer = modalEl.querySelector('.js-custom-form-container');
+			if (!formContainer) return;
+			
+			const previewSection = formContainer.querySelector('.js-live-preview-section');
+			if (!previewSection) return;
+			
+			const isHidden = previewSection.classList.toggle('hidden');
+			toggleBtn.textContent = isHidden ? 'Show Preview' : 'Hide Preview';
+		});
 	}
 }
 
