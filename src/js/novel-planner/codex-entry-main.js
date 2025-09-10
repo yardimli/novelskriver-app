@@ -3,7 +3,6 @@ import { setupTopToolbar } from '../novel-planner/toolbar.js';
 import { getCodexEditorView, setupContentEditor } from './codex-content-editor.js';
 import { setupPromptEditor } from '../prompt-editor.js';
 
-// --- Image Modal and Upload Logic (adapted from codex-entry-editor.js) ---
 function setupImageHandlers(entryId) {
 	const openModal = (modal) => {
 		if (modal) modal.showModal();

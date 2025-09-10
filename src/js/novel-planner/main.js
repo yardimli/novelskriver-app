@@ -9,7 +9,7 @@ import {setupChapterEditor} from './chapter-editor.js';
 import {setupContentEditor} from './content-editor.js';
 import {setupTopToolbar} from './toolbar.js';
 import { setupPromptEditor } from '../prompt-editor.js';
-import './codex-entry-editor.js'; // Import for side-effects (attaches event listeners)
+import './planner-codex-events.js'; // Import for side-effects (attaches event listeners)
 import './chapter-creation.js'; // Import for new chapter modal logic
 import { setupChapterPovEditor } from './chapter-pov-editor.js'; // Import for POV editor logic
 
@@ -143,14 +143,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 		
 		document.body.dataset.outlineContent = await populateOutlineTemplate(outlineTemplateHtml, novelData);
 		document.body.dataset.codexContent = await populateCodexTemplate(codexTemplateHtml, novelData);
-		
-		// Populate the "New Codex Entry" modal's category dropdown
-		const categorySelect = document.getElementById('new-codex-category');
-		novelData.codexCategories.forEach(category => {
-			const option = new Option(category.name, category.id);
-			// Insert before the "Create New" option
-			categorySelect.insertBefore(option, categorySelect.options[categorySelect.options.length - 1]);
-		});
 		
 		// Populate the "New Chapter" modal's position dropdown
 		const chapterPositionSelect = document.getElementById('new-chapter-position');

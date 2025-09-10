@@ -97,12 +97,7 @@ export default class WindowManager {
 		const rightSpacer = document.createElement('div');
 		
 		if (id === 'codex-window') {
-			rightSpacer.className = 'flex items-center justify-end min-w-[64px]';
-			const newEntryBtn = document.createElement('button');
-			newEntryBtn.type = 'button';
-			newEntryBtn.className = 'js-open-new-codex-modal btn btn-xs btn-accent gap-1 mr-2';
-			newEntryBtn.innerHTML = `<i class="bi bi-plus-lg"></i> New Entry`;
-			rightSpacer.appendChild(newEntryBtn);
+			// do nothing for now...
 		} else if (id === 'outline-window') {
 			rightSpacer.className = 'flex items-center justify-end min-w-[64px]';
 			const newChapterBtn = document.createElement('button');

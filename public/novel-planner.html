@@ -110,8 +110,6 @@
 	</div>
 	<div class="divider divider-horizontal mx-0"></div>
 	
-	<!-- MODIFIED: Removed the "Create Codex Entry" button from the novel editor toolbar. -->
-	
 	<div class="flex items-center gap-1">
 		<button type="button" class="js-toolbar-btn js-ai-action-btn btn btn-ghost btn-sm" data-action="expand" title="Expand Selection" disabled>Expand</button>
 		<button type="button" class="js-toolbar-btn js-ai-action-btn btn btn-ghost btn-sm" data-action="rephrase" title="Rephrase Selection" disabled>Rephrase</button>
@@ -172,64 +170,6 @@
 		</label>
 	</div>
 </div>
-
-<dialog id="new-codex-entry-modal" class="js-new-codex-modal modal">
-	<div class="modal-box w-11/12 max-w-2xl">
-		<h3 id="new-codex-modal-title" class="font-bold text-lg">Create New Codex Entry</h3>
-		<form id="new-codex-entry-form" novalidate class="relative">
-			<div id="new-codex-ai-spinner" class="absolute inset-0 bg-base-100/80 backdrop-blur-sm flex items-center justify-center z-10 hidden">
-				<div class="text-center">
-					<span class="loading loading-spinner loading-lg"></span>
-					<p class="mt-2 text-sm">AI is analyzing text...</p>
-				</div>
-			</div>
-			<div class="py-4 max-h-[70vh] overflow-y-auto space-y-4">
-				<div id="new-codex-error-container" class="hidden alert alert-error"></div>
-				<div class="form-control">
-					<label for="new-codex-title" class="label"><span class="label-text">Title <span
-						class="text-error">*</span></span></label>
-					<input type="text" id="new-codex-title" name="title" class="input input-bordered" required>
-					<p class="js-error-message mt-1 text-xs text-error hidden"></p>
-				</div>
-				<div class="form-control">
-					<label for="new-codex-category" class="label"><span class="label-text">Category <span
-						class="text-error">*</span></span></label>
-					<select id="new-codex-category" name="codex_category_id" class="select select-bordered">
-						<option value="">Select a category...</option>
-						<option value="new">-- Create New Category --</option>
-					</select>
-					<p class="js-error-message mt-1 text-xs text-error hidden"></p>
-				</div>
-				<div id="new-category-wrapper" class="hidden pl-4 border-l-4 border-accent">
-					<label for="new-category-name" class="label"><span class="label-text">New Category Name</span></label>
-					<input type="text" id="new-category-name" name="new_category_name" class="input input-bordered">
-					<p class="js-error-message mt-1 text-xs text-error hidden"></p>
-				</div>
-				<div class="form-control">
-					<label for="new-codex-content" class="label"><span
-						class="label-text">Content (Detailed Information)</span></label>
-					<textarea id="new-codex-content" name="content" rows="5" class="textarea textarea-bordered"></textarea>
-					<p class="js-error-message mt-1 text-xs text-error hidden"></p>
-				</div>
-				<div class="form-control">
-					<label class="label"><span class="label-text">Image (Optional)</span></label>
-					<input type="file" id="new-codex-image" name="image" class="file-input file-input-bordered w-full"
-					       accept="image/png, image/jpeg, image/gif, image/webp">
-					<p class="mt-2 text-xs text-base-content/70">Image can be uploaded or generated with AI from the desktop
-						later.</p>
-					<p class="js-error-message mt-1 text-xs text-error hidden"></p>
-				</div>
-			</div>
-			<div class="modal-action">
-				<button type="button" class="js-close-new-codex-modal btn">Cancel</button>
-				<button type="submit" class="js-new-codex-submit-btn btn btn-accent w-28">
-					<span class="js-btn-text">Create</span>
-					<span class="js-spinner hidden animate-spin"><i class="bi bi-arrow-repeat"></i></span>
-				</button>
-			</div>
-		</form>
-	</div>
-</dialog>
 
 <dialog id="prompt-editor-modal" class="modal">
 	<div class="modal-box w-11/12 max-w-5xl h-[90vh] flex flex-col p-0">
