@@ -1,7 +1,7 @@
 // NEW: Entry point for the dedicated chapter editor window.
 import { setupTopToolbar } from './toolbar.js';
-// MODIFIED: Corrected the import to use the editor setup function for the two-pane chapter window.
-import { setupContentEditor } from './chapter-content-editor.js';
+// MODIFIED: Import getChapterEditorView and pass it to the toolbar setup.
+import { getChapterEditorView, setupContentEditor } from './chapter-content-editor.js';
 import { setupPromptEditor } from '../prompt-editor.js';
 
 // --- NEW: Logic for "New Codex Entry" Modal, adapted for this standalone editor ---
@@ -177,7 +177,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 		
 		// Initialize editors and toolbar
 		setupContentEditor(chapterId);
-		setupTopToolbar();
+		// MODIFIED: Pass a configuration object to the toolbar setup.
+		// This tells the toolbar it's in the chapter editor and provides a way to access specific editor panes.
+		setupTopToolbar({
+			isChapterEditor: true,
+			getEditorView: getChapterEditorView,
+		});
 		setupPromptEditor();
 		setupNewCodexHandler(); // MODIFIED: Initialize the new codex modal handler.
 		

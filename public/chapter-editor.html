@@ -167,9 +167,16 @@
 		</div>
 		
 		<!-- Right Column: Summary -->
-		<div class="w-1/4 flex flex-col border border-base-300 rounded-md overflow-hidden">
+		<div class="w-1/4 flex flex-col border border-base-300 rounded-md overflow-hidden relative">
 			<h3 class="text-xs uppercase tracking-wider font-bold bg-base-200 px-3 py-1 border-b border-base-300">
 				Summary</h3>
+			<!-- NEW: Spinner overlay for AI summarization -->
+			<div class="js-summary-spinner absolute inset-0 bg-base-100/80 backdrop-blur-sm flex items-center justify-center z-10 hidden">
+				<div class="text-center">
+					<span class="loading loading-spinner loading-lg"></span>
+					<p class="mt-2 text-sm">AI is summarizing...</p>
+				</div>
+			</div>
 			<div class="js-pm-container flex-grow p-4 overflow-y-auto prose prose-sm dark:prose-invert max-w-none">
 				<div class="js-editable h-full" data-name="summary" data-placeholder="Enter a short summary..."></div>
 			</div>

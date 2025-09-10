@@ -8,6 +8,9 @@ import { getActiveEditor } from './content-editor.js';
 let activeEditorView = null;
 const toolbar = document.getElementById('top-toolbar');
 const wordCountEl = document.getElementById('js-word-count');
+// NEW: A variable to hold configuration passed from the main script (e.g., chapter-main.js).
+let toolbarConfig = {};
+
 
 function isNodeActive(state, type) {
 	const { $from } = state.selection;
@@ -256,38 +259,57 @@ async function handleToolbarAction(button) {
 			return;
 		}
 		
-		// --- NEW/MODIFIED: Gather all context data for the prompt builders ---
+		// --- MODIFIED: Context gathering logic updated for chapter summarization ---
+		const isChapterEditor = toolbarConfig.isChapterEditor;
 		const activeEditor = getActiveEditor();
+		let editorForPrompt = activeEditor; // The editor instance that the AI action will target.
 		let selectedText = '';
 		let wordsBefore = '';
 		let wordsAfter = '';
 		let chapterId = null;
 		let povString = '';
 		
-		// Get novel data for language and default POV. This is a heavy call, but necessary.
-		const novelData = await window.api.getOneNovel(novelId);
-		const novelLanguage = novelData.prose_language || 'English';
-		const novelTense = novelData.prose_tense || 'past';
-		
-		if (activeEditor) {
+		// Determine the text to process and the target editor.
+		if (isChapterEditor && action === 'scene-summarization') {
+			const contentView = toolbarConfig.getEditorView('content');
+			const summaryView = toolbarConfig.getEditorView('summary');
+			if (!contentView || !summaryView) {
+				alert('Could not find content and summary editors.');
+				return;
+			}
+			editorForPrompt = summaryView; // The action will target the summary view.
+			
+			// If there's a selection in ANY editor, use it. Otherwise, use full content from the content view.
+			if (activeEditor && !activeEditor.state.selection.empty) {
+				const { from, to } = activeEditor.state.selection;
+				selectedText = activeEditor.state.doc.textBetween(from, to, ' ');
+			} else {
+				selectedText = contentView.state.doc.textContent;
+			}
+		} else if (activeEditor) {
+			// Original logic for getting selected text for all other actions.
 			const { state } = activeEditor;
 			const { from, to, empty } = state.selection;
 			
 			if (!empty) {
 				selectedText = state.doc.textBetween(from, to, ' ');
 			} else if (action === 'scene-summarization') {
-				// For summarization, if nothing is selected, use the whole chapter content.
+				// This handles summarization in the main novel editor (e.g., on a chapter window's summary pane).
 				selectedText = state.doc.textContent;
 			}
+		}
+		
+		// Gather surrounding text and chapter ID from the currently focused editor.
+		if (activeEditor) {
+			const { state } = activeEditor;
+			const { from, to } = state.selection;
 			
-			// Get surrounding text (word-based approximation)
 			const textBeforeSelection = state.doc.textBetween(Math.max(0, from - 1500), from);
 			const textAfterSelection = state.doc.textBetween(to, Math.min(to + 1500, state.doc.content.size));
 			
 			wordsBefore = textBeforeSelection.trim().split(/\s+/).slice(-200).join(' ');
 			wordsAfter = textAfterSelection.trim().split(/\s+/).slice(0, 200).join(' ');
 			
-			// MODIFIED: Find chapterId from body dataset as a fallback for the dedicated chapter editor.
 			const chapterWindowContent = activeEditor.dom.closest('.chapter-window-content');
 			if (chapterWindowContent) {
 				chapterId = chapterWindowContent.dataset.chapterId;
@@ -296,12 +318,16 @@ async function handleToolbarAction(button) {
 			}
 		}
 		
+		// Get novel data for language and default POV.
+		const novelData = await window.api.getOneNovel(novelId);
+		const novelLanguage = novelData.prose_language || 'English';
+		const novelTense = novelData.prose_tense || 'past';
+		
 		// Get and format POV string
 		let povData;
 		if (chapterId) {
 			povData = await window.api.getPovDataForChapter(chapterId);
 		} else {
-			// Fallback to novel defaults if not in a chapter context
 			povData = {
 				currentPov: novelData.prose_pov,
 				isOverride: false,
@@ -322,15 +348,11 @@ async function handleToolbarAction(button) {
 			let characterName = '';
 			if (povData.currentCharacterId) {
 				const character = povData.characters.find(c => String(c.id) === String(povData.currentCharacterId));
-				if (character) {
-					characterName = character.title;
-				}
+				if (character) characterName = character.title;
 			}
 			
 			povString = `This scene is written in ${povTypeDisplay} point of view`;
-			if (characterName) {
-				povString += ` from the perspective of ${characterName}`;
-			}
+			if (characterName) povString += ` from the perspective of ${characterName}`;
 			povString += '.';
 		}
 		
@@ -341,8 +363,6 @@ async function handleToolbarAction(button) {
 			linkedCodexEntryIds = await window.api.getLinkedCodexIdsForChapter(chapterId);
 		}
 		
-		// MODIFIED: Pass the active editor instance in the context object.
-		// This preserves the editor reference even after it loses focus to the modal.
 		const context = {
 			selectedText,
 			allCodexEntries,
@@ -352,7 +372,9 @@ async function handleToolbarAction(button) {
 			povString,
 			wordsBefore,
 			wordsAfter,
-			activeEditorView: activeEditor, // MODIFIED: Add active editor to context
+			activeEditorView: editorForPrompt, // Pass the correct target editor.
+			// NEW: Add a flag to tell the prompt editor how to handle this specific action.
+			isChapterSummarization: isChapterEditor && action === 'scene-summarization',
 		};
 		openPromptEditor(context, action);
 		return;
@@ -388,7 +410,9 @@ async function handleToolbarAction(button) {
 	}
 }
 
-export function setupTopToolbar() {
+// MODIFIED: Accepts a configuration object.
+export function setupTopToolbar(config = {}) {
+	toolbarConfig = config;
 	if (!toolbar) return;
 	
 	toolbar.addEventListener('mousedown', event => {
@@ -396,15 +420,10 @@ export function setupTopToolbar() {
 		const dropdownTrigger = target.closest('button[tabindex="0"]');
 		const inDropdownContent = target.closest('.dropdown-content');
 		
-		// If the click is on a dropdown trigger or inside a dropdown's content,
-		// allow the default browser action. This is necessary for the dropdowns
-		// (and selects/buttons inside them) to work correctly.
 		if ((dropdownTrigger && dropdownTrigger.closest('.dropdown')) || inDropdownContent) {
 			return;
 		}
 		
-		// For all other toolbar interactions, prevent the default action to avoid
-		// the editor losing focus.
 		event.preventDefault();
 	});
 	
@@ -413,8 +432,6 @@ export function setupTopToolbar() {
 		if (!button || button.disabled) return;
 		
 		if (button.closest('.js-dropdown-container')) {
-			// This check is correct: it prevents the dropdown trigger itself from being
-			// processed as a command, letting DaisyUI handle the open/close.
 			if (button.classList.contains('js-toolbar-btn')) return;
 		}
 		

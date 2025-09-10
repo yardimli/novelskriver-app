@@ -15,6 +15,12 @@ const debounceTimers = new Map();
 const editorInstances = {};
 // REMOVED: The local activeEditorView state is no longer needed.
 
+// NEW: Export a function to get editor instances by name. This is used by the toolbar.
+export function getChapterEditorView(name) {
+	return editorInstances[`${name}View`];
+}
+
+
 // REMOVED: getActiveEditor is no longer needed here; the toolbar will use the centralized version.
 
 /**

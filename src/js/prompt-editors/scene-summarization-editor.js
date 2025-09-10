@@ -117,7 +117,7 @@ ${codexContent}
 		}
 	}
 	
-	const truncatedText = selectedText.length > 4096 ? selectedText.substring(0, 4096) + '...' : selectedText;
+	// REMOVED: The text truncation logic is removed for summarization to ensure the full text is always sent.
 	
 	let povBlock = '';
 	// MODIFIED: Always include POV block if povString exists.
@@ -137,7 +137,7 @@ Write the summary in third person, and use present tense.
 
 Text to summarize:
 <scene>
-${selectedText ? truncatedText : '{removeWhitespace(scene.fullText)}'}
+${selectedText ? selectedText : '{removeWhitespace(scene.fullText)}'}
 </scene>`;
 	
 	return {

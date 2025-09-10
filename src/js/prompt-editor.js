@@ -9,6 +9,7 @@ import { init as initSceneSummarizationEditor, buildPromptJson as buildSceneSumm
 import { getActiveEditor } from './novel-editor/content-editor.js';
 import { updateToolbarState } from './novel-editor/toolbar.js';
 import { TextSelection } from 'prosemirror-state';
+import { DOMParser } from 'prosemirror-model';
 
 // Configuration mapping prompt IDs to their respective builder modules.
 const editors = {
@@ -249,6 +250,81 @@ function createFloatingToolbar(view, from, to, model) {
 	});
 }
 
+// MODIFIED: This function now shows a spinner, streams raw text for visual feedback,
+// and then re-parses the final content to ensure correct paragraph structure.
+async function startAiSummarizationStream(params) {
+	const { prompt, model } = params;
+	
+	// The target editor is already set in `activeEditorView` by `handleModalApply`.
+	setEditorEditable(activeEditorView, false);
+	updateToolbarState(activeEditorView); // To disable buttons.
+	
+	// Show spinner over the summary editor.
+	const spinner = document.querySelector('.js-summary-spinner');
+	if (spinner) spinner.classList.remove('hidden');
+	
+	let fullResponse = '';
+	let isFirstChunk = true;
+	
+	const onData = (payload) => {
+		if (payload.chunk) {
+			fullResponse += payload.chunk;
+			const { state, dispatch } = activeEditorView;
+			let tr = state.tr;
+			
+			if (isFirstChunk) {
+				// Clear the editor on the first chunk.
+				tr.delete(0, state.doc.content.size);
+				isFirstChunk = false;
+			}
+			
+			// Insert the raw chunk at the end of the document for visual feedback.
+			// This will be one long paragraph initially, but provides the streaming effect.
+			tr.insertText(payload.chunk, tr.doc.content.size);
+			dispatch(tr);
+			
+		} else if (payload.done) {
+			// When the stream is finished, re-parse the full response to fix paragraph structure.
+			const { state, dispatch } = activeEditorView;
+			const { schema } = state;
+			
+			const tempDiv = document.createElement('div');
+			tempDiv.innerText = fullResponse.trim(); // innerText correctly handles newlines for the parser.
+			const newContentNode = DOMParser.fromSchema(schema).parse(tempDiv);
+			
+			// Replace the streamed (but unstructured) content with the final, structured version.
+			const finalTr = state.tr.replaceWith(0, state.doc.content.size, newContentNode.content);
+			dispatch(finalTr);
+			
+			// Hide spinner and clean up.
+			if (spinner) spinner.classList.add('hidden');
+			setEditorEditable(activeEditorView, true);
+			activeEditorView.focus();
+			updateToolbarState(activeEditorView);
+			
+		} else if (payload.error) {
+			console.error('AI Summarization Error:', payload.error);
+			alert(`Error: ${payload.error}`);
+			
+			if (spinner) spinner.classList.add('hidden');
+			setEditorEditable(activeEditorView, true);
+			updateToolbarState(activeEditorView);
+		}
+	};
+	
+	try {
+		window.api.processCodexTextStream({ prompt, model }, onData);
+	} catch (error) {
+		console.error('AI Summarization Error:', error);
+		alert(`Error: ${error.message}`);
+		
+		if (spinner) spinner.classList.add('hidden');
+		setEditorEditable(activeEditorView, true);
+		updateToolbarState(activeEditorView);
+	}
+}
+
+
 async function startAiStream(params) {
 	const { prompt, model } = params;
 	
@@ -359,6 +435,24 @@ async function handleModalApply() {
 	
 	modalEl.close();
 	
+	// MODIFIED: Logic to handle the special summarization case.
+	if (currentContext.isChapterSummarization) {
+		activeEditorView = currentContext.activeEditorView; // This is the summary editor.
+		if (!activeEditorView) {
+			alert('Target summary editor not found.');
+			return;
+		}
+		
+		const formDataObj = extractor(form);
+		const wordCount = currentContext.selectedText ? currentContext.selectedText.trim().split(/\s+/).filter(Boolean).length : 0;
+		const promptContext = { ...currentContext, wordCount };
+		const prompt = builder(formDataObj, promptContext);
+		
+		await startAiSummarizationStream({ prompt, model });
+		return; // End execution here for summarization.
+	}
+	
+	// Original workflow for all other actions.
 	activeEditorView = currentContext.activeEditorView;
 	if (!activeEditorView) {
 		alert('No active editor to apply changes to.');
