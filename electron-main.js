@@ -477,7 +477,7 @@ function setupIpcHandlers() {
 		return novel;
 	});
 	
-	// NEW: IPC handler to fetch all data required for the outline viewer.
+	// MODIFIED: This handler now calculates and includes word count statistics.
 	ipcMain.handle('novels:getOutlineData', (event, novelId) => {
 		const novel = db.prepare('SELECT title, prose_pov FROM novels WHERE id = ?').get(novelId);
 		if (!novel) throw new Error('Novel not found');

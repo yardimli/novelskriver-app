@@ -20,6 +20,21 @@ export function getChapterEditorView(name) {
 	return editorInstances[`${name}View`];
 }
 
+// NEW: A function to calculate and update the total word count for the main content editor.
+function updateTotalWordCount() {
+	const contentView = editorInstances.contentView;
+	if (!contentView) return;
+	
+	const text = contentView.state.doc.textContent;
+	const words = text.trim().split(/\s+/).filter(Boolean);
+	const wordCount = words.length;
+	
+	const totalWordCountEl = document.getElementById('js-total-word-count');
+	if (totalWordCountEl) {
+		totalWordCountEl.textContent = `Total: ${wordCount.toLocaleString()} word${wordCount !== 1 ? 's' : ''}`;
+	}
+}
+
 
 // REMOVED: getActiveEditor is no longer needed here; the toolbar will use the centralized version.
 
@@ -127,6 +142,10 @@ export function setupContentEditor(chapterId) {
 				this.updateState(newState);
 				if (transaction.docChanged) {
 					triggerDebouncedSave(chapterId);
+					// NEW: Update word count if the content editor changed.
+					if (name === 'content') {
+						updateTotalWordCount();
+					}
 				}
 				if ((transaction.selectionSet || transaction.docChanged)) {
 					if (this.hasFocus()) {
@@ -149,6 +168,9 @@ export function setupContentEditor(chapterId) {
 	}
 	
 	titleInput.addEventListener('input', () => triggerDebouncedSave(chapterId));
+	
+	// NEW: Set initial word count on load.
+	updateTotalWordCount();
 	
 	// Set initial focus
 	if (editorInstances.contentView) {

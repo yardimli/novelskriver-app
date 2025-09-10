@@ -13,6 +13,17 @@ import './planner-codex-events.js'; // Import for side-effects (attaches event l
 import './chapter-creation.js'; // Import for new chapter modal logic
 import { setupChapterPovEditor } from './chapter-pov-editor.js'; // Import for POV editor logic
 
+// NEW: Helper to count words in an HTML string.
+const countWordsInHtml = (html) => {
+	if (!html) return 0;
+	const tempDiv = document.createElement('div');
+	tempDiv.innerHTML = html;
+	const text = tempDiv.textContent || tempDiv.innerText || '';
+	const words = text.trim().split(/\s+/).filter(Boolean);
+	return words.length;
+};
+
+
 /**
  * Populates the outline window template with novel data using templates.
  * @param {string} template - The raw HTML template string for the outline window.
@@ -40,17 +51,29 @@ async function populateOutlineTemplate(template, novelData) {
 	};
 	
 	const sectionsHtml = novelData.sections.map(section => {
+		let sectionTotalWords = 0; // NEW: Initialize section word count.
 		const chaptersHtml = section.chapters && section.chapters.length > 0
 			? section.chapters.map(chapter => {
 				const summaryText = stripHtmlAndTruncate(chapter.summary, 40);
 				const summaryHtml = summaryText ? `<p class="text-xs text-base-content/70 mt-1 font-normal normal-case">${summaryText}</p>` : '';
+				
+				// NEW: Calculate word count for the chapter and add to section total.
+				const wordCount = countWordsInHtml(chapter.content);
+				sectionTotalWords += wordCount;
+				
 				return chapterTemplateHtml
 					.replace('{{CHAPTER_ID}}', chapter.id)
 					.replace(/{{CHAPTER_TITLE}}/g, chapter.title)
 					.replace('{{CHAPTER_ORDER}}', chapter.chapter_order)
-					.replace('{{CHAPTER_SUMMARY_HTML}}', summaryHtml);
+					.replace('{{CHAPTER_SUMMARY_HTML}}', summaryHtml)
+					.replace('{{WORD_COUNT}}', wordCount.toLocaleString()); // NEW: Populate word count.
 			}).join('')
 			: '<p class="text-sm text-base-content/70 px-2">No chapters in this section yet.</p>';
+		
+		// NEW: Format stats for the section header.
+		const chapterCount = section.chapters ? section.chapters.length : 0;
+		const chapterCountText = chapterCount === 1 ? '1 chapter' : `${chapterCount} chapters`;
+		const chapterStats = `${chapterCountText} &ndash; ${sectionTotalWords.toLocaleString()} words`;
 		
 		const descriptionHtml = section.description ? `<p class="text-sm italic text-base-content/70 mt-1">${section.description}</p>` : '';
 		return sectionTemplateHtml
@@ -58,7 +81,8 @@ async function populateOutlineTemplate(template, novelData) {
 			.replace('{{SECTION_ORDER}}', section.section_order)
 			.replace('{{SECTION_TITLE}}', section.title)
 			.replace('{{SECTION_DESCRIPTION_HTML}}', descriptionHtml)
-			.replace('<!-- CHAPTERS_PLACEHOLDER -->', chaptersHtml);
+			.replace('<!-- CHAPTERS_PLACEHOLDER -->', chaptersHtml)
+			.replace('{{CHAPTER_STATS}}', chapterStats); // NEW: Populate section stats.
 	}).join('');
 	
 	return template.replace('<!-- SECTIONS_PLACEHOLDER -->', sectionsHtml);
