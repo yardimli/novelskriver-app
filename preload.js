@@ -55,14 +55,16 @@ contextBridge.exposeInMainWorld('api', {
 	getLinkedCodexIdsForChapter: (chapterId) => ipcRenderer.invoke('chapters:getLinkedCodexIds', chapterId),
 	
 	// Codex Entry Management
-	// NEW: API to open the dedicated codex editor window.
+	// NEW: API to open the dedicated codex editor window for creating a new entry.
+	openNewCodexEditor: (data) => ipcRenderer.send('codex-entries:openNewEditor', data),
 	openCodexEditor: (entryId) => ipcRenderer.send('codex-entries:openEditor', entryId),
-	// NEW: API to get all data needed for the codex editor.
 	getOneCodexForEditor: (entryId) => ipcRenderer.invoke('codex-entries:getOneForEditor', entryId),
 	createCodexEntry: (novelId, formData) => ipcRenderer.invoke('codex-entries:store', novelId, formData),
 	suggestCodexDetails: (novelId, text) => ipcRenderer.invoke('codex-entries:suggest-details', { novelId, text }),
 	updateCodexEntry: (entryId, data) => ipcRenderer.invoke('codex-entries:update', entryId, data),
 	getAllCodexEntriesForNovel: (novelId) => ipcRenderer.invoke('codex:getAllForNovel', novelId),
+	// NEW: API to fetch all categories for a novel.
+	getCategoriesForNovel: (novelId) => ipcRenderer.invoke('codex-categories:getAllForNovel', novelId),
 	
 	// Codex <-> Codex Linking
 	attachCodexToCodex: (parentEntryId, linkedEntryId) => ipcRenderer.invoke('codex-entries:link:attach', parentEntryId, linkedEntryId),

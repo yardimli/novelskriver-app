@@ -53,7 +53,9 @@ async function saveWindowContent(entryId) {
 	}
 }
 
-export function setupContentEditor(entryId) {
+// MODIFIED: Function now accepts an options object to conditionally enable debounced saving.
+export function setupContentEditor(options = {}) {
+	const { entryId } = options;
 	const initialContentContainer = document.getElementById('js-pm-content-source');
 	const mount = document.querySelector('.js-editable[data-name="content"]');
 	const titleInput = document.getElementById('js-codex-title-input');
@@ -97,7 +99,8 @@ export function setupContentEditor(entryId) {
 		dispatchTransaction(transaction) {
 			const newState = this.state.apply(transaction);
 			this.updateState(newState);
-			if (transaction.docChanged) {
+			// MODIFIED: Only trigger debounced save if an entryId is provided (i.e., in edit mode).
+			if (transaction.docChanged && entryId) {
 				triggerDebouncedSave(entryId);
 			}
 			if ((transaction.selectionSet || transaction.docChanged)) {
@@ -108,7 +111,10 @@ export function setupContentEditor(entryId) {
 		},
 	});
 	
-	titleInput.addEventListener('input', () => triggerDebouncedSave(entryId));
+	// MODIFIED: Only add the input listener for debounced saving in edit mode.
+	if (entryId) {
+		titleInput.addEventListener('input', () => triggerDebouncedSave(entryId));
+	}
 	
 	editorView.focus();
 }

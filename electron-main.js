@@ -329,13 +329,15 @@ function createOutlineWindow(novelId) {
 	// outlineWindow.webContents.openDevTools();
 }
 
-function createCodexEditorWindow(entryId) {
-	if (codexEditorWindows.has(entryId)) {
-		const existingWin = codexEditorWindows.get(entryId);
-		if (existingWin) {
-			existingWin.focus();
-			return;
-		}
+// MODIFIED: This function now handles both creating and editing codex entries.
+function createCodexEditorWindow(options) {
+	const { mode, entryId, novelId, selectedText } = options;
+	
+	// Use a unique key to prevent opening multiple identical windows.
+	const windowKey = mode === 'edit' ? `edit-${entryId}` : `new-${novelId}`;
+	if (codexEditorWindows.has(windowKey)) {
+		codexEditorWindows.get(windowKey).focus();
+		return;
 	}
 	
 	const codexEditorWindow = new BrowserWindow({
@@ -360,8 +362,17 @@ function createCodexEditorWindow(entryId) {
 		});
 	});
 	
-	codexEditorWindow.loadFile('public/codex-entry-editor.html', { query: { entryId: entryId } });
-	codexEditorWindows.set(entryId, codexEditorWindow);
+	// Build the query string for the renderer process.
+	const query = { mode };
+	if (mode === 'edit') {
+		query.entryId = entryId;
+	} else {
+		query.novelId = novelId;
+		query.selectedText = encodeURIComponent(selectedText || '');
+	}
+	
+	codexEditorWindow.loadFile('public/codex-entry-editor.html', { query });
+	codexEditorWindows.set(windowKey, codexEditorWindow);
 	
 	codexEditorWindow.webContents.on('context-menu', (event, params) => {
 		const menu = new Menu();
@@ -389,7 +400,7 @@ function createCodexEditorWindow(entryId) {
 	});
 	
 	codexEditorWindow.on('closed', () => {
-		codexEditorWindows.delete(entryId);
+		codexEditorWindows.delete(windowKey);
 	});
 }
 
@@ -1208,6 +1219,16 @@ function setupIpcHandlers() {
 		}
 	});
 	
+	// NEW: IPC handler to get all categories for a novel.
+	ipcMain.handle('codex-categories:getAllForNovel', (event, novelId) => {
+		try {
+			return db.prepare('SELECT id, name FROM codex_categories WHERE novel_id = ? ORDER BY name ASC').all(novelId);
+		} catch (error) {
+			console.error('Failed to get categories for novel:', error);
+			return [];
+		}
+	});
+	
 	ipcMain.handle('chapters:codex:attach', (event, chapterId, codexEntryId) => {
 		db.prepare('INSERT OR IGNORE INTO chapter_codex_entry (chapter_id, codex_entry_id) VALUES (?, ?)')
 			.run(chapterId, codexEntryId);
@@ -1462,8 +1483,14 @@ function setupIpcHandlers() {
 		return null;
 	});
 	
+	// MODIFIED: This handler now calls the updated window creation function.
 	ipcMain.on('codex-entries:openEditor', (event, entryId) => {
-		createCodexEditorWindow(entryId);
+		createCodexEditorWindow({ mode: 'edit', entryId });
+	});
+	
+	// NEW: IPC handler to open the codex editor for a new entry.
+	ipcMain.on('codex-entries:openNewEditor', (event, { novelId, selectedText }) => {
+		createCodexEditorWindow({ mode: 'new', novelId, selectedText });
 	});
 	
 	ipcMain.handle('codex-entries:getOneForEditor', (event, entryId) => {

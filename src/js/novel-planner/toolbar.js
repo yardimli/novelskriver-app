@@ -22,66 +22,7 @@ function isNodeActive(state, type) {
 	return false;
 }
 
-// Opens and populates the "New Codex Entry" modal, now with AI suggestions.
-async function handleCreateCodexFromSelection() {
-	if (!activeEditorView) return;
-	const { state } = activeEditorView;
-	if (state.selection.empty) return;
-	
-	const selectedText = state.doc.textBetween(state.selection.from, state.selection.to, ' ');
-	
-	const modal = document.getElementById('new-codex-entry-modal');
-	const form = document.getElementById('new-codex-entry-form');
-	if (!modal || !form) return;
-	
-	// Reset form in case it was used before
-	form.reset();
-	form.querySelector('#new-category-wrapper').classList.add('hidden');
-	// Clear any previous errors
-	form.querySelectorAll('.js-error-message').forEach(el => {
-		el.textContent = '';
-		el.classList.add('hidden');
-	});
-	const genericErrorContainer = form.querySelector('#new-codex-error-container');
-	if (genericErrorContainer) {
-		genericErrorContainer.classList.add('hidden');
-		genericErrorContainer.textContent = '';
-	}
-	
-	// Populate fields with selection as a fallback
-	const titleInput = form.querySelector('#new-codex-title');
-	const contentTextarea = form.querySelector('#new-codex-content');
-	const categorySelect = form.querySelector('#new-codex-category');
-	const spinner = document.getElementById('new-codex-ai-spinner');
-	
-	if (titleInput) titleInput.value = selectedText.trim();
-	if (contentTextarea) contentTextarea.value = selectedText;
-	
-	modal.showModal();
-	
-	// AI-powered suggestion logic
-	if (spinner) spinner.classList.remove('hidden');
-	try {
-		const novelId = document.body.dataset.novelId;
-		const result = await window.api.suggestCodexDetails(novelId, selectedText);
-		
-		if (result.success) {
-			if (result.title && titleInput) {
-				titleInput.value = result.title;
-			}
-			if (result.categoryId && categorySelect) {
-				categorySelect.value = result.categoryId;
-			}
-		} else {
-			console.warn('AI suggestion for codex entry failed:', result.message);
-		}
-	} catch (error) {
-		console.error('Error getting AI suggestion for codex entry:', error);
-	} finally {
-		if (spinner) spinner.classList.add('hidden');
-	}
-}
-
+// REMOVED: The handleCreateCodexFromSelection function is no longer needed as the logic is moved into handleToolbarAction.
 
 export function updateToolbarState(view) {
 	activeEditorView = view;
@@ -392,8 +333,18 @@ async function handleToolbarAction(button) {
 			undo(activeEditorView.state, activeEditorView.dispatch);
 		} else if (command === 'redo') {
 			redo(activeEditorView.state, activeEditorView.dispatch);
+			// MODIFIED: Replaced modal logic with a call to open the new editor window.
 		} else if (command === 'create_codex') {
-			await handleCreateCodexFromSelection();
+			if (!activeEditorView) return;
+			const { state } = activeEditorView;
+			if (state.selection.empty) return;
+			
+			const selectedText = state.doc.textBetween(state.selection.from, state.selection.to, ' ');
+			const novelId = document.body.dataset.novelId;
+			
+			if (novelId && selectedText) {
+				window.api.openNewCodexEditor({ novelId, selectedText });
+			}
 		} else {
 			applyCommand(command);
 		}
