@@ -5,8 +5,8 @@ import { DOMParser, DOMSerializer } from 'prosemirror-model';
 import { history, undo, redo } from 'prosemirror-history';
 import { keymap } from 'prosemirror-keymap';
 import { baseKeymap } from 'prosemirror-commands';
-import { schema, setActiveEditor } from '../novel-editor/content-editor.js';
-import { updateToolbarState } from '../novel-editor/toolbar.js';
+import { schema, setActiveEditor } from '../novel-planner/content-editor.js';
+import { updateToolbarState } from '../novel-planner/toolbar.js';
 
 const debounceTimers = new Map();
 let editorView = null;

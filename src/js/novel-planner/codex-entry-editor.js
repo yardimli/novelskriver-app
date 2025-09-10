@@ -276,7 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	});
 	
 	async function createCodexLinkTagElement(parentEntryId, codexEntry) {
-		let template = await window.api.getTemplate('codex-link-tag');
+		let template = await window.api.getTemplate('planner/codex-link-tag');
 		template = template.replace(/{{PARENT_ENTRY_ID}}/g, parentEntryId);
 		template = template.replace(/{{ENTRY_ID}}/g, codexEntry.id);
 		template = template.replace(/{{ENTRY_TITLE}}/g, codexEntry.title);
@@ -413,7 +413,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		const emptyMsg = listContainer.querySelector('p');
 		if (emptyMsg) emptyMsg.remove();
 		
-		let template = await window.api.getTemplate('codex-list-item');
+		let template = await window.api.getTemplate('planner/codex-list-item');
 		template = template.replace(/{{ENTRY_ID}}/g, entryData.id);
 		template = template.replace(/{{ENTRY_TITLE}}/g, entryData.title);
 		template = template.replace(/{{THUMBNAIL_URL}}/g, entryData.thumbnail_url);
@@ -438,7 +438,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		if (!codexWindowContent) return;
 		if (document.getElementById(`codex-category-${categoryData.id}`)) return;
 		
-		let template = await window.api.getTemplate('codex-category-item');
+		let template = await window.api.getTemplate('planner/codex-category-item');
 		template = template.replace(/{{CATEGORY_ID}}/g, categoryData.id);
 		template = template.replace(/{{CATEGORY_NAME}}/g, categoryData.name);
 		

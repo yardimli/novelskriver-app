@@ -118,7 +118,7 @@ export function setupChapterEditor(desktop) {
  * @returns {Promise<HTMLElement>}
  */
 async function createCodexTagElement(chapterId, codexEntry) {
-	let template = await window.api.getTemplate('chapter-codex-tag');
+	let template = await window.api.getTemplate('chapter/chapter-codex-tag');
 	
 	template = template.replace(/{{CHAPTER_ID}}/g, chapterId);
 	template = template.replace(/{{ENTRY_ID}}/g, codexEntry.id);

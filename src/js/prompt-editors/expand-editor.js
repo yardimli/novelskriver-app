@@ -217,7 +217,7 @@ const populateForm = (container, state) => {
 
 export const init = async (container, context) => {
 	try {
-		const templateHtml = await window.api.getTemplate('expand-editor');
+		const templateHtml = await window.api.getTemplate('prompt/expand-editor');
 		container.innerHTML = templateHtml;
 		
 		const wordCount = context.selectedText ? context.selectedText.trim().split(/\s+/).filter(Boolean).length : 0;

@@ -24,8 +24,8 @@ async function populateOutlineTemplate(template, novelData) {
 		return '<p class="text-center text-base-content/70 p-4">No sections found for this novel.</p>';
 	}
 	
-	const sectionTemplateHtml = await window.api.getTemplate('outline-section');
-	const chapterTemplateHtml = await window.api.getTemplate('outline-chapter');
+	const sectionTemplateHtml = await window.api.getTemplate('planner/outline-section');
+	const chapterTemplateHtml = await window.api.getTemplate('planner/outline-chapter');
 	
 	const stripHtmlAndTruncate = (html, wordLimit) => {
 		if (!html) return '';
@@ -75,8 +75,8 @@ async function populateCodexTemplate(template, novelData) {
 		return '<p class="text-center text-base-content/70 p-4">No codex categories found.</p>';
 	}
 	
-	const categoryTemplateHtml = await window.api.getTemplate('codex-category-item');
-	const entryTemplateHtml = await window.api.getTemplate('codex-list-item');
+	const categoryTemplateHtml = await window.api.getTemplate('planner/codex-category-item');
+	const entryTemplateHtml = await window.api.getTemplate('planner/codex-list-item');
 	
 	const categoriesHtml = novelData.codexCategories.map(category => {
 		const entriesHtml = category.entries && category.entries.length > 0
@@ -135,8 +135,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 	let novelData;
 	
 	try {
-		const outlineTemplateHtml = await window.api.getTemplate('outline-window');
-		const codexTemplateHtml = await window.api.getTemplate('codex-window');
+		const outlineTemplateHtml = await window.api.getTemplate('planner/outline-window');
+		const codexTemplateHtml = await window.api.getTemplate('planner/codex-window');
 		
 		novelData = await window.api.getOneNovel(novelId);
 		if (!novelData) throw new Error('Novel not found.');
@@ -172,7 +172,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 		
 		// Store the editor state on the body for the WindowManager to find
 		document.body.dataset.editorState = JSON.stringify(novelData.editor_state || null);
-		document.title = `Novel Skriver - Editing: ${novelData.title}`;
+		document.title = `Planning: ${novelData.title}`;
 		
 	} catch (error) {
 		console.error('Failed to load initial novel data:', error);

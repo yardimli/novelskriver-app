@@ -1,5 +1,5 @@
 // NEW: Content editor manager specifically for the two-pane chapter editor window.
-// It is adapted from the novel-editor's version to handle a fixed set of two editors.
+// It is adapted from the novel-planner's version to handle a fixed set of two editors.
 
 import { EditorState, Plugin } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';

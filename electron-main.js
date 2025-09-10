@@ -171,7 +171,7 @@ function createEditorWindow(novelId) {
 		});
 	});
 	
-	editorWindow.loadFile('public/novel-editor.html', {query: {novelId: novelId}});
+	editorWindow.loadFile('public/novel-planner.html', {query: {novelId: novelId}});
 	editorWindows.set(novelId, editorWindow);
 	
 	editorWindow.webContents.on('context-menu', (event, params) => {
@@ -953,7 +953,7 @@ function setupIpcHandlers() {
 				: './assets/codex-placeholder.png';
 		});
 		
-		const chapterCodexTagTemplate = getTemplate('chapter-codex-tag');
+		const chapterCodexTagTemplate = getTemplate('chapter/chapter-codex-tag');
 		
 		const codexTagsHtml = chapter.codexEntries.map(entry => {
 			return chapterCodexTagTemplate
@@ -979,14 +979,14 @@ function setupIpcHandlers() {
 		const povCharacterHtml = chapter.pov_character_name ? ` &ndash; <span class="italic">${escapeAttr(chapter.pov_character_name)}</span>` : '';
 		const povSourceText = chapter.pov ? 'This chapter has a custom POV.' : ""; // "Using novel's default POV setting.";
 		
-		const povDisplayTemplate = getTemplate('chapter-pov-display');
+		const povDisplayTemplate = getTemplate('chapter/chapter-pov-display');
 		const povSettingsHtml = povDisplayTemplate
 			.replace('{{POV_TYPE_DISPLAY}}', povTypeDisplay)
 			.replace('{{POV_CHARACTER_HTML}}', povCharacterHtml)
 			.replace('{{POV_SOURCE_TEXT}}', povSourceText)
 			.replace('{{CHAPTER_ID}}', chapter.id);
 		
-		let template = getTemplate('chapter-window');
+		let template = getTemplate('chapter/chapter-window');
 		template = template.replace('{{CHAPTER_ID}}', chapter.id);
 		template = template.replace('{{SECTION_INFO_HTML}}', sectionInfoHtml);
 		template = template.replace('{{CHAPTER_TITLE_ATTR}}', escapeAttr(chapter.title));
@@ -1173,7 +1173,7 @@ function setupIpcHandlers() {
 				: './assets/codex-placeholder.png';
 		});
 		
-		const codexLinkTagTemplate = getTemplate('codex-link-tag');
+		const codexLinkTagTemplate = getTemplate('planner/codex-link-tag');
 		
 		const linkedTagsHtml = codexEntry.linkedEntries.map(entry => {
 			return codexLinkTagTemplate
@@ -1183,7 +1183,7 @@ function setupIpcHandlers() {
 				.replace(/{{PARENT_ENTRY_ID}}/g, codexEntry.id);
 		}).join('');
 		
-		let template = getTemplate('codex-entry-window');
+		let template = getTemplate('planner/codex-entry-window');
 		template = template.replace(/{{ENTRY_ID}}/g, codexEntry.id);
 		template = template.replace(/{{ENTRY_TITLE_ATTR}}/g, escapeAttr(codexEntry.title));
 		template = template.replace('{{IMAGE_URL}}', escapeAttr(codexEntry.image_url));

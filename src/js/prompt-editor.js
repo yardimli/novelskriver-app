@@ -6,8 +6,8 @@ import { init as initRephraseEditor, buildPromptJson as buildRephraseJson } from
 import { init as initShortenEditor, buildPromptJson as buildShortenJson } from './prompt-editors/shorten-editor.js';
 import { init as initSceneBeatEditor, buildPromptJson as buildSceneBeatJson } from './prompt-editors/scene-beat-editor.js';
 import { init as initSceneSummarizationEditor, buildPromptJson as buildSceneSummarizationJson } from './prompt-editors/scene-summarization-editor.js';
-import { getActiveEditor } from './novel-editor/content-editor.js';
-import { updateToolbarState } from './novel-editor/toolbar.js';
+import { getActiveEditor } from './novel-planner/content-editor.js';
+import { updateToolbarState } from './novel-planner/toolbar.js';
 import { TextSelection } from 'prosemirror-state';
 import { DOMParser } from 'prosemirror-model';
 

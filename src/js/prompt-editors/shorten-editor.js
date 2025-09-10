@@ -200,7 +200,7 @@ const populateForm = (container, state) => {
 
 export const init = async (container, context) => {
 	try {
-		const templateHtml = await window.api.getTemplate('shorten-editor');
+		const templateHtml = await window.api.getTemplate('prompt/shorten-editor');
 		container.innerHTML = templateHtml;
 		
 		const wordCount = context.selectedText ? context.selectedText.trim().split(/\s+/).filter(Boolean).length : 0;

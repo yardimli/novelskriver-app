@@ -29,9 +29,9 @@ async function renderOutline(container, sections) {
 		return;
 	}
 	
-	const sectionTemplate = await window.api.getTemplate('outline-viewer-section');
-	const chapterTemplate = await window.api.getTemplate('outline-viewer-chapter-item');
-	const tagTemplate = await window.api.getTemplate('chapter-codex-tag-readonly');
+	const sectionTemplate = await window.api.getTemplate('outline/outline-viewer-section');
+	const chapterTemplate = await window.api.getTemplate('outline/outline-viewer-chapter-item');
+	const tagTemplate = await window.api.getTemplate('outline/chapter-codex-tag-readonly');
 	
 	const fragment = document.createDocumentFragment();
 	
@@ -92,8 +92,8 @@ async function renderCodex(container, categories) {
 		return;
 	}
 	
-	const categoryTemplate = await window.api.getTemplate('outline-viewer-codex-category');
-	const entryTemplate = await window.api.getTemplate('outline-viewer-codex-item');
+	const categoryTemplate = await window.api.getTemplate('outline/outline-viewer-codex-category');
+	const entryTemplate = await window.api.getTemplate('outline/outline-viewer-codex-item');
 	
 	const fragment = document.createDocumentFragment();
 	

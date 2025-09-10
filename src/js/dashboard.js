@@ -121,7 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
 				: `<img src="./assets/book-placeholder.png" alt="No Cover" class="w-full h-auto">`;
 			
 			const actionButtonHtml = novel.chapter_count > 0
-				? `<button class="btn btn-primary js-open-editor">Open Editor</button>`
+				? ``
 				: `<a href="generate-structure.html?novelId=${novel.id}" class="btn btn-accent js-fill-ai"><i class="bi bi-stars"></i> Fill with AI</a>`;
 			
 			novelCard.innerHTML = `
@@ -137,8 +137,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             <i class="bi bi-sliders text-lg"></i>
                         </button>
                         <div class="flex-grow"></div>
-                        <!-- NEW: Outline button -->
-                        <button class="btn btn-ghost js-open-outline">Outline</button>
+                        <button class="btn btn-secondary js-open-outline">Outline</button>
+                        <button class="btn btn-primary js-open-editor">Planner</button>
                         ${actionButtonHtml}
                     </div>
                 </div>

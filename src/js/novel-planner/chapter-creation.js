@@ -88,11 +88,11 @@ document.addEventListener('DOMContentLoaded', () => {
 	}
 	
 	async function updateOutlineUI(newChapter, reorderedChapters) {
-		const outlineWindow = document.getElementById('outline-window');
+		const outlineWindow = document.getElementById('planner/outline-window');
 		if (!outlineWindow) return;
 		
 		// 1. Create the new chapter element
-		const chapterTemplateHtml = await window.api.getTemplate('outline-chapter');
+		const chapterTemplateHtml = await window.api.getTemplate('planner/outline-chapter');
 		const summaryHtml = newChapter.summary ? `<p class="text-xs text-base-content/70 mt-1 font-normal normal-case">${newChapter.summary}</p>` : '';
 		const newChapterHtml = chapterTemplateHtml
 			.replace('{{CHAPTER_ID}}', newChapter.id)

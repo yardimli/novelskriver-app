@@ -1,5 +1,5 @@
 // NEW: Entry point for the dedicated codex entry editor window.
-import { setupTopToolbar } from '../novel-editor/toolbar.js';
+import { setupTopToolbar } from '../novel-planner/toolbar.js';
 import { getCodexEditorView, setupContentEditor } from './codex-content-editor.js';
 import { setupPromptEditor } from '../prompt-editor.js';
 

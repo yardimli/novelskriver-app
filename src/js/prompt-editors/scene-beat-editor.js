@@ -185,7 +185,7 @@ const populateForm = (container, state) => {
 
 export const init = async (container, context) => {
 	try {
-		const templateHtml = await window.api.getTemplate('scene-beat-editor');
+		const templateHtml = await window.api.getTemplate('prompt/scene-beat-editor');
 		container.innerHTML = templateHtml;
 		
 		const wordCount = context.selectedText ? context.selectedText.trim().split(/\s+/).filter(Boolean).length : 0;
