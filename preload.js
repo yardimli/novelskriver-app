@@ -6,6 +6,10 @@ contextBridge.exposeInMainWorld('api', {
 	getOneNovel: (novelId) => ipcRenderer.invoke('novels:getOne', novelId),
 	createNovel: (data) => ipcRenderer.invoke('novels:store', data),
 	openEditor: (novelId) => ipcRenderer.send('novels:openEditor', novelId),
+	// NEW: API to open the outline viewer window.
+	openOutline: (novelId) => ipcRenderer.send('novels:openOutline', novelId),
+	// NEW: API to get all data for the outline viewer.
+	getOutlineData: (novelId) => ipcRenderer.invoke('novels:getOutlineData', novelId),
 	getSeries: () => ipcRenderer.invoke('series:getAll'),
 	createSeries: (data) => ipcRenderer.invoke('series:store', data),
 	generateTitle: () => ipcRenderer.invoke('novels:generateTitle'),

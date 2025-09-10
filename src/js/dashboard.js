@@ -137,6 +137,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             <i class="bi bi-sliders text-lg"></i>
                         </button>
                         <div class="flex-grow"></div>
+                        <!-- NEW: Outline button -->
+                        <button class="btn btn-ghost js-open-outline">Outline</button>
                         ${actionButtonHtml}
                     </div>
                 </div>
@@ -145,6 +147,8 @@ document.addEventListener('DOMContentLoaded', () => {
 			novelCard.querySelectorAll('.js-open-editor').forEach(el => el.addEventListener('click', () => window.api.openEditor(novel.id)));
 			novelCard.querySelector('.js-prose-settings').addEventListener('click', () => openProseSettingsModal(novel));
 			novelCard.querySelector('.js-meta-settings').addEventListener('click', () => openMetaSettingsModal(novel));
+			// NEW: Event listener for the outline button
+			novelCard.querySelector('.js-open-outline').addEventListener('click', () => window.api.openOutline(novel.id));
 			
 			novelList.appendChild(novelCard);
 		});

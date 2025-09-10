@@ -14,6 +14,7 @@ let db;
 let mainWindow;
 let editorWindows = new Map();
 let chapterEditorWindows = new Map(); // NEW: Map for dedicated chapter editors.
+let outlineWindows = new Map(); // NEW: Map for outline viewer windows.
 
 // --- Template and HTML Helper Functions ---
 
@@ -45,6 +46,20 @@ function escapeAttr(text) {
 		.replace(/>/g, '&gt;')
 		.replace(/"/g, '&quot;')
 		.replace(/'/g, '&#039;');
+}
+
+// NEW: Helper function to count words in an HTML string.
+/**
+ * Counts the words in an HTML string by stripping tags.
+ * @param {string | null} html The HTML content.
+ * @returns {number} The number of words.
+ */
+function countWordsInHtml(html) {
+	if (!html) return 0;
+	// Remove HTML tags, then count words based on whitespace.
+	const text = html.replace(/<[^>]*>/g, ' ');
+	const words = text.trim().split(/\s+/).filter(Boolean);
+	return words.length;
 }
 
 // --- Window Creation Functions ---
@@ -271,6 +286,48 @@ function createChapterEditorWindow(chapterId) {
 	// chapterEditorWindow.webContents.openDevTools();
 }
 
+// NEW: Creates the new outline viewer window.
+function createOutlineWindow(novelId) {
+	if (outlineWindows.has(novelId)) {
+		const existingWin = outlineWindows.get(novelId);
+		if (existingWin) {
+			existingWin.focus();
+			return;
+		}
+	}
+	
+	const outlineWindow = new BrowserWindow({
+		width: 1800,
+		height: 1000,
+		icon: path.join(__dirname, 'assets/icon.png'),
+		title: 'Novel Skriver - Outline Viewer',
+		autoHideMenuBar: true,
+		webPreferences: {
+			preload: path.join(__dirname, 'preload.js'),
+			contextIsolation: true,
+			nodeIntegration: false,
+		},
+	});
+	
+	outlineWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+		callback({
+			responseHeaders: {
+				...details.responseHeaders,
+				"Content-Security-Policy": ["default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' file: data: https:;"],
+			},
+		});
+	});
+	
+	outlineWindow.loadFile('public/outline-viewer.html', {query: {novelId: novelId}});
+	outlineWindows.set(novelId, outlineWindow);
+	
+	outlineWindow.on('closed', () => {
+		outlineWindows.delete(novelId);
+	});
+	
+	// outlineWindow.webContents.openDevTools();
+}
+
 
 /**
  * Wraps all IPC handler registrations in a single function.
@@ -341,6 +398,90 @@ function setupIpcHandlers() {
 			}
 		}
 		return novel;
+	});
+	
+	// NEW: IPC handler to fetch all data required for the outline viewer.
+	ipcMain.handle('novels:getOutlineData', (event, novelId) => {
+		const novel = db.prepare('SELECT title, prose_pov FROM novels WHERE id = ?').get(novelId);
+		if (!novel) throw new Error('Novel not found');
+		
+		const povDisplayMap = {
+			'first_person': '1st Person',
+			'second_person': '2nd Person',
+			'third_person': '3rd Person',
+			'third_person_limited': '3rd Person (Limited)',
+			'third_person_omniscient': '3rd Person (Omniscient)',
+		};
+		
+		// 1. Get Outline Structure
+		const sections = db.prepare('SELECT * FROM sections WHERE novel_id = ? ORDER BY section_order').all(novelId);
+		sections.forEach(section => {
+			// MODIFIED: Fetch 'content' to calculate word count.
+			section.chapters = db.prepare('SELECT id, title, summary, content, pov, pov_character_id, chapter_order FROM chapters WHERE section_id = ? ORDER BY chapter_order').all(section.id);
+			
+			let sectionTotalWords = 0; // NEW: Initialize word count for the section.
+			
+			section.chapters.forEach(chapter => {
+				// NEW: Calculate and add word count for the chapter.
+				chapter.word_count = countWordsInHtml(chapter.content);
+				sectionTotalWords += chapter.word_count;
+				
+				// Get POV info
+				const povType = chapter.pov || novel.prose_pov;
+				const povCharacter = chapter.pov_character_id ? db.prepare('SELECT title FROM codex_entries WHERE id = ?').get(chapter.pov_character_id) : null;
+				chapter.pov_display = {
+					type: povDisplayMap[povType] || 'Not Set',
+					character_name: povCharacter ? povCharacter.title : null
+				};
+				
+				// Get linked codex entries
+				chapter.linked_codex = db.prepare(`
+                SELECT ce.id, ce.title, i.thumbnail_local_path
+                FROM codex_entries ce
+                JOIN chapter_codex_entry cce ON ce.id = cce.codex_entry_id
+                LEFT JOIN images i ON ce.id = i.codex_entry_id
+                WHERE cce.chapter_id = ?
+                ORDER BY ce.title
+            `).all(chapter.id);
+				
+				chapter.linked_codex.forEach(entry => {
+					entry.thumbnail_url = entry.thumbnail_local_path
+						? `file://${path.join(imageHandler.IMAGES_DIR, entry.thumbnail_local_path)}`
+						: './assets/codex-placeholder.png';
+				});
+			});
+			
+			// NEW: Add total word count and chapter count to the section object.
+			section.total_word_count = sectionTotalWords;
+			section.chapter_count = section.chapters.length;
+		});
+		
+		// 2. Get All Codex Entries
+		const codexCategories = db.prepare(`
+        SELECT id, name FROM codex_categories
+        WHERE novel_id = ? ORDER BY name
+    `).all(novelId);
+		
+		codexCategories.forEach(category => {
+			category.entries = db.prepare(`
+            SELECT ce.id, ce.title, ce.content, i.thumbnail_local_path
+            FROM codex_entries ce
+            LEFT JOIN images i ON i.codex_entry_id = ce.id
+            WHERE ce.codex_category_id = ? ORDER BY ce.title
+        `).all(category.id);
+			
+			category.entries.forEach(entry => {
+				entry.thumbnail_url = entry.thumbnail_local_path
+					? `file://${path.join(imageHandler.IMAGES_DIR, entry.thumbnail_local_path)}`
+					: './assets/codex-placeholder.png';
+			});
+		});
+		
+		return {
+			novel_title: novel.title,
+			sections: sections,
+			codex_categories: codexCategories
+		};
 	});
 	
 	ipcMain.handle('novels:store', async (event, data) => {
@@ -484,6 +625,11 @@ function setupIpcHandlers() {
 	
 	ipcMain.on('novels:openEditor', (event, novelId) => {
 		createEditorWindow(novelId);
+	});
+	
+	// NEW: IPC handler to open the outline viewer window.
+	ipcMain.on('novels:openOutline', (event, novelId) => {
+		createOutlineWindow(novelId);
 	});
 	
 	// NEW: IPC handler to open the dedicated chapter editor.
