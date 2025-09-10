@@ -37,7 +37,7 @@ export default class WindowManager {
 		
 		const win = document.createElement('div');
 		win.id = windowId;
-		win.className = 'window-element card bg-base-100 shadow-2xl border border-base-300 overflow-hidden absolute flex flex-col transition-all duration-100 ease-in-out';
+		win.className = 'window-element card bg-base-200 shadow-2xl border border-base-300 overflow-hidden absolute flex flex-col transition-all duration-100 ease-in-out';
 		win.style.width = `${width}px`;
 		win.style.height = `${height}px`;
 		win.style.minWidth = '300px';
@@ -1055,8 +1055,8 @@ export default class WindowManager {
 		}
 		
 		const PADDING = 50;
-		const COL_GAP = 20;
-		const ROW_GAP = 20;
+		const COL_GAP = 40;
+		const ROW_GAP = 40;
 		
 		const SML_WIN_W = 400;
 		const SML_WIN_H = 400;
