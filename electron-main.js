@@ -13,8 +13,9 @@ const imageHandler = require('./src/utils/image-handler.js');
 let db;
 let mainWindow;
 let editorWindows = new Map();
-let chapterEditorWindows = new Map(); // NEW: Map for dedicated chapter editors.
-let outlineWindows = new Map(); // NEW: Map for outline viewer windows.
+let chapterEditorWindows = new Map();
+let outlineWindows = new Map();
+let codexEditorWindows = new Map();
 
 // --- Template and HTML Helper Functions ---
 
@@ -327,6 +328,71 @@ function createOutlineWindow(novelId) {
 	
 	// outlineWindow.webContents.openDevTools();
 }
+
+function createCodexEditorWindow(entryId) {
+	if (codexEditorWindows.has(entryId)) {
+		const existingWin = codexEditorWindows.get(entryId);
+		if (existingWin) {
+			existingWin.focus();
+			return;
+		}
+	}
+	
+	const codexEditorWindow = new BrowserWindow({
+		width: 1200,
+		height: 800,
+		icon: path.join(__dirname, 'assets/icon.png'),
+		title: 'Novel Skriver - Codex Editor',
+		autoHideMenuBar: true,
+		webPreferences: {
+			preload: path.join(__dirname, 'preload.js'),
+			contextIsolation: true,
+			nodeIntegration: false,
+		},
+	});
+	
+	codexEditorWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+		callback({
+			responseHeaders: {
+				...details.responseHeaders,
+				"Content-Security-Policy": ["default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' file: data: https:;"],
+			},
+		});
+	});
+	
+	codexEditorWindow.loadFile('public/codex-entry-editor.html', { query: { entryId: entryId } });
+	codexEditorWindows.set(entryId, codexEditorWindow);
+	
+	codexEditorWindow.webContents.on('context-menu', (event, params) => {
+		const menu = new Menu();
+		for (const suggestion of params.dictionarySuggestions) {
+			menu.append(new MenuItem({
+				label: suggestion,
+				click: () => codexEditorWindow.webContents.replaceMisspelling(suggestion)
+			}));
+		}
+		if (params.misspelledWord) {
+			menu.append(new MenuItem({
+				label: 'Add to dictionary',
+				click: () => codexEditorWindow.webContents.session.addWordToSpellCheckerDictionary(params.misspelledWord)
+			}));
+		}
+		if (params.isEditable) {
+			if (menu.items.length > 0) menu.append(new MenuItem({ type: 'separator' }));
+			menu.append(new MenuItem({ label: 'Cut', role: 'cut', enabled: params.selectionText }));
+			menu.append(new MenuItem({ label: 'Copy', role: 'copy', enabled: params.selectionText }));
+			menu.append(new MenuItem({ label: 'Paste', role: 'paste' }));
+			menu.append(new MenuItem({ type: 'separator' }));
+			menu.append(new MenuItem({ label: 'Select All', role: 'selectAll' }));
+		}
+		menu.popup();
+	});
+	
+	codexEditorWindow.on('closed', () => {
+		codexEditorWindows.delete(entryId);
+	});
+}
+
 
 
 /**
@@ -1395,6 +1461,35 @@ function setupIpcHandlers() {
 		}
 		return null;
 	});
+	
+	ipcMain.on('codex-entries:openEditor', (event, entryId) => {
+		createCodexEditorWindow(entryId);
+	});
+	
+	ipcMain.handle('codex-entries:getOneForEditor', (event, entryId) => {
+		const entry = db.prepare(`
+			SELECT
+				ce.title,
+				ce.content,
+				ce.novel_id,
+				n.title AS novel_title
+			FROM codex_entries ce
+			LEFT JOIN novels n ON ce.novel_id = n.id
+			WHERE ce.id = ?
+		`).get(entryId);
+		
+		if (!entry) {
+			throw new Error('Codex entry not found for editor.');
+		}
+		
+		const image = db.prepare('SELECT image_local_path FROM images WHERE codex_entry_id = ?').get(entryId);
+		entry.image_url = image
+			? `file://${path.join(imageHandler.IMAGES_DIR, image.image_local_path)}`
+			: './assets/codex-placeholder.png';
+		
+		return entry;
+	});
+	
 }
 
 // --- App Lifecycle Events ---

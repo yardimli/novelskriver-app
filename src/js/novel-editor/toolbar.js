@@ -261,6 +261,8 @@ async function handleToolbarAction(button) {
 		
 		// --- MODIFIED: Context gathering logic updated for chapter summarization ---
 		const isChapterEditor = toolbarConfig.isChapterEditor;
+		const isCodexEditor = toolbarConfig.isCodexEditor;
+		
 		const activeEditor = getActiveEditor();
 		let editorForPrompt = activeEditor; // The editor instance that the AI action will target.
 		let selectedText = '';
@@ -313,7 +315,7 @@ async function handleToolbarAction(button) {
 			const chapterWindowContent = activeEditor.dom.closest('.chapter-window-content');
 			if (chapterWindowContent) {
 				chapterId = chapterWindowContent.dataset.chapterId;
-			} else {
+			} else if (isChapterEditor) { // MODIFIED: Check if in standalone chapter editor
 				chapterId = document.body.dataset.chapterId || null;
 			}
 		}
@@ -372,8 +374,7 @@ async function handleToolbarAction(button) {
 			povString,
 			wordsBefore,
 			wordsAfter,
-			activeEditorView: editorForPrompt, // Pass the correct target editor.
-			// NEW: Add a flag to tell the prompt editor how to handle this specific action.
+			activeEditorView: editorForPrompt,
 			isChapterSummarization: isChapterEditor && action === 'scene-summarization',
 		};
 		openPromptEditor(context, action);

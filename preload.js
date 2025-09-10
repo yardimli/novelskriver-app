@@ -6,9 +6,7 @@ contextBridge.exposeInMainWorld('api', {
 	getOneNovel: (novelId) => ipcRenderer.invoke('novels:getOne', novelId),
 	createNovel: (data) => ipcRenderer.invoke('novels:store', data),
 	openEditor: (novelId) => ipcRenderer.send('novels:openEditor', novelId),
-	// NEW: API to open the outline viewer window.
 	openOutline: (novelId) => ipcRenderer.send('novels:openOutline', novelId),
-	// NEW: API to get all data for the outline viewer.
 	getOutlineData: (novelId) => ipcRenderer.invoke('novels:getOutlineData', novelId),
 	getSeries: () => ipcRenderer.invoke('series:getAll'),
 	createSeries: (data) => ipcRenderer.invoke('series:store', data),
@@ -43,11 +41,8 @@ contextBridge.exposeInMainWorld('api', {
 	attachCodexToChapter: (chapterId, codexEntryId) => ipcRenderer.invoke('chapters:codex:attach', chapterId, codexEntryId),
 	detachCodexFromChapter: (chapterId, codexEntryId) => ipcRenderer.invoke('chapters:codex:detach', chapterId, codexEntryId),
 	
-	// NEW: API to open the dedicated chapter editor window.
 	openChapterEditor: (chapterId) => ipcRenderer.send('chapters:openEditor', chapterId),
-	// NEW: API to get all data needed for the chapter editor.
 	getOneChapterForEditor: (chapterId) => ipcRenderer.invoke('chapters:getOneForEditor', chapterId),
-	// NEW: API to save all data from the chapter editor.
 	updateChapterFull: (chapterId, data) => ipcRenderer.invoke('chapters:updateFull', chapterId, data),
 	
 	updateChapterContent: (chapterId, data) => ipcRenderer.invoke('chapters:updateContent', chapterId, data),
@@ -60,6 +55,10 @@ contextBridge.exposeInMainWorld('api', {
 	getLinkedCodexIdsForChapter: (chapterId) => ipcRenderer.invoke('chapters:getLinkedCodexIds', chapterId),
 	
 	// Codex Entry Management
+	// NEW: API to open the dedicated codex editor window.
+	openCodexEditor: (entryId) => ipcRenderer.send('codex-entries:openEditor', entryId),
+	// NEW: API to get all data needed for the codex editor.
+	getOneCodexForEditor: (entryId) => ipcRenderer.invoke('codex-entries:getOneForEditor', entryId),
 	createCodexEntry: (novelId, formData) => ipcRenderer.invoke('codex-entries:store', novelId, formData),
 	suggestCodexDetails: (novelId, text) => ipcRenderer.invoke('codex-entries:suggest-details', { novelId, text }),
 	updateCodexEntry: (entryId, data) => ipcRenderer.invoke('codex-entries:update', entryId, data),

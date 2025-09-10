@@ -109,9 +109,9 @@ async function renderCodex(container, categories) {
 		if (category.entries && category.entries.length > 0) {
 			for (const entry of category.entries) {
 				const entryHtml = entryTemplate
-					.replace('{{ENTRY_ID}}', entry.id)
+					.replace(/{{ENTRY_ID}}/g, entry.id) // MODIFIED: Use global replace for entry ID to ensure all instances are replaced.
 					.replace(/{{ENTRY_TITLE}}/g, entry.title)
-					.replace('{{THUMBNAIL_URL}}', entry.thumbnail_url)
+					.replace(/{{THUMBNAIL_URL}}/g, entry.thumbnail_url) // MODIFIED: Use global replace for consistency.
 					.replace('{{CONTENT_HTML}}', truncateHtml(entry.content, 30));
 				
 				entriesContainer.innerHTML += entryHtml;
@@ -153,6 +153,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 			if (editBtn) {
 				const chapterId = editBtn.dataset.chapterId;
 				window.api.openChapterEditor(chapterId);
+			}
+			
+			// NEW: Add listener for codex edit button
+			const editCodexBtn = event.target.closest('.js-edit-codex-entry');
+			if (editCodexBtn) {
+				const entryId = editCodexBtn.dataset.entryId;
+				window.api.openCodexEditor(entryId);
 			}
 		});
 		
