@@ -1080,6 +1080,7 @@ export default class WindowManager {
 			const codexCategories = this.novelData.codexCategories || [];
 			const charactersCategory = codexCategories.find(c => c.name.toLowerCase() === 'characters');
 			const locationsCategory = codexCategories.find(c => c.name.toLowerCase() === 'locations');
+			const othersCategory = codexCategories.find(c => c.name.toLowerCase() !== 'characters' && c.name.toLowerCase() !== 'locations');
 			
 			// Column 1: Characters
 			let hasPositionedInCol1 = false;
@@ -1112,6 +1113,23 @@ export default class WindowManager {
 				}
 			}
 			if (hasPositionedInCol2) {
+				currentX += SML_WIN_W + COL_GAP;
+			}
+			
+			// Column 2: Others
+			let hasPositionedInCol3 = false;
+			if (othersCategory && othersCategory.entries) {
+				let colY = currentY;
+				for (const entry of othersCategory.entries) {
+					if (openCodexWindows.has(String(entry.id))) {
+						const windowId = openCodexWindows.get(String(entry.id));
+						this.reposition(windowId, currentX, colY, SML_WIN_W, SML_WIN_H);
+						colY += SML_WIN_H + ROW_GAP;
+						hasPositionedInCol3 = true;
+					}
+				}
+			}
+			if (hasPositionedInCol3) {
 				currentX += SML_WIN_W + COL_GAP;
 			}
 		}
