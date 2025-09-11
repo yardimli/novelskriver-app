@@ -26,8 +26,38 @@ const nodes = basicSchema.spec.nodes.update('blockquote', {
 	toDOM() { return ['blockquote', 0]; },
 });
 
+// NEW: Spec for the custom 'note' node.
+const noteNodeSpec = {
+	attrs: {
+		text: { default: '' },
+	},
+	group: 'block',
+	content: '', // No direct content, managed by NodeView and attributes.
+	draggable: true,
+	toDOM(node) {
+		// This is the "serialized" version for saving. The NodeView creates the interactive version.
+		const wrapper = document.createElement('div');
+		// Add the 'note-wrapper' class for parsing and a 'prose' class to prevent nested prose styles.
+		wrapper.className = 'note-wrapper not-prose';
+		const p = document.createElement('p');
+		p.textContent = node.attrs.text;
+		wrapper.appendChild(p);
+		return wrapper;
+	},
+	parseDOM: [{
+		tag: 'div.note-wrapper',
+		getAttrs(dom) {
+			const p = dom.querySelector('p');
+			return { text: p ? p.textContent : '' };
+		}
+	}]
+};
+
+// NEW: Add the note node to the schema spec before the horizontal rule.
+const nodesWithNote = nodes.addBefore('horizontal_rule', 'note', noteNodeSpec);
+
 export const schema = new Schema({
-	nodes: addListNodes(nodes, 'paragraph+', 'block'),
+	nodes: addListNodes(nodesWithNote, 'paragraph+', 'block'), // MODIFIED: Use the updated nodes spec
 	marks: {
 		link: {
 			attrs: { href: {}, title: { default: null } },
@@ -79,8 +109,6 @@ const descriptionSchema = new Schema({
 	marks: {},
 });
 
-// NEW: Function to set the globally active editor.
-// This allows other modules (like chapter-content-editor) to register their active view.
 export function setActiveEditor(view) {
 	activeEditorView = view;
 }
@@ -88,6 +116,8 @@ export function setActiveEditor(view) {
 export function getActiveEditor() {
 	return activeEditorView;
 }
+
+// ... (rest of the file is unchanged until the end)
 
 function triggerDebouncedSave(windowContent) {
 	const isChapter = windowContent.matches('.chapter-window-content');
@@ -215,14 +245,12 @@ function initEditorsForWindow(windowContent) {
 						props: {
 							handleDOMEvents: {
 								focus(view) {
-									// MODIFIED: Use the setter function.
 									setActiveEditor(view);
 									updateToolbarState(view);
 								},
 								blur(view, event) {
 									const relatedTarget = event.relatedTarget;
 									if (!relatedTarget || !relatedTarget.closest('#top-toolbar')) {
-										// MODIFIED: Use the setter function.
 										setActiveEditor(null);
 										updateToolbarState(null);
 									}
@@ -308,4 +336,79 @@ export function setupContentEditor(desktop) {
 	observer.observe(desktop, { childList: true, subtree: true });
 	
 	desktop.querySelectorAll('.codex-entry-window-content, .chapter-window-content').forEach(initEditorsForWindow);
+}
+
+
+// NEW: A NodeView for our custom 'note' node.
+export class NoteNodeView {
+	constructor(node, view, getPos) {
+		this.node = node;
+		this.view = view;
+		this.getPos = getPos;
+		
+		// The outer DOM structure of the node view
+		this.dom = document.createElement('div');
+		this.dom.className = 'note-wrapper not-prose p-4 my-4 border-l-4 border-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 dark:border-yellow-600 rounded-r-md relative group';
+		
+		// The content display area (not directly editable)
+		this.contentDOM = document.createElement('p');
+		this.contentDOM.className = 'text-base-content/80 m-0';
+		this.contentDOM.textContent = node.attrs.text;
+		
+		// Controls container
+		const controls = document.createElement('div');
+		controls.className = 'absolute top-1 right-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity';
+		
+		// Edit button
+		const editBtn = document.createElement('button');
+		editBtn.type = 'button';
+		editBtn.className = 'btn btn-xs btn-ghost';
+		editBtn.innerHTML = '<i class="bi bi-pencil"></i>';
+		editBtn.title = 'Edit note';
+		editBtn.addEventListener('mousedown', this.openEditModal.bind(this)); // Use mousedown to prevent focus shift
+		
+		// Delete button
+		const deleteBtn = document.createElement('button');
+		deleteBtn.type = 'button';
+		deleteBtn.className = 'btn btn-xs btn-ghost text-error';
+		deleteBtn.innerHTML = '<i class="bi bi-trash"></i>';
+		deleteBtn.title = 'Delete note';
+		deleteBtn.addEventListener('mousedown', this.deleteNode.bind(this));
+		
+		controls.appendChild(editBtn);
+		controls.appendChild(deleteBtn);
+		
+		this.dom.appendChild(this.contentDOM);
+		this.dom.appendChild(controls);
+	}
+	
+	openEditModal(e) {
+		e.preventDefault();
+		const noteModal = document.getElementById('note-editor-modal');
+		const form = document.getElementById('note-editor-form');
+		const title = noteModal.querySelector('.js-note-modal-title');
+		const contentInput = document.getElementById('note-content-input');
+		const posInput = document.getElementById('note-pos');
+		
+		title.textContent = 'Edit Note';
+		contentInput.value = this.node.attrs.text;
+		posInput.value = this.getPos(); // Store position to find the node later
+		noteModal.showModal();
+	}
+	
+	deleteNode(e) {
+		e.preventDefault();
+		const tr = this.view.state.tr.delete(this.getPos(), this.getPos() + this.node.nodeSize);
+		this.view.dispatch(tr);
+	}
+	
+	// ProseMirror requires these methods for NodeViews.
+	stopEvent() { return true; } // We handle all events within the node view
+	
+	update(node) {
+		if (node.type !== this.node.type) return false;
+		this.node = node;
+		this.contentDOM.textContent = node.attrs.text;
+		return true;
+	}
 }

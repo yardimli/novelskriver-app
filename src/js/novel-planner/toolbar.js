@@ -66,6 +66,15 @@ export function updateToolbarState(view) {
 				case 'create_codex':
 					btn.disabled = empty;
 					return;
+				// MODIFIED: Corrected the logic to enable the button only when the cursor is in an empty paragraph.
+				case 'add_note': {
+					const { $from } = state.selection;
+					// The button should be enabled only if the selection is a cursor (empty)
+					// and its parent node is a paragraph with no content.
+					const isAtEmptyPara = empty && $from.parent.type.name === 'paragraph' && $from.parent.content.size === 0;
+					btn.disabled = !isAtEmptyPara;
+					return;
+				}
 				case 'bold': markType = schema.marks.strong; commandFn = toggleMark(markType); break;
 				case 'italic': markType = schema.marks.em; commandFn = toggleMark(markType); break;
 				case 'underline': markType = schema.marks.underline; commandFn = toggleMark(markType); break;
@@ -347,6 +356,19 @@ async function handleToolbarAction(button) {
 			if (novelId && selectedText) {
 				window.api.openNewCodexEditor({ novelId, selectedText });
 			}
+		} else if (command === 'add_note') {
+			if (!activeEditorView) return;
+			const noteModal = document.getElementById('note-editor-modal');
+			const form = document.getElementById('note-editor-form');
+			const title = noteModal.querySelector('.js-note-modal-title');
+			const contentInput = document.getElementById('note-content-input');
+			const posInput = document.getElementById('note-pos');
+			
+			title.textContent = 'Add Note';
+			form.reset();
+			posInput.value = ''; // Clear position, indicating a new note.
+			noteModal.showModal();
+			contentInput.focus();
 		} else {
 			applyCommand(command);
 		}

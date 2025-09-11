@@ -116,6 +116,10 @@
 	</div>
 	<div class="divider divider-horizontal mx-0"></div>
 	<div class="flex items-center gap-1">
+		<button type="button" class="js-toolbar-btn btn btn-ghost btn-sm btn-square" data-command="add_note"
+		        title="Add Note" disabled>
+			<i class="bi bi-journal-text text-lg"></i>
+		</button>
 		<button type="button" class="js-toolbar-btn btn btn-ghost btn-sm btn-square" data-command="create_codex"
 		        title="Create Codex Entry" disabled>
 			<i class="bi bi-journal-plus text-lg"></i>
@@ -147,9 +151,7 @@
 </div>
 
 <!-- Main Content Area -->
-<!-- MODIFIED: Changed main flex container from p-4 to p-0 to allow full-height scrolling columns -->
 <div class="flex-grow flex flex-col overflow-hidden">
-	<!-- MODIFIED: Header is now a separate bar for navigation -->
 	<div class="flex-shrink-0 flex items-center gap-4 px-4 py-2 border-b border-base-300">
 		<h2 id="js-novel-title" class="text-xl font-bold">Loading...</h2>
 		<select id="js-chapter-nav-dropdown" class="select select-bordered select-sm w-full max-w-xs">
@@ -157,16 +159,12 @@
 		</select>
 	</div>
 	
-	<!-- MODIFIED: Editor container is now a single, full-width column -->
 	<div class="flex-grow flex min-h-0">
-		<!-- MODIFIED: Manuscript container takes up the full width -->
 		<div id="js-manuscript-container" class="w-full flex flex-col overflow-y-auto">
 			<!-- Manuscript content (sections, chapters, editors) will be rendered here by JS -->
 		</div>
 	</div>
 </div>
-
-<!-- REMOVED: The hidden container for the side panel summary editor source is no longer needed in this layout. -->
 
 
 <dialog id="prompt-editor-modal" class="modal">
@@ -200,6 +198,25 @@
 				<button class="btn">Close</button>
 			</form>
 		</div>
+	</div>
+</dialog>
+
+<!-- NEW: Note Editor Modal -->
+<dialog id="note-editor-modal" class="modal">
+	<div class="modal-box">
+		<h3 class="js-note-modal-title font-bold text-lg">Add Note</h3>
+		<form id="note-editor-form" class="py-4 space-y-4" novalidate>
+			<input type="hidden" id="note-pos" value="">
+			<div class="form-control">
+				<label class="label"><span class="label-text">Note Content</span></label>
+				<textarea id="note-content-input" name="note_content" rows="5" class="textarea textarea-bordered" required
+				          placeholder="Enter your note..."></textarea>
+			</div>
+			<div class="modal-action">
+				<button type="button" class="js-close-note-modal btn">Cancel</button>
+				<button type="submit" class="js-save-note-btn btn btn-primary">Save Note</button>
+			</div>
+		</form>
 	</div>
 </dialog>
 

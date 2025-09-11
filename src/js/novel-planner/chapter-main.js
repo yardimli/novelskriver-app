@@ -7,7 +7,8 @@ import { DOMParser, DOMSerializer } from 'prosemirror-model';
 import { history, undo, redo } from 'prosemirror-history';
 import { keymap } from 'prosemirror-keymap';
 import { baseKeymap } from 'prosemirror-commands';
-import { schema, setActiveEditor } from './content-editor.js';
+// MODIFIED: Import NoteNodeView, getActiveEditor and the full schema.
+import { schema, NoteNodeView, getActiveEditor, setActiveEditor } from './content-editor.js';
 import { updateToolbarState } from './toolbar.js';
 
 const debounceTimers = new Map();
@@ -191,6 +192,10 @@ async function renderManuscript(container, novelData) {
 					doc: contentDoc,
 					plugins: [history(), keymap({ 'Mod-z': undo, 'Mod-y': redo }), keymap(baseKeymap), editorPlugin],
 				}),
+				// NEW: Add the nodeViews property to render our custom 'note' nodes.
+				nodeViews: {
+					note(node, view, getPos) { return new NoteNodeView(node, view, getPos); }
+				},
 				dispatchTransaction(transaction) {
 					const newState = this.state.apply(transaction);
 					this.updateState(newState);
@@ -340,6 +345,60 @@ function setupCodexUnlinking() {
 	});
 }
 
+/**
+ * NEW: Sets up the note editor modal for creating and editing notes.
+ */
+function setupNoteEditorModal() {
+	const modal = document.getElementById('note-editor-modal');
+	const form = document.getElementById('note-editor-form');
+	const closeBtn = modal.querySelector('.js-close-note-modal');
+	if (!modal || !form || !closeBtn) return;
+	
+	form.addEventListener('submit', (event) => {
+		event.preventDefault();
+		const view = getActiveEditor();
+		if (!view) {
+			console.error('No active editor view to save note to.');
+			return;
+		}
+		
+		const contentInput = document.getElementById('note-content-input');
+		const posInput = document.getElementById('note-pos');
+		const noteText = contentInput.value.trim();
+		
+		// Although the NodeView will display the text, it's good practice to ensure it's not completely empty.
+		if (!noteText) {
+			alert('Note cannot be empty.');
+			return;
+		}
+		
+		const pos = posInput.value ? parseInt(posInput.value, 10) : null;
+		let tr;
+		
+		if (pos !== null && !isNaN(pos)) {
+			// Editing an existing note by updating its 'text' attribute.
+			tr = view.state.tr.setNodeMarkup(pos, null, { text: noteText });
+		} else {
+			// MODIFIED: Creating a new note. This now replaces the parent block (the empty paragraph)
+			// instead of just the selection, which is the correct behavior for block nodes.
+			const { $from } = view.state.selection;
+			const noteNode = schema.nodes.note.create({ text: noteText });
+			// Replace the entire block node the cursor is in (from its start to its end).
+			tr = view.state.tr.replaceRangeWith($from.start(), $from.end(), noteNode);
+		}
+		
+		view.dispatch(tr);
+		view.focus();
+		modal.close();
+		form.reset();
+	});
+	
+	closeBtn.addEventListener('click', () => {
+		modal.close();
+		form.reset();
+	});
+}
+
 // Main Initialization
 document.addEventListener('DOMContentLoaded', async () => {
 	const params = new URLSearchParams(window.location.search);
@@ -371,6 +430,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 		setupPromptEditor();
 		setupIntersectionObserver();
 		setupCodexUnlinking(); // NEW: Initialize unlinking listener.
+		setupNoteEditorModal(); // NEW: Initialize the note modal logic.
 		
 		const chapterToLoad = initialChapterId || novelData.sections[0]?.chapters[0]?.id;
 		if (chapterToLoad) {
