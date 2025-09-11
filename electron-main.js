@@ -892,7 +892,7 @@ function setupIpcHandlers() {
 		}
 	});
 	
-	// NEW: IPC handler to get all necessary data for the dedicated chapter editor.
+	// MODIFIED: This handler now fetches linked codex entries and generates HTML for them using a template.
 	ipcMain.handle('chapters:getOneForEditor', (event, chapterId) => {
 		const chapter = db.prepare(`
 			SELECT
@@ -911,6 +911,36 @@ function setupIpcHandlers() {
 		if (!chapter) {
 			throw new Error('Chapter not found for editor.');
 		}
+		
+		// MODIFIED: Fetch linked codex entries and generate HTML for them using a template.
+		const linkedCodexEntries = db.prepare(`
+			SELECT ce.id, ce.title, i.thumbnail_local_path
+			FROM codex_entries ce
+			JOIN chapter_codex_entry cce ON ce.id = cce.codex_entry_id
+			LEFT JOIN images i ON ce.id = i.codex_entry_id
+			WHERE cce.chapter_id = ?
+			ORDER BY ce.title
+		`).all(chapterId);
+		
+		linkedCodexEntries.forEach(entry => {
+			entry.thumbnail_url = entry.thumbnail_local_path
+				? `file://${path.join(imageHandler.IMAGES_DIR, entry.thumbnail_local_path)}`
+				: './assets/codex-placeholder.png';
+		});
+		
+		// MODIFIED: Use the new template file.
+		const tagTemplate = getTemplate('chapter/chapter-editor-codex-tag');
+		
+		const codexTagsHtml = linkedCodexEntries.map(entry => {
+			return tagTemplate
+				.replace(/{{ENTRY_ID}}/g, entry.id)
+				.replace(/{{ENTRY_TITLE}}/g, escapeAttr(entry.title))
+				.replace(/{{THUMBNAIL_URL}}/g, escapeAttr(entry.thumbnail_url));
+		}).join('');
+		
+		chapter.codexTagsHtml = codexTagsHtml;
+		// END MODIFIED SECTION
+		
 		return chapter;
 	});
 	

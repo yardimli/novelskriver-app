@@ -40,6 +40,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 		sourceContainer.querySelector('[data-name="content"]').innerHTML = chapterData.content || '';
 		sourceContainer.querySelector('[data-name="summary"]').innerHTML = chapterData.summary || '';
 		
+		// NEW: Populate codex links section
+		if (chapterData.codexTagsHtml) {
+			const tagsWrapper = document.getElementById('js-codex-tags-wrapper');
+			const linksContainer = document.getElementById('js-codex-links-container');
+			if (tagsWrapper && linksContainer) {
+				tagsWrapper.innerHTML = chapterData.codexTagsHtml;
+				linksContainer.classList.remove('hidden');
+			}
+		}
+		
 		// Initialize editors and toolbar
 		setupContentEditor(chapterId);
 		// MODIFIED: Pass a configuration object to the toolbar setup.
@@ -49,6 +59,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 			getEditorView: getChapterEditorView,
 		});
 		setupPromptEditor();
+		
+		// NEW: Add event listener for opening codex entries from this window
+		document.body.addEventListener('click', (event) => {
+			const openBtn = event.target.closest('.js-open-codex-entry');
+			if (openBtn) {
+				const entryId = openBtn.dataset.entryId;
+				if (entryId) {
+					window.api.openCodexEditor(entryId);
+				}
+			}
+		});
 		
 	} catch (error) {
 		console.error('Failed to load chapter data:', error);
