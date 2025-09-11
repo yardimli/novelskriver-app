@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('api', {
 	// --- Dashboard/Novel Creation ---
 	getNovelsWithCovers: () => ipcRenderer.invoke('novels:getAllWithCovers'),
 	getOneNovel: (novelId) => ipcRenderer.invoke('novels:getOne', novelId),
+	getFullManuscript: (novelId) => ipcRenderer.invoke('novels:getFullManuscript', novelId),
 	createNovel: (data) => ipcRenderer.invoke('novels:store', data),
 	openEditor: (novelId) => ipcRenderer.send('novels:openEditor', novelId),
 	openOutline: (novelId) => ipcRenderer.send('novels:openOutline', novelId),
@@ -35,15 +36,18 @@ contextBridge.exposeInMainWorld('api', {
 	
 	// Window Content Fetching
 	getChapterHtml: (chapterId) => ipcRenderer.invoke('chapters:getOneHtml', chapterId),
+	getChapterSidePanelData: (chapterId) => ipcRenderer.invoke('chapters:getSidePanelData', chapterId),
 	getCodexEntryHtml: (entryId) => ipcRenderer.invoke('codex-entries:getOneHtml', entryId),
 	
 	// Chapter <-> Codex Linking
 	attachCodexToChapter: (chapterId, codexEntryId) => ipcRenderer.invoke('chapters:codex:attach', chapterId, codexEntryId),
 	detachCodexFromChapter: (chapterId, codexEntryId) => ipcRenderer.invoke('chapters:codex:detach', chapterId, codexEntryId),
 	
-	openChapterEditor: (chapterId) => ipcRenderer.send('chapters:openEditor', chapterId),
-	getOneChapterForEditor: (chapterId) => ipcRenderer.invoke('chapters:getOneForEditor', chapterId),
+	openChapterEditor: (data) => ipcRenderer.send('chapters:openEditor', data),
+	onManuscriptScrollToChapter: (callback) => ipcRenderer.on('manuscript:scrollToChapter', callback),
+	
 	updateChapterFull: (chapterId, data) => ipcRenderer.invoke('chapters:updateFull', chapterId, data),
+	updateChapterField: (data) => ipcRenderer.invoke('chapters:updateField', data),
 	
 	updateChapterContent: (chapterId, data) => ipcRenderer.invoke('chapters:updateContent', chapterId, data),
 	createChapter: (novelId, data) => ipcRenderer.invoke('chapters:store', novelId, data),
@@ -55,7 +59,6 @@ contextBridge.exposeInMainWorld('api', {
 	getLinkedCodexIdsForChapter: (chapterId) => ipcRenderer.invoke('chapters:getLinkedCodexIds', chapterId),
 	
 	// Codex Entry Management
-	// NEW: API to open the dedicated codex editor window for creating a new entry.
 	openNewCodexEditor: (data) => ipcRenderer.send('codex-entries:openNewEditor', data),
 	openCodexEditor: (entryId) => ipcRenderer.send('codex-entries:openEditor', entryId),
 	getOneCodexForEditor: (entryId) => ipcRenderer.invoke('codex-entries:getOneForEditor', entryId),
@@ -63,7 +66,6 @@ contextBridge.exposeInMainWorld('api', {
 	suggestCodexDetails: (novelId, text) => ipcRenderer.invoke('codex-entries:suggest-details', { novelId, text }),
 	updateCodexEntry: (entryId, data) => ipcRenderer.invoke('codex-entries:update', entryId, data),
 	getAllCodexEntriesForNovel: (novelId) => ipcRenderer.invoke('codex:getAllForNovel', novelId),
-	// NEW: API to fetch all categories for a novel.
 	getCategoriesForNovel: (novelId) => ipcRenderer.invoke('codex-categories:getAllForNovel', novelId),
 	
 	// Codex <-> Codex Linking

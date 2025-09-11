@@ -140,7 +140,6 @@
 		</button>
 	</div>
 	<div class="flex-grow"></div>
-	<!-- MODIFIED: Added total word count display -->
 	<div class="flex items-center text-sm text-base-content/70">
 		<span id="js-total-word-count" class="mr-4"></span>
 		<span id="js-word-count">No text selected</span>
@@ -148,31 +147,30 @@
 </div>
 
 <!-- Main Content Area -->
-<div class="flex-grow flex flex-col p-4 overflow-hidden space-y-4">
-	<!-- Header -->
-	<div class="flex-shrink-0 space-y-1">
-		<h2 id="js-novel-section-info" class="text-sm text-base-content/70">Loading...</h2>
-		<input type="text" id="js-chapter-title-input"
-		       class="text-3xl font-bold w-full bg-transparent border-0 p-0 focus:ring-0 focus:border-b-2 focus:border-indigo-500"
-		       placeholder="Chapter Title">
+<!-- MODIFIED: Changed main flex container from p-4 to p-0 to allow full-height scrolling columns -->
+<div class="flex-grow flex flex-col overflow-hidden">
+	<!-- MODIFIED: Header is now a separate bar for navigation -->
+	<div class="flex-shrink-0 flex items-center gap-4 px-4 py-2 border-b border-base-300">
+		<h2 id="js-novel-title" class="text-xl font-bold">Loading...</h2>
+		<select id="js-chapter-nav-dropdown" class="select select-bordered select-sm w-full max-w-xs">
+			<option>Loading navigation...</option>
+		</select>
 	</div>
 	
 	<!-- Editor Columns -->
-	<div class="flex-grow flex gap-4 min-h-0">
-		<!-- Left Column: Content -->
-		<div class="w-3/4 flex flex-col border border-base-300 rounded-md overflow-hidden">
-			<h3 class="text-xs uppercase tracking-wider font-bold bg-base-200 px-3 py-1 border-b border-base-300">
-				Content</h3>
-			<div class="js-pm-container flex-grow p-4 overflow-y-auto prose prose-sm dark:prose-invert max-w-none">
-				<!-- MODIFIED: Removed h-full to allow editor to grow naturally with content -->
-				<div class="js-editable" data-name="content" data-placeholder="Start writing your chapter..."></div>
-			</div>
+	<div class="flex-grow flex gap-0 min-h-0">
+		<!-- MODIFIED: Left Column is now the main manuscript container -->
+		<div id="js-manuscript-container" class="w-3/4 flex flex-col overflow-y-auto">
+			<!-- Manuscript content (sections, chapters, editors) will be rendered here by JS -->
 		</div>
 		
-		<!-- Right Column: Summary -->
-		<div class="w-1/4 flex flex-col border border-base-300 rounded-md overflow-hidden relative">
-			<h3 class="text-xs uppercase tracking-wider font-bold bg-base-200 px-3 py-1 border-b border-base-300">
-				Summary</h3>
+		<!-- MODIFIED: Right Column is now a fixed side panel with its own internal scrolling -->
+		<div class="w-1/4 flex flex-col border-l border-base-300 overflow-hidden relative">
+			<div class="flex-shrink-0">
+				<h3 class="text-xs uppercase tracking-wider font-bold bg-base-200 px-3 py-1 border-b border-base-300">
+					Summary
+				</h3>
+			</div>
 			<!-- NEW: Spinner overlay for AI summarization -->
 			<div class="js-summary-spinner absolute inset-0 bg-base-100/80 backdrop-blur-sm flex items-center justify-center z-10 hidden">
 				<div class="text-center">
@@ -180,12 +178,12 @@
 					<p class="mt-2 text-sm">AI is summarizing...</p>
 				</div>
 			</div>
-			<div class="js-pm-container flex-grow p-4 overflow-y-auto prose prose-sm dark:prose-invert max-w-none">
-				<!-- MODIFIED: Removed h-full to allow editor to grow naturally with content -->
-				<div class="js-editable" data-name="summary" data-placeholder="Enter a short summary..."></div>
+			<!-- MODIFIED: This wrapper will hold the dynamically created summary editor -->
+			<div id="js-summary-editor-wrapper" class="js-pm-container flex-grow p-4 overflow-y-auto prose prose-sm dark:prose-invert max-w-none">
+				<!-- The summary editor will be mounted here -->
 			</div>
-			<!-- NEW: Added section for linked codex entries -->
-			<div id="js-codex-links-container" class="flex-shrink-0 border-t border-base-300 p-3 space-y-2 hidden overflow-y-auto">
+			<!-- MODIFIED: The codex links container is now part of the scrollable side panel content -->
+			<div id="js-codex-links-container" class="flex-shrink-0 border-t border-base-300 p-3 space-y-2 hidden overflow-y-auto max-h-48">
 				<h4 class="text-xs uppercase tracking-wider font-bold">Linked Entries</h4>
 				<div id="js-codex-tags-wrapper" class="flex flex-wrap gap-2">
 					<!-- Codex tags will be inserted here by JS -->
@@ -195,24 +193,19 @@
 	</div>
 </div>
 
-<!-- Hidden container to hold the initial content for ProseMirror editors -->
-<div id="js-pm-content-source" class="hidden">
-	<div data-name="content"></div>
+<!-- MODIFIED: This hidden container is now only for the dynamic summary editor's content -->
+<div id="js-summary-source" class="hidden">
 	<div data-name="summary"></div>
 </div>
 
-<!-- MODIFIED: Removed the 'new-codex-entry-modal' dialog. -->
 
 <dialog id="prompt-editor-modal" class="modal">
 	<div class="modal-box w-11/12 max-w-5xl h-[90vh] flex flex-col p-0">
 		<div class="flex flex-grow overflow-hidden">
 			<main class="w-full flex flex-col overflow-hidden">
-				<!-- MODIFIED: Added placeholder and hidden class to editor pane for JS compatibility -->
-				<!-- Placeholder (will be immediately hidden by JS, but is needed for compatibility) -->
 				<div class="js-prompt-placeholder flex-grow flex items-center justify-center">
 					<p class="text-base-content/60">Loading editor...</p>
 				</div>
-				<!-- A single pane for all custom prompt builders -->
 				<div class="js-custom-editor-pane hidden flex-grow flex flex-col min-h-0">
 					<div class="p-4 border-b border-base-300 flex-shrink-0">
 						<h3 class="js-custom-prompt-title text-lg font-bold"></h3>
@@ -226,7 +219,6 @@
 			</main>
 		</div>
 		<div class="modal-action px-6 py-4 border-t border-base-300 flex-shrink-0 flex justify-between items-center">
-			<!-- MODIFIED: Added a "Show/Hide Preview" button -->
 			<div class="flex items-center gap-4">
 				<button type="button" class="js-toggle-preview-btn btn btn-ghost">Show Preview</button>
 				<select class="js-llm-model-select select select-bordered select-sm w-full max-w-xs">

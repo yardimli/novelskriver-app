@@ -125,7 +125,7 @@ export default class WindowManager {
 			editChapterBtn.title = 'Open in dedicated editor';
 			editChapterBtn.addEventListener('click', () => {
 				const chapterId = windowId.replace('chapter-', '');
-				window.api.openChapterEditor(chapterId);
+				window.api.openChapterEditor({ novelId: this.novelId, chapterId: chapterId });
 			});
 			rightSpacer.appendChild(editChapterBtn);
 		}

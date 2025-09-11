@@ -151,8 +151,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 		document.body.addEventListener('click', (event) => {
 			const editBtn = event.target.closest('.js-edit-chapter');
 			if (editBtn) {
+				const novelId = params.get('novelId');
 				const chapterId = editBtn.dataset.chapterId;
-				window.api.openChapterEditor(chapterId);
+				window.api.openChapterEditor({ novelId, chapterId });
 			}
 			
 			// NEW: Add listener for codex edit button

@@ -219,13 +219,18 @@ function createEditorWindow(novelId) {
 
 /**
  * NEW: Creates a new dedicated chapter editor window.
- * @param {number} chapterId - The ID of the chapter to load.
+ * @param {object} options - Options for opening the window.
+ * @param {number} options.novelId - The ID of the novel.
+ * @param {number} options.chapterId - The ID of the chapter to scroll to.
  */
-function createChapterEditorWindow(chapterId) {
-	if (chapterEditorWindows.has(chapterId)) {
-		const existingWin = chapterEditorWindows.get(chapterId);
+function createChapterEditorWindow({ novelId, chapterId }) {
+	const windowKey = `chapter-editor-${novelId}`; // Only one manuscript editor per novel
+	if (chapterEditorWindows.has(windowKey)) {
+		const existingWin = chapterEditorWindows.get(windowKey);
 		if (existingWin) {
 			existingWin.focus();
+			// MODIFIED: Send the message to the existing window to scroll to the new chapter
+			existingWin.webContents.send('manuscript:scrollToChapter', chapterId);
 			return;
 		}
 	}
@@ -234,7 +239,7 @@ function createChapterEditorWindow(chapterId) {
 		width: 1600,
 		height: 1000,
 		icon: path.join(__dirname, 'assets/icon.png'),
-		title: 'Novel Skriver - Chapter Editor',
+		title: 'Novel Skriver - Manuscript Editor',
 		autoHideMenuBar: true,
 		webPreferences: {
 			preload: path.join(__dirname, 'preload.js'),
@@ -252,8 +257,8 @@ function createChapterEditorWindow(chapterId) {
 		});
 	});
 	
-	chapterEditorWindow.loadFile('public/chapter-editor.html', {query: {chapterId: chapterId}});
-	chapterEditorWindows.set(chapterId, chapterEditorWindow);
+	chapterEditorWindow.loadFile('public/chapter-editor.html', { query: { novelId, chapterId } });
+	chapterEditorWindows.set(windowKey, chapterEditorWindow);
 	
 	chapterEditorWindow.webContents.on('context-menu', (event, params) => {
 		const menu = new Menu();
@@ -281,10 +286,8 @@ function createChapterEditorWindow(chapterId) {
 	});
 	
 	chapterEditorWindow.on('closed', () => {
-		chapterEditorWindows.delete(chapterId);
+		chapterEditorWindows.delete(windowKey);
 	});
-	
-	// chapterEditorWindow.webContents.openDevTools();
 }
 
 // NEW: Creates the new outline viewer window.
@@ -561,6 +564,22 @@ function setupIpcHandlers() {
 		};
 	});
 	
+	ipcMain.handle('novels:getFullManuscript', (event, novelId) => {
+		const novel = db.prepare('SELECT id, title FROM novels WHERE id = ?').get(novelId);
+		if (!novel) return null;
+		
+		novel.sections = db.prepare('SELECT * FROM sections WHERE novel_id = ? ORDER BY section_order').all(novelId);
+		novel.sections.forEach(section => {
+			// MODIFIED: Added `chapter_order` to the SELECT statement.
+			section.chapters = db.prepare('SELECT id, title, content, summary, chapter_order FROM chapters WHERE section_id = ? ORDER BY chapter_order').all(section.id);
+			// NEW: Also calculate word count here to pass to the renderer.
+			section.chapters.forEach(chapter => {
+				chapter.word_count = countWordsInHtml(chapter.content);
+			});
+		});
+		return novel;
+	});
+	
 	ipcMain.handle('novels:store', async (event, data) => {
 		const userId = 1;
 		const stmt = db.prepare(`
@@ -710,8 +729,8 @@ function setupIpcHandlers() {
 	});
 	
 	// NEW: IPC handler to open the dedicated chapter editor.
-	ipcMain.on('chapters:openEditor', (event, chapterId) => {
-		createChapterEditorWindow(chapterId);
+	ipcMain.on('chapters:openEditor', (event, { novelId, chapterId }) => {
+		createChapterEditorWindow({ novelId, chapterId });
 	});
 	
 	ipcMain.handle('novels:generateTitle', async () => {
@@ -892,69 +911,51 @@ function setupIpcHandlers() {
 		}
 	});
 	
-	// MODIFIED: This handler now fetches linked codex entries and generates HTML for them using a template.
-	ipcMain.handle('chapters:getOneForEditor', (event, chapterId) => {
-		const chapter = db.prepare(`
-			SELECT
-				c.title AS chapter_title,
-				c.summary,
-				c.content,
-				c.novel_id,
-				s.title AS section_title,
-				n.title AS novel_title
-			FROM chapters c
-			LEFT JOIN sections s ON c.section_id = s.id
-			LEFT JOIN novels n ON c.novel_id = n.id
-			WHERE c.id = ?
-		`).get(chapterId);
-		
-		if (!chapter) {
-			throw new Error('Chapter not found for editor.');
+	ipcMain.handle('chapters:updateField', (event, { chapterId, field, value }) => {
+		const allowedFields = ['title', 'content', 'summary'];
+		if (!allowedFields.includes(field)) {
+			return { success: false, message: 'Invalid field specified.' };
 		}
+		try {
+			// Use a template literal safely as the field name is whitelisted.
+			db.prepare(`UPDATE chapters SET ${field} = ? WHERE id = ?`).run(value, chapterId);
+			return { success: true };
+		} catch (error) {
+			console.error(`Failed to update ${field} for chapter ${chapterId}:`, error);
+			return { success: false, message: `Failed to save ${field}.` };
+		}
+	});
+	
+	ipcMain.handle('chapters:getSidePanelData', (event, chapterId) => {
+		const chapter = db.prepare('SELECT summary FROM chapters WHERE id = ?').get(chapterId);
+		if (!chapter) throw new Error('Chapter not found for side panel.');
 		
-		// MODIFIED: Fetch linked codex entries and generate HTML for them using a template.
-		const linkedCodexEntries = db.prepare(`
+		const linkedCodex = db.prepare(`
 			SELECT ce.id, ce.title, i.thumbnail_local_path
 			FROM codex_entries ce
 			JOIN chapter_codex_entry cce ON ce.id = cce.codex_entry_id
 			LEFT JOIN images i ON ce.id = i.codex_entry_id
-			WHERE cce.chapter_id = ?
-			ORDER BY ce.title
+			WHERE cce.chapter_id = ? ORDER BY ce.title
 		`).all(chapterId);
 		
-		linkedCodexEntries.forEach(entry => {
+		linkedCodex.forEach(entry => {
 			entry.thumbnail_url = entry.thumbnail_local_path
 				? `file://${path.join(imageHandler.IMAGES_DIR, entry.thumbnail_local_path)}`
 				: './assets/codex-placeholder.png';
 		});
 		
-		// MODIFIED: Use the new template file.
 		const tagTemplate = getTemplate('chapter/chapter-editor-codex-tag');
-		
-		const codexTagsHtml = linkedCodexEntries.map(entry => {
-			return tagTemplate
+		const codexTagsHtml = linkedCodex.map(entry =>
+			tagTemplate
 				.replace(/{{ENTRY_ID}}/g, entry.id)
 				.replace(/{{ENTRY_TITLE}}/g, escapeAttr(entry.title))
-				.replace(/{{THUMBNAIL_URL}}/g, escapeAttr(entry.thumbnail_url));
-		}).join('');
+				.replace(/{{THUMBNAIL_URL}}/g, escapeAttr(entry.thumbnail_url))
+		).join('');
 		
-		chapter.codexTagsHtml = codexTagsHtml;
-		// END MODIFIED SECTION
-		
-		return chapter;
-	});
-	
-	// NEW: IPC handler to save all editable fields from the dedicated chapter editor.
-	ipcMain.handle('chapters:updateFull', (event, chapterId, data) => {
-		try {
-			// Assuming a 'content' column exists on the 'chapters' table.
-			db.prepare('UPDATE chapters SET title = ?, summary = ?, content = ? WHERE id = ?')
-				.run(data.title, data.summary, data.content, chapterId);
-			return { success: true, message: 'Chapter updated.' };
-		} catch (error) {
-			console.error(`Failed to fully update chapter ${chapterId}:`, error);
-			return { success: false, message: 'Failed to save chapter.' };
-		}
+		return {
+			summary: chapter.summary,
+			codexTagsHtml: codexTagsHtml,
+		};
 	});
 	
 	ipcMain.handle('chapters:getOneHtml', (event, chapterId) => {

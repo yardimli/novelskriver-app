@@ -200,29 +200,29 @@ async function handleToolbarAction(button) {
 			return;
 		}
 		
-		// --- MODIFIED: Context gathering logic updated for chapter summarization ---
 		const isChapterEditor = toolbarConfig.isChapterEditor;
 		const isCodexEditor = toolbarConfig.isCodexEditor;
 		
 		const activeEditor = getActiveEditor();
-		let editorForPrompt = activeEditor; // The editor instance that the AI action will target.
+		let editorForPrompt = activeEditor;
 		let selectedText = '';
 		let wordsBefore = '';
 		let wordsAfter = '';
 		let chapterId = null;
 		let povString = '';
 		
-		// Determine the text to process and the target editor.
 		if (isChapterEditor && action === 'scene-summarization') {
-			const contentView = toolbarConfig.getEditorView('content');
-			const summaryView = toolbarConfig.getEditorView('summary');
+			// MODIFIED: Use the active (focused) content editor as the source,
+			// and get the summary editor via the new config function.
+			const contentView = getActiveEditor();
+			const summaryView = toolbarConfig.getSummaryEditorView ? toolbarConfig.getSummaryEditorView() : null;
+			
 			if (!contentView || !summaryView) {
 				alert('Could not find content and summary editors.');
 				return;
 			}
-			editorForPrompt = summaryView; // The action will target the summary view.
+			editorForPrompt = summaryView;
 			
-			// If there's a selection in ANY editor, use it. Otherwise, use full content from the content view.
 			if (activeEditor && !activeEditor.state.selection.empty) {
 				const { from, to } = activeEditor.state.selection;
 				selectedText = activeEditor.state.doc.textBetween(from, to, ' ');
@@ -230,19 +230,16 @@ async function handleToolbarAction(button) {
 				selectedText = contentView.state.doc.textContent;
 			}
 		} else if (activeEditor) {
-			// Original logic for getting selected text for all other actions.
 			const { state } = activeEditor;
 			const { from, to, empty } = state.selection;
 			
 			if (!empty) {
 				selectedText = state.doc.textBetween(from, to, ' ');
 			} else if (action === 'scene-summarization') {
-				// This handles summarization in the main novel editor (e.g., on a chapter window's summary pane).
 				selectedText = state.doc.textContent;
 			}
 		}
 		
-		// Gather surrounding text and chapter ID from the currently focused editor.
 		if (activeEditor) {
 			const { state } = activeEditor;
 			const { from, to } = state.selection;
@@ -253,20 +250,18 @@ async function handleToolbarAction(button) {
 			wordsBefore = textBeforeSelection.trim().split(/\s+/).slice(-200).join(' ');
 			wordsAfter = textAfterSelection.trim().split(/\s+/).slice(0, 200).join(' ');
 			
-			const chapterWindowContent = activeEditor.dom.closest('.chapter-window-content');
-			if (chapterWindowContent) {
-				chapterId = chapterWindowContent.dataset.chapterId;
-			} else if (isChapterEditor) { // MODIFIED: Check if in standalone chapter editor
+			const chapterContainer = activeEditor.dom.closest('[data-chapter-id]');
+			if (chapterContainer) {
+				chapterId = chapterContainer.dataset.chapterId;
+			} else if (isChapterEditor) {
 				chapterId = document.body.dataset.chapterId || null;
 			}
 		}
 		
-		// Get novel data for language and default POV.
 		const novelData = await window.api.getOneNovel(novelId);
 		const novelLanguage = novelData.prose_language || 'English';
 		const novelTense = novelData.prose_tense || 'past';
 		
-		// Get and format POV string
 		let povData;
 		if (chapterId) {
 			povData = await window.api.getPovDataForChapter(chapterId);
@@ -333,7 +328,6 @@ async function handleToolbarAction(button) {
 			undo(activeEditorView.state, activeEditorView.dispatch);
 		} else if (command === 'redo') {
 			redo(activeEditorView.state, activeEditorView.dispatch);
-			// MODIFIED: Replaced modal logic with a call to open the new editor window.
 		} else if (command === 'create_codex') {
 			if (!activeEditorView) return;
 			const { state } = activeEditorView;
