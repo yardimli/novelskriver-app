@@ -33,7 +33,8 @@ const noteNodeSpec = {
 	},
 	group: 'block',
 	content: '', // No direct content, managed by NodeView and attributes.
-	draggable: true,
+	draggable: false,
+	selectable: false,
 	toDOM(node) {
 		// This is the "serialized" version for saving. The NodeView creates the interactive version.
 		const wrapper = document.createElement('div');
@@ -346,28 +347,26 @@ export class NoteNodeView {
 		this.view = view;
 		this.getPos = getPos;
 		
-		// The outer DOM structure of the node view
 		this.dom = document.createElement('div');
-		this.dom.className = 'note-wrapper not-prose p-4 my-4 border-l-4 border-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 dark:border-yellow-600 rounded-r-md relative group';
+		this.dom.className = 'note-wrapper not-prose p-1 my-1 border-l-4 border-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 dark:border-yellow-600 rounded-r-md relative group';
+		// NEW: Add the `contenteditable="false"` attribute to the main wrapper.
+		// This prevents the user from being able to place a cursor inside or select text.
+		this.dom.contentEditable = false;
 		
-		// The content display area (not directly editable)
 		this.contentDOM = document.createElement('p');
 		this.contentDOM.className = 'text-base-content/80 m-0';
 		this.contentDOM.textContent = node.attrs.text;
 		
-		// Controls container
 		const controls = document.createElement('div');
 		controls.className = 'absolute top-1 right-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity';
 		
-		// Edit button
 		const editBtn = document.createElement('button');
 		editBtn.type = 'button';
 		editBtn.className = 'btn btn-xs btn-ghost';
 		editBtn.innerHTML = '<i class="bi bi-pencil"></i>';
 		editBtn.title = 'Edit note';
-		editBtn.addEventListener('mousedown', this.openEditModal.bind(this)); // Use mousedown to prevent focus shift
+		editBtn.addEventListener('mousedown', this.openEditModal.bind(this));
 		
-		// Delete button
 		const deleteBtn = document.createElement('button');
 		deleteBtn.type = 'button';
 		deleteBtn.className = 'btn btn-xs btn-ghost text-error';
@@ -382,6 +381,18 @@ export class NoteNodeView {
 		this.dom.appendChild(controls);
 	}
 	
+	// NEW: Add a `selectNode` method.
+	// ProseMirror calls this when the node is selected. We use it to add a visual indicator.
+	selectNode() {
+		this.dom.classList.add('ProseMirror-selectednode');
+	}
+	
+	// NEW: Add a `deselectNode` method.
+	// ProseMirror calls this when the node is deselected. We use it to remove the visual indicator.
+	deselectNode() {
+		this.dom.classList.remove('ProseMirror-selectednode');
+	}
+	
 	openEditModal(e) {
 		e.preventDefault();
 		const noteModal = document.getElementById('note-editor-modal');
@@ -389,10 +400,18 @@ export class NoteNodeView {
 		const title = noteModal.querySelector('.js-note-modal-title');
 		const contentInput = document.getElementById('note-content-input');
 		const posInput = document.getElementById('note-pos');
+		const chapterIdInput = document.getElementById('note-chapter-id');
 		
 		title.textContent = 'Edit Note';
 		contentInput.value = this.node.attrs.text;
-		posInput.value = this.getPos(); // Store position to find the node later
+		posInput.value = this.getPos();
+		
+		// Find the chapterId from the parent element to populate the modal.
+		const chapterEl = this.dom.closest('.manuscript-chapter-item');
+		if(chapterEl) {
+			chapterIdInput.value = chapterEl.dataset.chapterId;
+		}
+		
 		noteModal.showModal();
 	}
 	
@@ -402,8 +421,7 @@ export class NoteNodeView {
 		this.view.dispatch(tr);
 	}
 	
-	// ProseMirror requires these methods for NodeViews.
-	stopEvent() { return true; } // We handle all events within the node view
+	stopEvent() { return true; }
 	
 	update(node) {
 		if (node.type !== this.node.type) return false;

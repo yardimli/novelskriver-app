@@ -201,12 +201,14 @@
 	</div>
 </dialog>
 
-<!-- NEW: Note Editor Modal -->
+<!-- Note Editor Modal -->
 <dialog id="note-editor-modal" class="modal">
 	<div class="modal-box">
 		<h3 class="js-note-modal-title font-bold text-lg">Add Note</h3>
 		<form id="note-editor-form" class="py-4 space-y-4" novalidate>
 			<input type="hidden" id="note-pos" value="">
+			<!-- NEW: Added hidden input to store the target chapter ID -->
+			<input type="hidden" id="note-chapter-id" value="">
 			<div class="form-control">
 				<label class="label"><span class="label-text">Note Content</span></label>
 				<textarea id="note-content-input" name="note_content" rows="5" class="textarea textarea-bordered" required

@@ -8,7 +8,6 @@ import { getActiveEditor } from './content-editor.js';
 let activeEditorView = null;
 const toolbar = document.getElementById('top-toolbar');
 const wordCountEl = document.getElementById('js-word-count');
-// NEW: A variable to hold configuration passed from the main script (e.g., chapter-main.js).
 let toolbarConfig = {};
 
 
@@ -21,8 +20,6 @@ function isNodeActive(state, type) {
 	}
 	return false;
 }
-
-// REMOVED: The handleCreateCodexFromSelection function is no longer needed as the logic is moved into handleToolbarAction.
 
 export function updateToolbarState(view) {
 	activeEditorView = view;
@@ -47,11 +44,9 @@ export function updateToolbarState(view) {
 		allBtns.forEach(btn => {
 			if (btn.classList.contains('js-ai-action-btn')) {
 				const action = btn.dataset.action;
-				if (action === 'scene-summarization' || action === 'scene-beat') { // MODIFIED: Scene Beat is also enabled without selection
-					// These actions can work without a selection.
+				if (action === 'scene-summarization' || action === 'scene-beat') {
 					btn.disabled = false;
 				} else {
-					// Other actions depend on having text selected.
 					btn.disabled = !isTextSelected;
 				}
 				return;
@@ -202,6 +197,7 @@ function applyHighlight(color) {
 
 async function handleToolbarAction(button) {
 	if (button.classList.contains('js-ai-action-btn')) {
+		// ... (This section is unchanged)
 		const action = button.dataset.action;
 		const novelId = document.body.dataset.novelId;
 		if (!novelId) {
@@ -221,7 +217,6 @@ async function handleToolbarAction(button) {
 		let povString = '';
 		
 		if (isChapterEditor && action === 'scene-summarization') {
-			// MODIFIED: Get active chapter and its views using the new config functions.
 			chapterId = toolbarConfig.getActiveChapterId ? toolbarConfig.getActiveChapterId() : null;
 			if (!chapterId) {
 				alert('Could not determine the active chapter.');
@@ -235,9 +230,8 @@ async function handleToolbarAction(button) {
 			const contentView = views.contentView;
 			const summaryView = views.summaryView;
 			
-			editorForPrompt = summaryView; // The AI result will go into the summary editor.
+			editorForPrompt = summaryView;
 			
-			// Summarize selected text from the content view, or all of it if there's no selection.
 			const activeContentEditor = getActiveEditor();
 			if (activeContentEditor && !activeContentEditor.state.selection.empty) {
 				const { from, to } = activeContentEditor.state.selection;
@@ -270,7 +264,6 @@ async function handleToolbarAction(button) {
 			if (chapterContainer) {
 				chapterId = chapterContainer.dataset.chapterId;
 			} else if (isChapterEditor) {
-				// Fallback using the active chapter ID from the config
 				chapterId = toolbarConfig.getActiveChapterId ? toolbarConfig.getActiveChapterId() : null;
 			}
 		}
@@ -358,15 +351,25 @@ async function handleToolbarAction(button) {
 			}
 		} else if (command === 'add_note') {
 			if (!activeEditorView) return;
+			
+			// MODIFIED: Store the active chapter ID in the modal form before showing it.
+			const activeChapterId = toolbarConfig.getActiveChapterId ? toolbarConfig.getActiveChapterId() : null;
+			if (!activeChapterId) {
+				alert('Cannot add a note without an active chapter.');
+				return;
+			}
+			
 			const noteModal = document.getElementById('note-editor-modal');
 			const form = document.getElementById('note-editor-form');
 			const title = noteModal.querySelector('.js-note-modal-title');
 			const contentInput = document.getElementById('note-content-input');
 			const posInput = document.getElementById('note-pos');
+			const chapterIdInput = document.getElementById('note-chapter-id');
 			
 			title.textContent = 'Add Note';
 			form.reset();
 			posInput.value = ''; // Clear position, indicating a new note.
+			chapterIdInput.value = activeChapterId; // Store the target chapter ID.
 			noteModal.showModal();
 			contentInput.focus();
 		} else {
@@ -386,7 +389,6 @@ async function handleToolbarAction(button) {
 	}
 }
 
-// MODIFIED: Accepts a configuration object.
 export function setupTopToolbar(config = {}) {
 	toolbarConfig = config;
 	if (!toolbar) return;

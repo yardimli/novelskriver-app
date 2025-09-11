@@ -36,7 +36,6 @@ function triggerDebouncedSave(chapterId, field, value) {
 		}
 		debounceTimers.delete(key);
 	}, 2000);
-	debounceTimers.set(key, timer);
 }
 
 /**
@@ -71,26 +70,20 @@ async function renderManuscript(container, novelData) {
 			titleInput.className = 'js-chapter-title-input text-2xl font-bold w-full bg-transparent border-0 p-0 focus:ring-0 focus:border-b-2 focus:border-indigo-500 flex-shrink-0 not-prose';
 			titleInput.placeholder = 'Chapter Title';
 			
-			// MODIFIED: Create a two-column layout container.
 			const layoutContainer = document.createElement('div');
 			layoutContainer.className = 'not-prose mt-6 flex flex-col md:flex-row gap-8';
 			
-			// MODIFIED: Create the main content column (left).
 			const mainContentColumn = document.createElement('div');
 			mainContentColumn.className = 'w-full md:w-3/4';
 			
-			const contentHeader = '<div><h3 class="text-xs uppercase tracking-wider font-bold border-b border-base-300 pb-1 mb-2">Manuscript</h3></div>';
 			const contentEditorMount = document.createElement('div');
 			contentEditorMount.className = 'js-content-editable mt-2';
 			contentEditorMount.dataset.name = 'content';
-			//mainContentColumn.innerHTML = contentHeader;
 			mainContentColumn.appendChild(contentEditorMount);
 			
-			// MODIFIED: Create the metadata column (right).
 			const metadataColumn = document.createElement('div');
 			metadataColumn.className = 'w-full md:w-1/4 flex flex-col space-y-4';
 			
-			// Summary Section
 			const summaryHeader = '<div><h3 class="text-xs uppercase tracking-wider font-bold border-b border-base-300 pb-1 mb-2">Summary</h3></div>';
 			const summaryEditorMount = document.createElement('div');
 			summaryEditorMount.className = 'js-summary-editable relative';
@@ -103,7 +96,6 @@ async function renderManuscript(container, novelData) {
                     </div>
                 </div>`;
 			
-			// Codex Links Section
 			const codexTagsHtml = chapter.linked_codex.map(entry => {
 				return chapterCodexTagTemplate
 					.replace(/{{ENTRY_ID}}/g, entry.id)
@@ -119,19 +111,16 @@ async function renderManuscript(container, novelData) {
                 <div class="js-codex-tags-container flex flex-wrap gap-2">${codexTagsHtml}</div>
             `;
 			
-			// Append summary and codex links to the metadata column.
 			metadataColumn.innerHTML = summaryHeader;
 			metadataColumn.appendChild(summaryEditorMount);
 			metadataColumn.appendChild(codexSection);
 			
-			// Append the two columns to the layout container.
 			layoutContainer.appendChild(mainContentColumn);
 			layoutContainer.appendChild(metadataColumn);
 			
-			// Append all parts to the chapter wrapper in the correct order.
 			chapterWrapper.innerHTML = chapterHeader;
 			chapterWrapper.appendChild(titleInput);
-			chapterWrapper.appendChild(layoutContainer); // Add the new two-column layout.
+			chapterWrapper.appendChild(layoutContainer);
 			chapterWrapper.appendChild(document.createElement('hr'));
 			fragment.appendChild(chapterWrapper);
 			
@@ -192,7 +181,6 @@ async function renderManuscript(container, novelData) {
 					doc: contentDoc,
 					plugins: [history(), keymap({ 'Mod-z': undo, 'Mod-y': redo }), keymap(baseKeymap), editorPlugin],
 				}),
-				// NEW: Add the nodeViews property to render our custom 'note' nodes.
 				nodeViews: {
 					note(node, view, getPos) { return new NoteNodeView(node, view, getPos); }
 				},
@@ -250,7 +238,7 @@ function setupIntersectionObserver() {
 		});
 	}, {
 		root: container,
-		rootMargin: '-40% 0px -60% 0px', // Trigger when element is in the middle 20% of the viewport
+		rootMargin: '-40% 0px -60% 0px',
 		threshold: 0,
 	});
 	
@@ -310,7 +298,7 @@ function scrollToChapter(chapterId) {
 }
 
 /**
- * NEW: Sets up the event listener for unlinking codex entries.
+ * Sets up the event listener for unlinking codex entries.
  */
 function setupCodexUnlinking() {
 	const container = document.getElementById('js-manuscript-container');
@@ -346,7 +334,7 @@ function setupCodexUnlinking() {
 }
 
 /**
- * NEW: Sets up the note editor modal for creating and editing notes.
+ * Sets up the note editor modal for creating and editing notes.
  */
 function setupNoteEditorModal() {
 	const modal = document.getElementById('note-editor-modal');
@@ -356,9 +344,16 @@ function setupNoteEditorModal() {
 	
 	form.addEventListener('submit', (event) => {
 		event.preventDefault();
-		const view = getActiveEditor();
+		
+		// MODIFIED: Retrieve the target view using the stored chapter ID instead of getActiveEditor().
+		const chapterIdInput = document.getElementById('note-chapter-id');
+		const chapterId = chapterIdInput.value;
+		const chapterViews = chapterId ? chapterEditorViews.get(chapterId) : null;
+		const view = chapterViews ? chapterViews.contentView : null;
+		
 		if (!view) {
 			console.error('No active editor view to save note to.');
+			alert('Error: Could not find the target editor to save the note.'); // User-facing error
 			return;
 		}
 		
@@ -366,7 +361,6 @@ function setupNoteEditorModal() {
 		const posInput = document.getElementById('note-pos');
 		const noteText = contentInput.value.trim();
 		
-		// Although the NodeView will display the text, it's good practice to ensure it's not completely empty.
 		if (!noteText) {
 			alert('Note cannot be empty.');
 			return;
@@ -376,14 +370,11 @@ function setupNoteEditorModal() {
 		let tr;
 		
 		if (pos !== null && !isNaN(pos)) {
-			// Editing an existing note by updating its 'text' attribute.
 			tr = view.state.tr.setNodeMarkup(pos, null, { text: noteText });
 		} else {
-			// MODIFIED: Creating a new note. This now replaces the parent block (the empty paragraph)
-			// instead of just the selection, which is the correct behavior for block nodes.
+			// MODIFIED: This now correctly replaces the parent block (the empty paragraph)
 			const { $from } = view.state.selection;
 			const noteNode = schema.nodes.note.create({ text: noteText });
-			// Replace the entire block node the cursor is in (from its start to its end).
 			tr = view.state.tr.replaceRangeWith($from.start(), $from.end(), noteNode);
 		}
 		
@@ -421,7 +412,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 		await renderManuscript(manuscriptContainer, novelData);
 		populateNavDropdown(novelData);
 		
-		// MODIFIED: Update toolbar setup to pass necessary context for the new layout.
 		setupTopToolbar({
 			isChapterEditor: true,
 			getActiveChapterId: () => activeChapterId,
@@ -429,8 +419,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 		});
 		setupPromptEditor();
 		setupIntersectionObserver();
-		setupCodexUnlinking(); // NEW: Initialize unlinking listener.
-		setupNoteEditorModal(); // NEW: Initialize the note modal logic.
+		setupCodexUnlinking();
+		setupNoteEditorModal();
 		
 		const chapterToLoad = initialChapterId || novelData.sections[0]?.chapters[0]?.id;
 		if (chapterToLoad) {

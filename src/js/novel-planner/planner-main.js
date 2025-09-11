@@ -5,13 +5,13 @@ import {
 	setupOpenWindowsMenu,
 	setupCanvasControls,
 } from './eventHandlers.js';
-import {setupChapterEditor} from './chapter-editor.js';
+import {setupChapterEditor} from './planner-chapter-editor.js';
 import {setupContentEditor} from './content-editor.js';
 import {setupTopToolbar} from './toolbar.js';
 import { setupPromptEditor } from '../prompt-editor.js';
 import './planner-codex-events.js'; // Import for side-effects (attaches event listeners)
-import './chapter-creation.js'; // Import for new chapter modal logic
-import { setupChapterPovEditor } from './chapter-pov-editor.js'; // Import for POV editor logic
+import './planner-chapter-creation.js'; // Import for new chapter modal logic
+import { setupChapterPovEditor } from './planner-chapter-pov-editor.js'; // Import for POV editor logic
 
 // NEW: Helper to count words in an HTML string.
 const countWordsInHtml = (html) => {
