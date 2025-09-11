@@ -70,8 +70,27 @@ async function renderManuscript(container, novelData) {
 			titleInput.className = 'js-chapter-title-input text-2xl font-bold w-full bg-transparent border-0 p-0 focus:ring-0 focus:border-b-2 focus:border-indigo-500 flex-shrink-0 not-prose';
 			titleInput.placeholder = 'Chapter Title';
 			
-			// NEW: Create Summary Editor Mount Point and AI Spinner
-			const summaryHeader = '<div class="not-prose mt-6"><h3 class="text-xs uppercase tracking-wider font-bold border-b border-base-300 pb-1 mb-2">Summary</h3></div>';
+			// MODIFIED: Create a two-column layout container.
+			const layoutContainer = document.createElement('div');
+			layoutContainer.className = 'not-prose mt-6 flex flex-col md:flex-row gap-8';
+			
+			// MODIFIED: Create the main content column (left).
+			const mainContentColumn = document.createElement('div');
+			mainContentColumn.className = 'w-full md:w-3/4';
+			
+			const contentHeader = '<div><h3 class="text-xs uppercase tracking-wider font-bold border-b border-base-300 pb-1 mb-2">Manuscript</h3></div>';
+			const contentEditorMount = document.createElement('div');
+			contentEditorMount.className = 'js-content-editable mt-2';
+			contentEditorMount.dataset.name = 'content';
+			//mainContentColumn.innerHTML = contentHeader;
+			mainContentColumn.appendChild(contentEditorMount);
+			
+			// MODIFIED: Create the metadata column (right).
+			const metadataColumn = document.createElement('div');
+			metadataColumn.className = 'w-full md:w-1/4 flex flex-col space-y-4';
+			
+			// Summary Section
+			const summaryHeader = '<div><h3 class="text-xs uppercase tracking-wider font-bold border-b border-base-300 pb-1 mb-2">Summary</h3></div>';
 			const summaryEditorMount = document.createElement('div');
 			summaryEditorMount.className = 'js-summary-editable relative';
 			summaryEditorMount.dataset.name = 'summary';
@@ -83,7 +102,7 @@ async function renderManuscript(container, novelData) {
                     </div>
                 </div>`;
 			
-			// NEW: Create Codex Links Section
+			// Codex Links Section
 			const codexTagsHtml = chapter.linked_codex.map(entry => {
 				return chapterCodexTagTemplate
 					.replace(/{{ENTRY_ID}}/g, entry.id)
@@ -93,26 +112,25 @@ async function renderManuscript(container, novelData) {
 			}).join('');
 			
 			const codexSection = document.createElement('div');
-			codexSection.className = `js-codex-links-wrapper not-prose mt-4 ${chapter.linked_codex.length === 0 ? 'hidden' : ''}`;
+			codexSection.className = `js-codex-links-wrapper ${chapter.linked_codex.length === 0 ? 'hidden' : ''}`;
 			codexSection.innerHTML = `
                 <h4 class="text-xs uppercase tracking-wider font-bold border-b border-base-300 pb-1 mb-2">Linked Entries</h4>
                 <div class="js-codex-tags-container flex flex-wrap gap-2">${codexTagsHtml}</div>
             `;
 			
-			// Main Content Editor
-			const contentHeader = '<div class="not-prose mt-6"><h3 class="text-xs uppercase tracking-wider font-bold border-b border-base-300 pb-1 mb-2">Manuscript</h3></div>';
-			const contentEditorMount = document.createElement('div');
-			contentEditorMount.className = 'js-content-editable mt-2';
-			contentEditorMount.dataset.name = 'content';
+			// Append summary and codex links to the metadata column.
+			metadataColumn.innerHTML = summaryHeader;
+			metadataColumn.appendChild(summaryEditorMount);
+			metadataColumn.appendChild(codexSection);
 			
-			// Append all parts to the chapter wrapper
+			// Append the two columns to the layout container.
+			layoutContainer.appendChild(mainContentColumn);
+			layoutContainer.appendChild(metadataColumn);
+			
+			// Append all parts to the chapter wrapper in the correct order.
 			chapterWrapper.innerHTML = chapterHeader;
 			chapterWrapper.appendChild(titleInput);
-			chapterWrapper.insertAdjacentHTML('beforeend', summaryHeader);
-			chapterWrapper.appendChild(summaryEditorMount);
-			chapterWrapper.appendChild(codexSection);
-			chapterWrapper.insertAdjacentHTML('beforeend', contentHeader);
-			chapterWrapper.appendChild(contentEditorMount);
+			chapterWrapper.appendChild(layoutContainer); // Add the new two-column layout.
 			chapterWrapper.appendChild(document.createElement('hr'));
 			fragment.appendChild(chapterWrapper);
 			
@@ -120,7 +138,6 @@ async function renderManuscript(container, novelData) {
 				triggerDebouncedSave(chapter.id, 'title', titleInput.value);
 			});
 			
-			// Common plugin for handling focus and updating toolbar
 			const editorPlugin = new Plugin({
 				props: {
 					handleDOMEvents: {
@@ -148,7 +165,6 @@ async function renderManuscript(container, novelData) {
 				},
 			});
 			
-			// Initialize Summary Editor
 			const summaryDoc = DOMParser.fromSchema(schema).parse(document.createRange().createContextualFragment(chapter.summary || ''));
 			const summaryView = new EditorView(summaryEditorMount, {
 				state: EditorState.create({
@@ -169,7 +185,6 @@ async function renderManuscript(container, novelData) {
 				},
 			});
 			
-			// Initialize Content Editor
 			const contentDoc = DOMParser.fromSchema(schema).parse(document.createRange().createContextualFragment(chapter.content || ''));
 			const contentView = new EditorView(contentEditorMount, {
 				state: EditorState.create({
@@ -193,7 +208,9 @@ async function renderManuscript(container, novelData) {
 						}
 					}
 					if (transaction.selectionSet || transaction.docChanged) {
-						if (this.hasFocus()) updateToolbarState(this);
+						if (this.hasFocus()) {
+							updateToolbarState(this);
+						}
 					}
 				},
 			});
