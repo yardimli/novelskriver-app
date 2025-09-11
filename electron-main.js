@@ -564,17 +564,31 @@ function setupIpcHandlers() {
 		};
 	});
 	
+	// MODIFIED: This handler now fetches linked codex entries for each chapter to support the new editor layout.
 	ipcMain.handle('novels:getFullManuscript', (event, novelId) => {
 		const novel = db.prepare('SELECT id, title FROM novels WHERE id = ?').get(novelId);
 		if (!novel) return null;
 		
 		novel.sections = db.prepare('SELECT * FROM sections WHERE novel_id = ? ORDER BY section_order').all(novelId);
 		novel.sections.forEach(section => {
-			// MODIFIED: Added `chapter_order` to the SELECT statement.
 			section.chapters = db.prepare('SELECT id, title, content, summary, chapter_order FROM chapters WHERE section_id = ? ORDER BY chapter_order').all(section.id);
-			// NEW: Also calculate word count here to pass to the renderer.
 			section.chapters.forEach(chapter => {
 				chapter.word_count = countWordsInHtml(chapter.content);
+				
+				// NEW: Fetch linked codex entries for each chapter.
+				chapter.linked_codex = db.prepare(`
+                    SELECT ce.id, ce.title, i.thumbnail_local_path
+                    FROM codex_entries ce
+                    JOIN chapter_codex_entry cce ON ce.id = cce.codex_entry_id
+                    LEFT JOIN images i ON ce.id = i.codex_entry_id
+                    WHERE cce.chapter_id = ? ORDER BY ce.title
+                `).all(chapter.id);
+				
+				chapter.linked_codex.forEach(entry => {
+					entry.thumbnail_url = entry.thumbnail_local_path
+						? `file://${path.join(imageHandler.IMAGES_DIR, entry.thumbnail_local_path)}`
+						: './assets/codex-placeholder.png';
+				});
 			});
 		});
 		return novel;
@@ -926,37 +940,7 @@ function setupIpcHandlers() {
 		}
 	});
 	
-	ipcMain.handle('chapters:getSidePanelData', (event, chapterId) => {
-		const chapter = db.prepare('SELECT summary FROM chapters WHERE id = ?').get(chapterId);
-		if (!chapter) throw new Error('Chapter not found for side panel.');
-		
-		const linkedCodex = db.prepare(`
-			SELECT ce.id, ce.title, i.thumbnail_local_path
-			FROM codex_entries ce
-			JOIN chapter_codex_entry cce ON ce.id = cce.codex_entry_id
-			LEFT JOIN images i ON ce.id = i.codex_entry_id
-			WHERE cce.chapter_id = ? ORDER BY ce.title
-		`).all(chapterId);
-		
-		linkedCodex.forEach(entry => {
-			entry.thumbnail_url = entry.thumbnail_local_path
-				? `file://${path.join(imageHandler.IMAGES_DIR, entry.thumbnail_local_path)}`
-				: './assets/codex-placeholder.png';
-		});
-		
-		const tagTemplate = getTemplate('chapter/chapter-editor-codex-tag');
-		const codexTagsHtml = linkedCodex.map(entry =>
-			tagTemplate
-				.replace(/{{ENTRY_ID}}/g, entry.id)
-				.replace(/{{ENTRY_TITLE}}/g, escapeAttr(entry.title))
-				.replace(/{{THUMBNAIL_URL}}/g, escapeAttr(entry.thumbnail_url))
-		).join('');
-		
-		return {
-			summary: chapter.summary,
-			codexTagsHtml: codexTagsHtml,
-		};
-	});
+	// REMOVED: This handler is now obsolete as its data is included in `novels:getFullManuscript`.
 	
 	ipcMain.handle('chapters:getOneHtml', (event, chapterId) => {
 		const chapter = db.prepare(`

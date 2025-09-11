@@ -250,8 +250,7 @@ function createFloatingToolbar(view, from, to, model) {
 	});
 }
 
-// MODIFIED: This function now shows a spinner, streams raw text for visual feedback,
-// and then re-parses the final content to ensure correct paragraph structure.
+// MODIFIED: This function now shows a spinner within the correct chapter's summary editor.
 async function startAiSummarizationStream(params) {
 	const { prompt, model } = params;
 	
@@ -259,8 +258,9 @@ async function startAiSummarizationStream(params) {
 	setEditorEditable(activeEditorView, false);
 	updateToolbarState(activeEditorView); // To disable buttons.
 	
-	// Show spinner over the summary editor.
-	const spinner = document.querySelector('.js-summary-spinner');
+	// MODIFIED: Find the spinner relative to the active summary editor's parent.
+	const editorWrapper = activeEditorView.dom.parentElement; // The .js-summary-editable div
+	const spinner = editorWrapper.querySelector('.js-summary-spinner');
 	if (spinner) spinner.classList.remove('hidden');
 	
 	let fullResponse = '';
@@ -273,30 +273,24 @@ async function startAiSummarizationStream(params) {
 			let tr = state.tr;
 			
 			if (isFirstChunk) {
-				// Clear the editor on the first chunk.
 				tr.delete(0, state.doc.content.size);
 				isFirstChunk = false;
 			}
 			
-			// Insert the raw chunk at the end of the document for visual feedback.
-			// This will be one long paragraph initially, but provides the streaming effect.
 			tr.insertText(payload.chunk, tr.doc.content.size);
 			dispatch(tr);
 			
 		} else if (payload.done) {
-			// When the stream is finished, re-parse the full response to fix paragraph structure.
 			const { state, dispatch } = activeEditorView;
 			const { schema } = state;
 			
 			const tempDiv = document.createElement('div');
-			tempDiv.innerText = fullResponse.trim(); // innerText correctly handles newlines for the parser.
+			tempDiv.innerText = fullResponse.trim();
 			const newContentNode = DOMParser.fromSchema(schema).parse(tempDiv);
 			
-			// Replace the streamed (but unstructured) content with the final, structured version.
 			const finalTr = state.tr.replaceWith(0, state.doc.content.size, newContentNode.content);
 			dispatch(finalTr);
 			
-			// Hide spinner and clean up.
 			if (spinner) spinner.classList.add('hidden');
 			setEditorEditable(activeEditorView, true);
 			activeEditorView.focus();

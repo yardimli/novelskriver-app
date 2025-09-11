@@ -157,46 +157,16 @@
 		</select>
 	</div>
 	
-	<!-- Editor Columns -->
-	<div class="flex-grow flex gap-0 min-h-0">
-		<!-- MODIFIED: Left Column is now the main manuscript container -->
-		<div id="js-manuscript-container" class="w-3/4 flex flex-col overflow-y-auto">
+	<!-- MODIFIED: Editor container is now a single, full-width column -->
+	<div class="flex-grow flex min-h-0">
+		<!-- MODIFIED: Manuscript container takes up the full width -->
+		<div id="js-manuscript-container" class="w-full flex flex-col overflow-y-auto">
 			<!-- Manuscript content (sections, chapters, editors) will be rendered here by JS -->
-		</div>
-		
-		<!-- MODIFIED: Right Column is now a fixed side panel with its own internal scrolling -->
-		<div class="w-1/4 flex flex-col border-l border-base-300 overflow-hidden relative">
-			<div class="flex-shrink-0">
-				<h3 class="text-xs uppercase tracking-wider font-bold bg-base-200 px-3 py-1 border-b border-base-300">
-					Summary
-				</h3>
-			</div>
-			<!-- NEW: Spinner overlay for AI summarization -->
-			<div class="js-summary-spinner absolute inset-0 bg-base-100/80 backdrop-blur-sm flex items-center justify-center z-10 hidden">
-				<div class="text-center">
-					<span class="loading loading-spinner loading-lg"></span>
-					<p class="mt-2 text-sm">AI is summarizing...</p>
-				</div>
-			</div>
-			<!-- MODIFIED: This wrapper will hold the dynamically created summary editor -->
-			<div id="js-summary-editor-wrapper" class="js-pm-container flex-grow p-4 overflow-y-auto prose prose-sm dark:prose-invert max-w-none">
-				<!-- The summary editor will be mounted here -->
-			</div>
-			<!-- MODIFIED: The codex links container is now part of the scrollable side panel content -->
-			<div id="js-codex-links-container" class="flex-shrink-0 border-t border-base-300 p-3 space-y-2 hidden overflow-y-auto max-h-48">
-				<h4 class="text-xs uppercase tracking-wider font-bold">Linked Entries</h4>
-				<div id="js-codex-tags-wrapper" class="flex flex-wrap gap-2">
-					<!-- Codex tags will be inserted here by JS -->
-				</div>
-			</div>
 		</div>
 	</div>
 </div>
 
-<!-- MODIFIED: This hidden container is now only for the dynamic summary editor's content -->
-<div id="js-summary-source" class="hidden">
-	<div data-name="summary"></div>
-</div>
+<!-- REMOVED: The hidden container for the side panel summary editor source is no longer needed in this layout. -->
 
 
 <dialog id="prompt-editor-modal" class="modal">

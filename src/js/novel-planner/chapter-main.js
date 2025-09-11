@@ -13,8 +13,7 @@ import { updateToolbarState } from './toolbar.js';
 const debounceTimers = new Map();
 let activeChapterId = null;
 let isScrollingProgrammatically = false;
-let summaryEditorView = null;
-const chapterEditorViews = new Map();
+const chapterEditorViews = new Map(); // NEW: Will store { summaryView, contentView } for each chapterId
 
 /**
  * Triggers a debounced save for a specific field of a chapter.
@@ -44,9 +43,11 @@ function triggerDebouncedSave(chapterId, field, value) {
  * @param {HTMLElement} container - The manuscript container element.
  * @param {object} novelData - The full novel data.
  */
-function renderManuscript(container, novelData) {
+async function renderManuscript(container, novelData) {
 	const fragment = document.createDocumentFragment();
 	let totalWordCount = 0;
+	
+	const chapterCodexTagTemplate = await window.api.getTemplate('chapter/chapter-codex-tag'); // NEW: Get template for tags
 	
 	novelData.sections.forEach(section => {
 		const sectionHeader = document.createElement('div');
@@ -55,7 +56,6 @@ function renderManuscript(container, novelData) {
 		fragment.appendChild(sectionHeader);
 		
 		section.chapters.forEach(chapter => {
-			// MODIFIED: Use the pre-calculated word_count from the backend.
 			totalWordCount += chapter.word_count || 0;
 			
 			const chapterWrapper = document.createElement('div');
@@ -63,7 +63,6 @@ function renderManuscript(container, novelData) {
 			chapterWrapper.className = 'manuscript-chapter-item prose prose-sm dark:prose-invert max-w-none px-8 py-6';
 			chapterWrapper.dataset.chapterId = chapter.id;
 			
-			// MODIFIED: Use chapter.chapter_order and add the word count.
 			const chapterHeader = `<p class="text-base-content/50 font-semibold">Chapter ${chapter.chapter_order} &ndash; ${chapter.word_count.toLocaleString()} words</p>`;
 			const titleInput = document.createElement('input');
 			titleInput.type = 'text';
@@ -71,48 +70,111 @@ function renderManuscript(container, novelData) {
 			titleInput.className = 'js-chapter-title-input text-2xl font-bold w-full bg-transparent border-0 p-0 focus:ring-0 focus:border-b-2 focus:border-indigo-500 flex-shrink-0 not-prose';
 			titleInput.placeholder = 'Chapter Title';
 			
-			const editorMount = document.createElement('div');
-			editorMount.className = 'js-editable mt-4';
-			editorMount.dataset.name = 'content';
+			// NEW: Create Summary Editor Mount Point and AI Spinner
+			const summaryHeader = '<div class="not-prose mt-6"><h3 class="text-xs uppercase tracking-wider font-bold border-b border-base-300 pb-1 mb-2">Summary</h3></div>';
+			const summaryEditorMount = document.createElement('div');
+			summaryEditorMount.className = 'js-summary-editable relative';
+			summaryEditorMount.dataset.name = 'summary';
+			summaryEditorMount.innerHTML = `
+                <div class="js-summary-spinner absolute inset-0 bg-base-100/80 backdrop-blur-sm flex items-center justify-center z-10 hidden">
+                    <div class="text-center">
+                        <span class="loading loading-spinner loading-lg"></span>
+                        <p class="mt-2 text-sm">AI is summarizing...</p>
+                    </div>
+                </div>`;
 			
-			const hr = document.createElement('hr');
+			// NEW: Create Codex Links Section
+			const codexTagsHtml = chapter.linked_codex.map(entry => {
+				return chapterCodexTagTemplate
+					.replace(/{{ENTRY_ID}}/g, entry.id)
+					.replace(/{{ENTRY_TITLE}}/g, entry.title)
+					.replace(/{{THUMBNAIL_URL}}/g, entry.thumbnail_url)
+					.replace(/{{CHAPTER_ID}}/g, chapter.id);
+			}).join('');
 			
+			const codexSection = document.createElement('div');
+			codexSection.className = `js-codex-links-wrapper not-prose mt-4 ${chapter.linked_codex.length === 0 ? 'hidden' : ''}`;
+			codexSection.innerHTML = `
+                <h4 class="text-xs uppercase tracking-wider font-bold border-b border-base-300 pb-1 mb-2">Linked Entries</h4>
+                <div class="js-codex-tags-container flex flex-wrap gap-2">${codexTagsHtml}</div>
+            `;
+			
+			// Main Content Editor
+			const contentHeader = '<div class="not-prose mt-6"><h3 class="text-xs uppercase tracking-wider font-bold border-b border-base-300 pb-1 mb-2">Manuscript</h3></div>';
+			const contentEditorMount = document.createElement('div');
+			contentEditorMount.className = 'js-content-editable mt-2';
+			contentEditorMount.dataset.name = 'content';
+			
+			// Append all parts to the chapter wrapper
 			chapterWrapper.innerHTML = chapterHeader;
 			chapterWrapper.appendChild(titleInput);
-			chapterWrapper.appendChild(editorMount);
-			chapterWrapper.appendChild(hr);
+			chapterWrapper.insertAdjacentHTML('beforeend', summaryHeader);
+			chapterWrapper.appendChild(summaryEditorMount);
+			chapterWrapper.appendChild(codexSection);
+			chapterWrapper.insertAdjacentHTML('beforeend', contentHeader);
+			chapterWrapper.appendChild(contentEditorMount);
+			chapterWrapper.appendChild(document.createElement('hr'));
 			fragment.appendChild(chapterWrapper);
 			
 			titleInput.addEventListener('input', () => {
 				triggerDebouncedSave(chapter.id, 'title', titleInput.value);
 			});
 			
-			const doc = DOMParser.fromSchema(schema).parse(document.createRange().createContextualFragment(chapter.content || ''));
-			const view = new EditorView(editorMount, {
+			// Common plugin for handling focus and updating toolbar
+			const editorPlugin = new Plugin({
+				props: {
+					handleDOMEvents: {
+						focus(view) {
+							setActiveEditor(view);
+							updateToolbarState(view);
+							const chapterItem = view.dom.closest('.manuscript-chapter-item');
+							if (chapterItem) {
+								const chapterId = chapterItem.dataset.chapterId;
+								if (chapterId && chapterId !== activeChapterId) {
+									activeChapterId = chapterId;
+									const navDropdown = document.getElementById('js-chapter-nav-dropdown');
+									if (navDropdown) navDropdown.value = chapterId;
+								}
+							}
+						},
+						blur(view, event) {
+							const relatedTarget = event.relatedTarget;
+							if (!relatedTarget || !relatedTarget.closest('#top-toolbar')) {
+								setActiveEditor(null);
+								updateToolbarState(null);
+							}
+						},
+					},
+				},
+			});
+			
+			// Initialize Summary Editor
+			const summaryDoc = DOMParser.fromSchema(schema).parse(document.createRange().createContextualFragment(chapter.summary || ''));
+			const summaryView = new EditorView(summaryEditorMount, {
 				state: EditorState.create({
-					doc,
-					plugins: [
-						history(),
-						keymap({ 'Mod-z': undo, 'Mod-y': redo }),
-						keymap(baseKeymap),
-						new Plugin({
-							props: {
-								handleDOMEvents: {
-									focus(view) {
-										setActiveEditor(view);
-										updateToolbarState(view);
-									},
-									blur(view, event) {
-										const relatedTarget = event.relatedTarget;
-										if (!relatedTarget || !relatedTarget.closest('#top-toolbar')) {
-											setActiveEditor(null);
-											updateToolbarState(null);
-										}
-									},
-								},
-							},
-						}),
-					],
+					doc: summaryDoc,
+					plugins: [history(), keymap({ 'Mod-z': undo, 'Mod-y': redo }), keymap(baseKeymap), editorPlugin],
+				}),
+				dispatchTransaction(transaction) {
+					const newState = this.state.apply(transaction);
+					this.updateState(newState);
+					if (transaction.docChanged) {
+						const serializer = DOMSerializer.fromSchema(this.state.schema);
+						const fragmentContent = serializer.serializeFragment(this.state.doc.content);
+						const tempDiv = document.createElement('div');
+						tempDiv.appendChild(fragmentContent);
+						triggerDebouncedSave(chapter.id, 'summary', tempDiv.innerHTML);
+					}
+					if (this.hasFocus()) updateToolbarState(this);
+				},
+			});
+			
+			// Initialize Content Editor
+			const contentDoc = DOMParser.fromSchema(schema).parse(document.createRange().createContextualFragment(chapter.content || ''));
+			const contentView = new EditorView(contentEditorMount, {
+				state: EditorState.create({
+					doc: contentDoc,
+					plugins: [history(), keymap({ 'Mod-z': undo, 'Mod-y': redo }), keymap(baseKeymap), editorPlugin],
 				}),
 				dispatchTransaction(transaction) {
 					const newState = this.state.apply(transaction);
@@ -124,22 +186,19 @@ function renderManuscript(container, novelData) {
 						tempDiv.appendChild(fragmentContent);
 						triggerDebouncedSave(chapter.id, 'content', tempDiv.innerHTML);
 						
-						// NEW: Update the word count in the UI when the document changes.
 						const wordCount = this.state.doc.textContent.trim().split(/\s+/).filter(Boolean).length;
 						const headerP = chapterWrapper.querySelector('p.font-semibold');
 						if (headerP) {
 							headerP.innerHTML = `Chapter ${chapter.chapter_order} &ndash; ${wordCount.toLocaleString()} words`;
 						}
-						// This could also update a total word count if needed.
 					}
 					if (transaction.selectionSet || transaction.docChanged) {
-						if (this.hasFocus()) {
-							updateToolbarState(this);
-						}
+						if (this.hasFocus()) updateToolbarState(this);
 					}
 				},
 			});
-			chapterEditorViews.set(chapter.id.toString(), view);
+			
+			chapterEditorViews.set(chapter.id.toString(), { summaryView, contentView });
 		});
 	});
 	
@@ -147,82 +206,6 @@ function renderManuscript(container, novelData) {
 	document.getElementById('js-total-word-count').textContent = `Total: ${totalWordCount.toLocaleString()} words`;
 }
 
-/**
- * Updates the side panel with the active chapter's summary and codex links.
- * @param {string} chapterId - The ID of the currently active chapter.
- */
-async function updateSidePanel(chapterId) {
-	if (summaryEditorView) {
-		summaryEditorView.destroy();
-		summaryEditorView = null;
-	}
-	
-	const wrapper = document.getElementById('js-summary-editor-wrapper');
-	const sourceDiv = document.getElementById('js-summary-source').querySelector('[data-name="summary"]');
-	const codexLinksContainer = document.getElementById('js-codex-links-container');
-	const codexTagsWrapper = document.getElementById('js-codex-tags-wrapper');
-	
-	try {
-		const data = await window.api.getChapterSidePanelData(chapterId);
-		
-		// Update Codex Links
-		codexTagsWrapper.innerHTML = data.codexTagsHtml;
-		codexLinksContainer.classList.toggle('hidden', !data.codexTagsHtml);
-		
-		// Update Summary Editor
-		sourceDiv.innerHTML = data.summary || '';
-		const doc = DOMParser.fromSchema(schema).parse(sourceDiv);
-		wrapper.innerHTML = ''; // Clear previous editor mount
-		const editorMount = document.createElement('div');
-		editorMount.className = 'js-editable';
-		editorMount.dataset.placeholder = 'Enter a short summary...';
-		wrapper.appendChild(editorMount);
-		
-		summaryEditorView = new EditorView(editorMount, {
-			state: EditorState.create({
-				doc,
-				plugins: [
-					history(),
-					keymap({ 'Mod-z': undo, 'Mod-y': redo }),
-					keymap(baseKeymap),
-					new Plugin({
-						props: {
-							handleDOMEvents: {
-								focus(view) { setActiveEditor(view); updateToolbarState(view); },
-								blur(view, event) {
-									const relatedTarget = event.relatedTarget;
-									if (!relatedTarget || !relatedTarget.closest('#top-toolbar')) {
-										setActiveEditor(null); updateToolbarState(null);
-									}
-								},
-							},
-							attributes: (state) => ({
-								class: `ProseMirror ${state.doc.childCount === 1 && state.doc.firstChild.content.size === 0 ? 'is-editor-empty' : ''}`,
-								'data-placeholder': 'Enter a short summary...',
-							}),
-						},
-					}),
-				],
-			}),
-			dispatchTransaction(transaction) {
-				const newState = this.state.apply(transaction);
-				this.updateState(newState);
-				if (transaction.docChanged) {
-					const serializer = DOMSerializer.fromSchema(this.state.schema);
-					const fragmentContent = serializer.serializeFragment(this.state.doc.content);
-					const tempDiv = document.createElement('div');
-					tempDiv.appendChild(fragmentContent);
-					triggerDebouncedSave(chapterId, 'summary', tempDiv.innerHTML);
-				}
-				if (this.hasFocus()) updateToolbarState(this);
-			},
-		});
-		
-	} catch (error) {
-		console.error('Failed to update side panel:', error);
-		wrapper.innerHTML = '<p class="text-error">Could not load summary.</p>';
-	}
-}
 
 /**
  * Sets up the intersection observer to track the active chapter during scrolling.
@@ -240,7 +223,6 @@ function setupIntersectionObserver() {
 				if (chapterId && chapterId !== activeChapterId) {
 					activeChapterId = chapterId;
 					navDropdown.value = chapterId;
-					updateSidePanel(chapterId);
 				}
 			}
 		});
@@ -290,11 +272,7 @@ function scrollToChapter(chapterId) {
 		const containerRect = container.getBoundingClientRect();
 		const targetRect = target.getBoundingClientRect();
 		
-		// Calculate the target's position relative to the scroll container's top.
 		const offsetTop = targetRect.top - containerRect.top;
-		
-		// Calculate the final scroll position, subtracting an offset for the header.
-		// 100px should be enough for the section header + some breathing room.
 		const scrollPosition = container.scrollTop + offsetTop - 100;
 		
 		container.scrollTo({
@@ -302,15 +280,49 @@ function scrollToChapter(chapterId) {
 			behavior: 'smooth'
 		});
 		
-		// Update side panel immediately on programmatic scroll
 		if (chapterId !== activeChapterId) {
 			activeChapterId = chapterId;
-			updateSidePanel(chapterId);
 		}
-		// Reset flag after scroll likely completes
 		setTimeout(() => { isScrollingProgrammatically = false; }, 1000);
 	}
 }
+
+/**
+ * NEW: Sets up the event listener for unlinking codex entries.
+ */
+function setupCodexUnlinking() {
+	const container = document.getElementById('js-manuscript-container');
+	container.addEventListener('click', async (event) => {
+		const removeBtn = event.target.closest('.js-remove-codex-link');
+		if (!removeBtn) return;
+		
+		const tag = removeBtn.closest('.js-codex-tag');
+		const chapterId = removeBtn.dataset.chapterId;
+		const codexEntryId = removeBtn.dataset.entryId;
+		const entryTitle = tag.querySelector('.js-codex-tag-title').textContent;
+		
+		if (!confirm(`Are you sure you want to unlink "${entryTitle}" from this chapter?`)) {
+			return;
+		}
+		
+		try {
+			const data = await window.api.detachCodexFromChapter(chapterId, codexEntryId);
+			if (!data.success) throw new Error(data.message || 'Failed to unlink codex entry.');
+			
+			const tagContainer = tag.parentElement;
+			tag.remove();
+			
+			if (tagContainer && tagContainer.children.length === 0) {
+				const tagsWrapper = tagContainer.closest('.js-codex-links-wrapper');
+				if (tagsWrapper) tagsWrapper.classList.add('hidden');
+			}
+		} catch (error) {
+			console.error('Error unlinking codex entry:', error);
+			alert(error.message);
+		}
+	});
+}
+
 // Main Initialization
 document.addEventListener('DOMContentLoaded', async () => {
 	const params = new URLSearchParams(window.location.search);
@@ -330,20 +342,22 @@ document.addEventListener('DOMContentLoaded', async () => {
 		document.getElementById('js-novel-title').textContent = novelData.title;
 		
 		const manuscriptContainer = document.getElementById('js-manuscript-container');
-		renderManuscript(manuscriptContainer, novelData);
+		await renderManuscript(manuscriptContainer, novelData);
 		populateNavDropdown(novelData);
 		
+		// MODIFIED: Update toolbar setup to pass necessary context for the new layout.
 		setupTopToolbar({
 			isChapterEditor: true,
-			getSummaryEditorView: () => summaryEditorView,
+			getActiveChapterId: () => activeChapterId,
+			getChapterViews: (chapterId) => chapterEditorViews.get(chapterId),
 		});
 		setupPromptEditor();
 		setupIntersectionObserver();
+		setupCodexUnlinking(); // NEW: Initialize unlinking listener.
 		
 		const chapterToLoad = initialChapterId || novelData.sections[0]?.chapters[0]?.id;
 		if (chapterToLoad) {
 			document.getElementById('js-chapter-nav-dropdown').value = chapterToLoad;
-			// Use a short timeout to ensure the DOM is fully painted before scrolling.
 			setTimeout(() => scrollToChapter(chapterToLoad), 100);
 		}
 		
@@ -354,7 +368,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 			}
 		});
 		
-		// MODIFIED: Safely add IPC listener if it exists.
 		if (window.api && typeof window.api.onManuscriptScrollToChapter === 'function') {
 			window.api.onManuscriptScrollToChapter((event, chapterId) => {
 				if (chapterId) {
@@ -366,7 +379,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 				}
 			});
 		}
-		
 		
 	} catch (error) {
 		console.error('Failed to load manuscript data:', error);

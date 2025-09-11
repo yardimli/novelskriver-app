@@ -36,7 +36,7 @@ contextBridge.exposeInMainWorld('api', {
 	
 	// Window Content Fetching
 	getChapterHtml: (chapterId) => ipcRenderer.invoke('chapters:getOneHtml', chapterId),
-	getChapterSidePanelData: (chapterId) => ipcRenderer.invoke('chapters:getSidePanelData', chapterId),
+	// REMOVED: This function is obsolete as its data is now included in getFullManuscript.
 	getCodexEntryHtml: (entryId) => ipcRenderer.invoke('codex-entries:getOneHtml', entryId),
 	
 	// Chapter <-> Codex Linking

@@ -212,20 +212,27 @@ async function handleToolbarAction(button) {
 		let povString = '';
 		
 		if (isChapterEditor && action === 'scene-summarization') {
-			// MODIFIED: Use the active (focused) content editor as the source,
-			// and get the summary editor via the new config function.
-			const contentView = getActiveEditor();
-			const summaryView = toolbarConfig.getSummaryEditorView ? toolbarConfig.getSummaryEditorView() : null;
-			
-			if (!contentView || !summaryView) {
-				alert('Could not find content and summary editors.');
+			// MODIFIED: Get active chapter and its views using the new config functions.
+			chapterId = toolbarConfig.getActiveChapterId ? toolbarConfig.getActiveChapterId() : null;
+			if (!chapterId) {
+				alert('Could not determine the active chapter.');
 				return;
 			}
-			editorForPrompt = summaryView;
+			const views = toolbarConfig.getChapterViews ? toolbarConfig.getChapterViews(chapterId) : null;
+			if (!views || !views.contentView || !views.summaryView) {
+				alert('Could not find content and summary editors for the active chapter.');
+				return;
+			}
+			const contentView = views.contentView;
+			const summaryView = views.summaryView;
 			
-			if (activeEditor && !activeEditor.state.selection.empty) {
-				const { from, to } = activeEditor.state.selection;
-				selectedText = activeEditor.state.doc.textBetween(from, to, ' ');
+			editorForPrompt = summaryView; // The AI result will go into the summary editor.
+			
+			// Summarize selected text from the content view, or all of it if there's no selection.
+			const activeContentEditor = getActiveEditor();
+			if (activeContentEditor && !activeContentEditor.state.selection.empty) {
+				const { from, to } = activeContentEditor.state.selection;
+				selectedText = activeContentEditor.state.doc.textBetween(from, to, ' ');
 			} else {
 				selectedText = contentView.state.doc.textContent;
 			}
@@ -254,7 +261,8 @@ async function handleToolbarAction(button) {
 			if (chapterContainer) {
 				chapterId = chapterContainer.dataset.chapterId;
 			} else if (isChapterEditor) {
-				chapterId = document.body.dataset.chapterId || null;
+				// Fallback using the active chapter ID from the config
+				chapterId = toolbarConfig.getActiveChapterId ? toolbarConfig.getActiveChapterId() : null;
 			}
 		}
 		
