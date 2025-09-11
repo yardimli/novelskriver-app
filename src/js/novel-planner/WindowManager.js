@@ -59,6 +59,8 @@ export default class WindowManager {
 		});
 		
 		const isChapterWindow = windowId.startsWith('chapter-');
+		// NEW: Added a check to identify individual codex entry windows.
+		const isCodexEntryWindow = windowId.startsWith('codex-entry-');
 		
 		const titleBar = document.createElement('div');
 		titleBar.className = 'window-title-bar card-title flex items-center justify-between h-10 bg-base-200/70 px-3 cursor-move border-b border-base-300 flex-shrink-0';
@@ -97,7 +99,16 @@ export default class WindowManager {
 		const rightSpacer = document.createElement('div');
 		
 		if (id === 'codex-window') {
-			// do nothing for now...
+			rightSpacer.className = 'flex items-center justify-end min-w-[64px]';
+			const newEntryBtn = document.createElement('button');
+			newEntryBtn.type = 'button';
+			newEntryBtn.className = 'js-open-new-codex-entry btn btn-xs btn-accent gap-1 mr-2';
+			newEntryBtn.innerHTML = `<i class="bi bi-plus-lg"></i> New Entry`;
+			newEntryBtn.addEventListener('click', () => {
+				// This opens the dedicated editor in 'new' mode.
+				window.api.openNewCodexEditor({ novelId: this.novelId, selectedText: '' });
+			});
+			rightSpacer.appendChild(newEntryBtn);
 		} else if (id === 'outline-window') {
 			rightSpacer.className = 'flex items-center justify-end min-w-[64px]';
 			const newChapterBtn = document.createElement('button');
@@ -105,7 +116,7 @@ export default class WindowManager {
 			newChapterBtn.className = 'js-open-new-chapter-modal btn btn-xs btn-accent gap-1 mr-2';
 			newChapterBtn.innerHTML = `<i class="bi bi-plus-lg"></i> New Chapter`;
 			rightSpacer.appendChild(newChapterBtn);
-		} else if (isChapterWindow) { // MODIFIED: Add an edit button to chapter windows.
+		} else if (isChapterWindow) {
 			rightSpacer.className = 'flex items-center justify-end min-w-[64px]';
 			const editChapterBtn = document.createElement('button');
 			editChapterBtn.type = 'button';
@@ -117,6 +128,19 @@ export default class WindowManager {
 				window.api.openChapterEditor(chapterId);
 			});
 			rightSpacer.appendChild(editChapterBtn);
+		}
+		// NEW: Added block to create an "Edit" button for individual codex entry windows.
+		else if (isCodexEntryWindow) {
+			rightSpacer.className = 'flex items-center justify-end min-w-[64px]';
+			const editCodexBtn = document.createElement('button');
+			editCodexBtn.type = 'button';
+			// The `js-edit-codex-entry` class is used by the event listener in `planner-codex-events.js`.
+			editCodexBtn.className = 'js-edit-codex-entry btn btn-xs btn-ghost gap-1 mr-2';
+			editCodexBtn.innerHTML = `<i class="bi bi-pencil-fill"></i> Edit`;
+			editCodexBtn.title = 'Open in dedicated editor';
+			editCodexBtn.dataset.entryId = windowId.replace('codex-entry-', '');
+			// The event listener is handled globally in planner-codex-events.js, so we don't need an inline listener here.
+			rightSpacer.appendChild(editCodexBtn);
 		}
 		else
 		{

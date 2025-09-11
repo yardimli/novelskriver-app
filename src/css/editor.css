@@ -132,7 +132,10 @@ i[class^="bi-"], i[class*=" bi-"] {
 }
 
 .ProseMirror {
-    @apply h-full focus:outline-none;
+    /* MODIFIED: Changed from h-full to min-h-full. This ensures the editor fills its container
+       vertically when empty, but also allows it to grow taller than the container as content is added,
+       which correctly triggers the parent's scrollbar without showing an unnecessary scrollbar when empty. */
+    @apply min-h-full focus:outline-none;
 }
 
 .ProseMirror p.is-editor-empty:first-child::before {

@@ -68,6 +68,18 @@ document.addEventListener('DOMContentLoaded', () => {
 		}
 	});
 	
+	// NEW: Add event listener for editing a codex entry from the main codex list.
+	desktop.addEventListener('click', (event) => {
+		const editBtn = event.target.closest('.js-edit-codex-entry');
+		if (editBtn) {
+			// No stopPropagation is needed due to the new HTML structure.
+			const entryId = editBtn.dataset.entryId;
+			if (entryId) {
+				window.api.openCodexEditor(entryId);
+			}
+		}
+	});
+	
 	// --- Unlinking Codex Entries ---
 	desktop.addEventListener('click', async (event) => {
 		const removeBtn = event.target.closest('.js-remove-codex-codex-link');

@@ -164,7 +164,8 @@
 			<h3 class="text-xs uppercase tracking-wider font-bold bg-base-200 px-3 py-1 border-b border-base-300">
 				Content</h3>
 			<div class="js-pm-container flex-grow p-4 overflow-y-auto prose prose-sm dark:prose-invert max-w-none">
-				<div class="js-editable h-full" data-name="content" data-placeholder="Start writing your chapter..."></div>
+				<!-- MODIFIED: Removed h-full to allow editor to grow naturally with content -->
+				<div class="js-editable" data-name="content" data-placeholder="Start writing your chapter..."></div>
 			</div>
 		</div>
 		
@@ -180,7 +181,8 @@
 				</div>
 			</div>
 			<div class="js-pm-container flex-grow p-4 overflow-y-auto prose prose-sm dark:prose-invert max-w-none">
-				<div class="js-editable h-full" data-name="summary" data-placeholder="Enter a short summary..."></div>
+				<!-- MODIFIED: Removed h-full to allow editor to grow naturally with content -->
+				<div class="js-editable" data-name="summary" data-placeholder="Enter a short summary..."></div>
 			</div>
 		</div>
 	</div>
