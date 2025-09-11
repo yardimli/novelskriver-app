@@ -3,6 +3,7 @@ const path = require('path');
 const url = require('url');
 const fetch = require('node-fetch');
 const fs = require('fs');
+const mammoth = require('mammoth'); // NEW: For reading .docx files
 
 require('dotenv').config();
 
@@ -16,6 +17,7 @@ let editorWindows = new Map();
 let chapterEditorWindows = new Map();
 let outlineWindows = new Map();
 let codexEditorWindows = new Map();
+let importWindow = null; // NEW: To hold the import window instance
 
 // --- Template and HTML Helper Functions ---
 
@@ -49,7 +51,6 @@ function escapeAttr(text) {
 		.replace(/'/g, '&#039;');
 }
 
-// NEW: Helper function to count words in an HTML string.
 /**
  * Counts the words in an HTML string by stripping tags.
  * @param {string | null} html The HTML content.
@@ -218,7 +219,7 @@ function createEditorWindow(novelId) {
 }
 
 /**
- * NEW: Creates a new dedicated chapter editor window.
+ * Creates a new dedicated chapter editor window.
  * @param {object} options - Options for opening the window.
  * @param {number} options.novelId - The ID of the novel.
  * @param {number} options.chapterId - The ID of the chapter to scroll to.
@@ -229,7 +230,6 @@ function createChapterEditorWindow({ novelId, chapterId }) {
 		const existingWin = chapterEditorWindows.get(windowKey);
 		if (existingWin) {
 			existingWin.focus();
-			// MODIFIED: Send the message to the existing window to scroll to the new chapter
 			existingWin.webContents.send('manuscript:scrollToChapter', chapterId);
 			return;
 		}
@@ -290,7 +290,6 @@ function createChapterEditorWindow({ novelId, chapterId }) {
 	});
 }
 
-// NEW: Creates the new outline viewer window.
 function createOutlineWindow(novelId) {
 	if (outlineWindows.has(novelId)) {
 		const existingWin = outlineWindows.get(novelId);
@@ -332,7 +331,6 @@ function createOutlineWindow(novelId) {
 	// outlineWindow.webContents.openDevTools();
 }
 
-// MODIFIED: This function now handles both creating and editing codex entries.
 function createCodexEditorWindow(options) {
 	const { mode, entryId, novelId, selectedText } = options;
 	
@@ -407,12 +405,45 @@ function createCodexEditorWindow(options) {
 	});
 }
 
+// NEW: Function to create the document import window.
+function createImportWindow() {
+	if (importWindow) {
+		importWindow.focus();
+		return;
+	}
+	
+	importWindow = new BrowserWindow({
+		width: 1200,
+		height: 800,
+		icon: path.join(__dirname, 'assets/icon.png'),
+		title: 'Novel Skriver - Import Document',
+		autoHideMenuBar: true,
+		webPreferences: {
+			preload: path.join(__dirname, 'preload.js'),
+			contextIsolation: true,
+			nodeIntegration: false,
+		},
+	});
+	
+	importWindow.loadFile('public/import-document.html');
+	
+	importWindow.on('closed', () => {
+		importWindow = null;
+	});
+}
 
 
 /**
  * Wraps all IPC handler registrations in a single function.
  */
 function setupIpcHandlers() {
+	// --- App-level Handlers ---
+	
+	// NEW: IPC listener to open the import window.
+	ipcMain.on('app:open-import-window', () => {
+		createImportWindow();
+	});
+	
 	// --- Novel Handlers ---
 	
 	ipcMain.handle('novels:getAllWithCovers', () => {
@@ -425,7 +456,7 @@ function setupIpcHandlers() {
             LEFT JOIN (
                 SELECT novel_id, image_local_path, ROW_NUMBER() OVER(PARTITION BY novel_id ORDER BY created_at DESC) as rn
                 FROM images
-				WHERE codex_entry_id IS NULL -- NEW: Ensure we only get novel covers
+				WHERE codex_entry_id IS NULL
             ) i ON n.id = i.novel_id AND i.rn = 1
             ORDER BY n.created_at DESC
         `);
@@ -480,7 +511,6 @@ function setupIpcHandlers() {
 		return novel;
 	});
 	
-	// MODIFIED: This handler now calculates and includes word count statistics.
 	ipcMain.handle('novels:getOutlineData', (event, novelId) => {
 		const novel = db.prepare('SELECT title, prose_pov FROM novels WHERE id = ?').get(novelId);
 		if (!novel) throw new Error('Novel not found');
@@ -496,13 +526,11 @@ function setupIpcHandlers() {
 		// 1. Get Outline Structure
 		const sections = db.prepare('SELECT * FROM sections WHERE novel_id = ? ORDER BY section_order').all(novelId);
 		sections.forEach(section => {
-			// MODIFIED: Fetch 'content' to calculate word count.
 			section.chapters = db.prepare('SELECT id, title, summary, content, pov, pov_character_id, chapter_order FROM chapters WHERE section_id = ? ORDER BY chapter_order').all(section.id);
 			
-			let sectionTotalWords = 0; // NEW: Initialize word count for the section.
+			let sectionTotalWords = 0;
 			
 			section.chapters.forEach(chapter => {
-				// NEW: Calculate and add word count for the chapter.
 				chapter.word_count = countWordsInHtml(chapter.content);
 				sectionTotalWords += chapter.word_count;
 				
@@ -531,7 +559,6 @@ function setupIpcHandlers() {
 				});
 			});
 			
-			// NEW: Add total word count and chapter count to the section object.
 			section.total_word_count = sectionTotalWords;
 			section.chapter_count = section.chapters.length;
 		});
@@ -564,7 +591,6 @@ function setupIpcHandlers() {
 		};
 	});
 	
-	// MODIFIED: This handler now fetches linked codex entries for each chapter to support the new editor layout.
 	ipcMain.handle('novels:getFullManuscript', (event, novelId) => {
 		const novel = db.prepare('SELECT id, title FROM novels WHERE id = ?').get(novelId);
 		if (!novel) return null;
@@ -575,7 +601,6 @@ function setupIpcHandlers() {
 			section.chapters.forEach(chapter => {
 				chapter.word_count = countWordsInHtml(chapter.content);
 				
-				// NEW: Fetch linked codex entries for each chapter.
 				chapter.linked_codex = db.prepare(`
                     SELECT ce.id, ce.title, i.thumbnail_local_path
                     FROM codex_entries ce
@@ -737,12 +762,10 @@ function setupIpcHandlers() {
 		createEditorWindow(novelId);
 	});
 	
-	// NEW: IPC handler to open the outline viewer window.
 	ipcMain.on('novels:openOutline', (event, novelId) => {
 		createOutlineWindow(novelId);
 	});
 	
-	// NEW: IPC handler to open the dedicated chapter editor.
 	ipcMain.on('chapters:openEditor', (event, { novelId, chapterId }) => {
 		createChapterEditorWindow({ novelId, chapterId });
 	});
@@ -939,8 +962,6 @@ function setupIpcHandlers() {
 			return { success: false, message: `Failed to save ${field}.` };
 		}
 	});
-	
-	// REMOVED: This handler is now obsolete as its data is included in `novels:getFullManuscript`.
 	
 	ipcMain.handle('chapters:getOneHtml', (event, chapterId) => {
 		const chapter = db.prepare(`
@@ -1222,7 +1243,6 @@ function setupIpcHandlers() {
 	
 	ipcMain.handle('codex:getAllForNovel', (event, novelId) => {
 		try {
-			// MODIFIED: Fetch categories first, then fetch all entries belonging to each category.
 			const categories = db.prepare('SELECT id, name FROM codex_categories WHERE novel_id = ? ORDER BY name ASC').all(novelId);
 			categories.forEach(category => {
 				category.entries = db.prepare('SELECT id, title, content FROM codex_entries WHERE codex_category_id = ? ORDER BY title ASC').all(category.id);
@@ -1234,7 +1254,6 @@ function setupIpcHandlers() {
 		}
 	});
 	
-	// NEW: IPC handler to get all categories for a novel.
 	ipcMain.handle('codex-categories:getAllForNovel', (event, novelId) => {
 		try {
 			return db.prepare('SELECT id, name FROM codex_categories WHERE novel_id = ? ORDER BY name ASC').all(novelId);
@@ -1277,7 +1296,6 @@ function setupIpcHandlers() {
 			const categories = db.prepare('SELECT id, name FROM codex_categories WHERE novel_id = ? ORDER BY name').all(novelId);
 			const categoryNames = categories.map(c => c.name);
 			
-			// If no categories exist, provide some sensible defaults for the AI to choose from.
 			if (categoryNames.length === 0) {
 				categoryNames.push('Characters', 'Locations', 'Items', 'Lore');
 			}
@@ -1292,7 +1310,6 @@ function setupIpcHandlers() {
 			
 			let categoryId = null;
 			if (suggestion.category_name) {
-				// Find the category ID, case-insensitively.
 				const matchedCategory = categories.find(c => c.name.toLowerCase() === suggestion.category_name.toLowerCase());
 				if (matchedCategory) {
 					categoryId = matchedCategory.id;
@@ -1318,7 +1335,6 @@ function setupIpcHandlers() {
 		let entryId;
 		
 		try {
-			// Start a synchronous transaction for database writes that must happen together.
 			const runSyncTransaction = db.transaction(() => {
 				if (new_category_name) {
 					const result = db.prepare('INSERT INTO codex_categories (novel_id, name) VALUES (?, ?)')
@@ -1334,14 +1350,12 @@ function setupIpcHandlers() {
 			
 			runSyncTransaction();
 			
-			// After the transaction, handle the asynchronous file operation.
 			if (imagePath) {
 				const paths = await imageHandler.storeImageFromPath(imagePath, novelId, entryId, 'codex-image-upload');
 				db.prepare('INSERT INTO images (user_id, novel_id, codex_entry_id, image_local_path, thumbnail_local_path, image_type) VALUES (?, ?, ?, ?, ?, ?)')
 					.run(userId, novelId, entryId, paths.original_path, paths.thumbnail_path, 'upload');
 			}
 			
-			// Fetch the complete new entry to return to the renderer.
 			const newEntry = db.prepare('SELECT ce.*, i.thumbnail_local_path FROM codex_entries ce LEFT JOIN images i ON ce.id = i.codex_entry_id WHERE ce.id = ?')
 				.get(entryId);
 			
@@ -1360,7 +1374,7 @@ function setupIpcHandlers() {
 			};
 		} catch (error) {
 			console.error("Error in 'codex-entries:store':", error);
-			throw error; // Propagate the error back to the renderer process.
+			throw error;
 		}
 	});
 	
@@ -1498,12 +1512,92 @@ function setupIpcHandlers() {
 		return null;
 	});
 	
-	// MODIFIED: This handler now calls the updated window creation function.
+	// NEW: IPC handler for opening a document file dialog.
+	ipcMain.handle('dialog:showOpenDocument', async () => {
+		const { canceled, filePaths } = await dialog.showOpenDialog({
+			properties: ['openFile'],
+			filters: [
+				{ name: 'Documents', extensions: ['txt', 'docx'] }
+			]
+		});
+		if (!canceled) {
+			return filePaths[0];
+		}
+		return null;
+	});
+	
+	// NEW: IPC handler for reading the content of a document.
+	ipcMain.handle('document:read', async (event, filePath) => {
+		try {
+			const extension = path.extname(filePath).toLowerCase();
+			if (extension === '.txt') {
+				return fs.readFileSync(filePath, 'utf8');
+			} else if (extension === '.docx') {
+				const result = await mammoth.extractRawText({ path: filePath });
+				return result.value; // The raw text
+			} else {
+				throw new Error('Unsupported file type.');
+			}
+		} catch (error) {
+			console.error('Failed to read document:', error);
+			throw error;
+		}
+	});
+	
+	// NEW: IPC handler to process and import a document as a new novel.
+	ipcMain.handle('document:import', async (event, { title, author, acts }) => {
+		if (!title || !author || !acts || acts.length === 0) {
+			throw new Error('Invalid data provided for import.');
+		}
+		
+		const userId = 1; // Assuming a single user for now
+		
+		const importTransaction = db.transaction(() => {
+			// 1. Create the novel
+			const novelResult = db.prepare(
+				'INSERT INTO novels (user_id, title, author, status) VALUES (?, ?, ?, ?)'
+			).run(userId, title, author, 'draft');
+			const novelId = novelResult.lastInsertRowid;
+			
+			// 2. Loop through acts to create sections
+			let sectionOrder = 1;
+			for (const act of acts) {
+				const sectionResult = db.prepare(
+					'INSERT INTO sections (novel_id, title, description, section_order) VALUES (?, ?, ?, ?)'
+				).run(novelId, act.title, `Act ${sectionOrder}`, sectionOrder++);
+				const sectionId = sectionResult.lastInsertRowid;
+				
+				// 3. Loop through chapters within the act to create chapter records
+				let chapterOrder = 1;
+				for (const chapter of act.chapters) {
+					db.prepare(
+						'INSERT INTO chapters (novel_id, section_id, title, content, status, chapter_order) VALUES (?, ?, ?, ?, ?, ?)'
+					).run(novelId, sectionId, chapter.title, chapter.content, 'in_progress', chapterOrder++);
+				}
+			}
+			
+			return { novelId };
+		});
+		
+		try {
+			const { novelId } = importTransaction();
+			// Close the import window upon success
+			if (importWindow) {
+				importWindow.close();
+			}
+			// Optionally, open the editor for the new novel
+			createEditorWindow(novelId);
+			return { success: true, novelId };
+		} catch (error) {
+			console.error('Failed to import document:', error);
+			throw error;
+		}
+	});
+	
 	ipcMain.on('codex-entries:openEditor', (event, entryId) => {
 		createCodexEditorWindow({ mode: 'edit', entryId });
 	});
 	
-	// NEW: IPC handler to open the codex editor for a new entry.
 	ipcMain.on('codex-entries:openNewEditor', (event, { novelId, selectedText }) => {
 		createCodexEditorWindow({ mode: 'new', novelId, selectedText });
 	});

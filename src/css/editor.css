@@ -33,15 +33,10 @@
     @apply pointer-events-none opacity-75;
 }
 
-/* MODIFIED: Re-enable pointer events on inactive windows when a drag operation is in progress.
-   This is crucial to allow them to act as drop targets. The is-dragging class
-   is added to the #desktop element via JavaScript on dragstart. */
 #desktop.is-dragging .window-inactive-content {
     @apply pointer-events-auto;
 }
 
-/* Fix for Bootstrap Icon vertical alignment within flex containers like buttons. */
-/* This ensures the icon itself is centered, preventing cropping or misalignment. */
 i[class^="bi-"], i[class*=" bi-"] {
     display: inline-flex;
     align-items: center;
@@ -52,13 +47,11 @@ i[class^="bi-"], i[class*=" bi-"] {
 }
 
 #desktop {
-    /* Provides a subtle grid background for the canvas */
     background-image:
             linear-gradient(to right, theme('colors.gray.200') 1px, transparent 1px),
             linear-gradient(to bottom, theme('colors.gray.200') 1px, transparent 1px);
     background-size: 20px 20px;
     cursor: grab;
-    /* Hint to the browser that these properties will change, allowing for optimization */
     will-change: transform, top, left;
 }
 
@@ -72,7 +65,6 @@ i[class^="bi-"], i[class*=" bi-"] {
     cursor: grabbing;
 }
 
-/* Set default cursor for windows to pointer, and text cursor for editable fields. */
 .window-element {
     cursor: pointer;
 }
@@ -86,7 +78,7 @@ i[class^="bi-"], i[class*=" bi-"] {
 
 #ai-floating-toolbar {
     @apply absolute z-50 bg-gray-800 text-white rounded-md shadow-lg p-1 flex items-center gap-1 text-xs;
-    user-select: none; /* Prevent text selection inside the toolbar */
+    user-select: none;
 }
 
 #ai-floating-toolbar button {
@@ -97,7 +89,6 @@ i[class^="bi-"], i[class*=" bi-"] {
     @apply w-px h-4 bg-gray-600 mx-1;
 }
 
-/* Styles for the top toolbar */
 #top-toolbar .js-toolbar-btn {
     @apply p-2 rounded text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors;
 }
@@ -132,9 +123,6 @@ i[class^="bi-"], i[class*=" bi-"] {
 }
 
 .ProseMirror {
-    /* MODIFIED: Changed from h-full to min-h-full. This ensures the editor fills its container
-       vertically when empty, but also allows it to grow taller than the container as content is added,
-       which correctly triggers the parent's scrollbar without showing an unnecessary scrollbar when empty. */
     @apply min-h-full focus:outline-none;
 }
 
@@ -144,7 +132,6 @@ i[class^="bi-"], i[class*=" bi-"] {
     @apply text-gray-400 dark:text-gray-500 italic pointer-events-none h-0;
 }
 
-/* Ensure prose styles apply inside the editor without extra padding or focus rings */
 .prose .ProseMirror {
     @apply p-0 focus:ring-0;
 }
@@ -165,9 +152,49 @@ i[class^="bi-"], i[class*=" bi-"] {
     @apply bg-gray-500;
 }
 
-/* For Firefox */
 .dark .overflow-auto,
 .dark .overflow-y-auto {
     scrollbar-width: thin;
     scrollbar-color: theme('colors.gray.600') theme('colors.gray.800');
+}
+
+/* Styles for the Import Document page */
+#document-content p {
+    @apply cursor-pointer px-2 py-1 rounded-md transition-colors duration-200 ease-in-out;
+}
+
+#document-content p:not(.chapter-break):not(.act-break):hover {
+    @apply bg-base-200;
+}
+
+.chapter-break {
+    @apply border-t-2 border-dashed border-accent pt-4 mt-4 bg-accent/10;
+}
+
+.chapter-break:hover {
+    @apply bg-accent/20;
+}
+
+.chapter-break::before {
+    content: 'New Chapter';
+    @apply block text-xs font-bold text-accent uppercase mb-2;
+}
+
+/* NEW: Styles for Act Breaks */
+.act-break {
+    @apply border-t-4 border-double border-primary pt-4 mt-6 bg-primary/10;
+}
+
+.act-break:hover {
+    @apply bg-primary/20;
+}
+
+.act-break::before {
+    content: 'New Act';
+    @apply block text-sm font-bold text-primary uppercase mb-2;
+}
+
+/* NEW: Styles for the pop-up menu */
+#break-type-popover .menu button {
+    @apply w-full flex justify-start;
 }

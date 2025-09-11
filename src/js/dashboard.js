@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
 	const novelList = document.getElementById('novel-list');
 	const loadingMessage = document.getElementById('loading-message');
+	const importDocBtn = document.getElementById('import-doc-btn'); // NEW: Get the import button
 	
 	// Prose Modal Elements
 	const proseModal = document.getElementById('prose-settings-modal');
@@ -32,7 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	let stagedCover = null; // To hold cover changes before saving
 	
 	const languages = [
-		"English", "Spanish", "French", "German", "Mandarin Chinese", "Hindi", "Arabic", "Bengali", "Russian", "Portuguese", "Indonesian", "Urdu", "Japanese", "Swahili", "Marathi", "Telugu", "Turkish", "Korean", "Tamil", "Vietnamese", "Italian", "Javanese", "Thai", "Gujarati", "Polish", "Ukrainian", "Malayalam", "Kannada", "Oriya", "Burmese"
+		"English", "Spanish", "French", "German", "Mandarin Chinese", "Hindi", "Arabic", "Bengali", "Russian", "Portuguese", "Indonesian", "Urdu", "Japanese", "Swahili", "Marathi", "Telugu", "Turkish", "Korean", "Tamil", "Vietnamese", "Italian", "Javanese", "Thai", "Gujarati", "Polish", "Ukrainian", "Malayalam", "Kannada", "Oriya", "Burmese", "Norwegian", "Finnish", "Danish", "Swedish", "Dutch", "Greek", "Czech", "Hungarian", "Romanian", "Bulgarian", "Serbian", "Croatian", "Slovak", "Slovenian", "Lithuanian", "Latvian", "Estonian", "Hebrew", "Persian", "Afrikaans", "Zulu", "Xhosa", "Amharic", "Yoruba", "Igbo", "Hausa", "Nepali", "Sinhala", "Khmer", "Lao", "Mongolian", "Pashto", "Tajik", "Uzbek", "Kurdish", "Albanian", "Macedonian", "Bosnian", "Icelandic", "Irish", "Welsh", "Catalan", "Basque", "Galician", "Luxembourgish", "Maltese"
 	];
 	
 	function populateLanguages() {
@@ -147,7 +148,6 @@ document.addEventListener('DOMContentLoaded', () => {
 			novelCard.querySelectorAll('.js-open-editor').forEach(el => el.addEventListener('click', () => window.api.openEditor(novel.id)));
 			novelCard.querySelector('.js-prose-settings').addEventListener('click', () => openProseSettingsModal(novel));
 			novelCard.querySelector('.js-meta-settings').addEventListener('click', () => openMetaSettingsModal(novel));
-			// NEW: Event listener for the outline button
 			novelCard.querySelector('.js-open-outline').addEventListener('click', () => window.api.openOutline(novel.id));
 			
 			novelList.appendChild(novelCard);
@@ -155,6 +155,14 @@ document.addEventListener('DOMContentLoaded', () => {
 	}
 	
 	// --- Event Listeners ---
+	
+	// NEW: Add event listener for the import document button
+	if (importDocBtn) {
+		importDocBtn.addEventListener('click', () => {
+			window.api.openImportWindow();
+		});
+	}
+	
 	saveProseBtn.addEventListener('click', async (e) => {
 		e.preventDefault();
 		const novelId = parseInt(proseNovelIdInput.value, 10);

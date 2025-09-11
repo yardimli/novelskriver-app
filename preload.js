@@ -1,6 +1,9 @@
 const {contextBridge, ipcRenderer} = require('electron');
 
 contextBridge.exposeInMainWorld('api', {
+	// --- App Level ---
+	openImportWindow: () => ipcRenderer.send('app:open-import-window'), // NEW
+	
 	// --- Dashboard/Novel Creation ---
 	getNovelsWithCovers: () => ipcRenderer.invoke('novels:getAllWithCovers'),
 	getOneNovel: (novelId) => ipcRenderer.invoke('novels:getOne', novelId),
@@ -27,6 +30,11 @@ contextBridge.exposeInMainWorld('api', {
 	
 	onCoverUpdated: (callback) => ipcRenderer.on('novels:cover-updated', callback),
 	
+	// --- Document Import ---
+	showOpenDocumentDialog: () => ipcRenderer.invoke('dialog:showOpenDocument'), // NEW
+	readDocumentContent: (filePath) => ipcRenderer.invoke('document:read', filePath), // NEW
+	importDocumentAsNovel: (data) => ipcRenderer.invoke('document:import', data), // NEW
+	
 	// --- Editor Specific APIs ---
 	
 	getTemplate: (templateName) => ipcRenderer.invoke('templates:get', templateName),
@@ -36,7 +44,6 @@ contextBridge.exposeInMainWorld('api', {
 	
 	// Window Content Fetching
 	getChapterHtml: (chapterId) => ipcRenderer.invoke('chapters:getOneHtml', chapterId),
-	// REMOVED: This function is obsolete as its data is now included in getFullManuscript.
 	getCodexEntryHtml: (entryId) => ipcRenderer.invoke('codex-entries:getOneHtml', entryId),
 	
 	// Chapter <-> Codex Linking

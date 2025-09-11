@@ -25,19 +25,20 @@
     "@tailwindcss/typography": "^0.5.13",
     "autoprefixer": "^10.4.19",
     "concurrently": "^8.2.2",
+    "daisyui": "^4.10.2",
     "electron": "^37.2.0",
     "electron-rebuild": "^3.2.9",
     "electron-reloader": "^1.2.3",
     "esbuild": "^0.25.9",
     "nodemon": "^3.1.10",
     "postcss": "^8.4.38",
-    "tailwindcss": "^3.4.4",
-    "daisyui": "^4.10.2"
+    "tailwindcss": "^3.4.4"
   },
   "dependencies": {
     "better-sqlite3": "^12.2.0",
     "bootstrap-icons": "^1.13.1",
     "dotenv": "^17.2.1",
+    "mammoth": "^1.10.0",
     "node-fetch": "^2.7.0",
     "prosemirror-commands": "^1.7.1",
     "prosemirror-history": "^1.4.1",
